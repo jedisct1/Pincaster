@@ -14,6 +14,9 @@ $ curl http://$HOST:8080/api/1.0/system/ping.json
         "pong": "pong"
 }
 
+Shutdown:
+$ curl -XPOST http://$HOST:8080/api/1.0/system/shutdown.json
+
 /LAYERS:
 
 Register a new layer named "tlay":
@@ -33,13 +36,27 @@ $ curl -d'' -XDELETE http://$HOST:8080/api/1.0/layers/tlay.json
 List active layers:
 $ curl http://$HOST:8080/api/1.0/layers/index.json
 {
-        "tid": 10,
+        "tid": 26,
         "layers": [
                 {
-                        "name": "tlay",
-                        "nodes": 0,
+                        "name": "couche",
+                        "nodes": 22739,
                         "type": "geoidal",
-                        "distance_accuracy": "fast",
+                        "distance_accuracy": "haversine",
+                        "latitude_accuracy": 0.0001,
+                        "longitude_accuracy": 0.0001,
+                        "bounds": [
+                                -180,
+                                -180,
+                                180,
+                                180
+                        ]
+                },
+                {
+                        "name": "tlay",
+                        "nodes": 199,
+                        "type": "spherical",
+                        "distance_accuracy": "romboid",
                         "latitude_accuracy": 0.0001,
                         "longitude_accuracy": 0.0001,
                         "bounds": [
