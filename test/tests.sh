@@ -1,8 +1,10 @@
+#! /bin/sh
+
 set -ex
 
 cleanup() {
-    kill -9 $pincaster_pid
-    rm /tmp/pincaster.db 
+    kill $pincaster_pid
+    rm -f /tmp/pincaster.db
 }
 trap 'cleanup' 0
 ./src/pincaster pincaster.conf &
