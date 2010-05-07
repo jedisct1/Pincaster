@@ -319,6 +319,8 @@ int add_layer_name_to_json_gen(void *context_, void *entry,
     switch (pan_db->layer_type) {
     case LAYER_TYPE_FLAT:
         type = "flat"; break;
+    case LAYER_TYPE_FLATWRAP:
+        type = "flatwrap"; break;
     case LAYER_TYPE_SPHERICAL:
         type = "spherical"; break;
     case LAYER_TYPE_GEOIDAL:
