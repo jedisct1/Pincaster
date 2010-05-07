@@ -1,0 +1,77 @@
+### These files should get ignored no matter where they appear.
+
+# Editors leave these lying around
+\#*\#
+.#*
+*~
+*.swp
+
+# C stuff
+*.o
+
+# Windows stuff
+*.obj
+*.exe
+*.lib
+
+# Patch leaves these lying arround
+*.orig
+*.rej
+
+# gcov stuff
+*.gcno
+*.gcov
+*.gcda
+
+# Autotools stuff
+.deps
+Makefile
+Makefile.in
+
+# Libtool stuff
+.libs
+*.lo
+*.la
+
+# Stuff made by our makefiles
+libevent.pc
+
+## The initial / makes these files only get ignored in particular directories.
+/autom4te.cache
+
+/aclocal.m4
+/compile
+/config.guess
+/config.log
+/config.status
+/config.sub
+/configure
+/depcomp
+/config.h
+/config.h.in
+/event-config.h
+/install-sh
+/libtool
+/ltmain.sh
+/stamp-h1
+
+/sample/dns-example
+/sample/event-test
+/sample/hello-world
+/sample/le-proxy
+/sample/signal-test
+/sample/time-test
+
+/test/bench
+/test/bench_cascade
+/test/bench_http
+/test/bench_httpclient
+/test/regress
+/test/regress.gen.c
+/test/regress.gen.h
+/test/test-eof
+/test/test-init
+/test/test-ratelim
+/test/test-time
+/test/test-weof
+
