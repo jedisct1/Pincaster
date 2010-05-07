@@ -54,6 +54,9 @@ curl http://$HOST:8080/api/1.0/search/tlay/nearby/48.61,2.14.json?radius=20000
 Ditto, without properties:
 curl http://$HOST:8080/api/1.0/search/tlay/nearby/48.61,2.14.json?radius=20000\&properties=0
 
+Ditto, with limits:
+curl http://$HOST:8080/api/1.0/search/tlay/nearby/48.61,2.14.json?radius=20000\&limit=10
+
 Retrieve records within a 2D-rectangle:
 curl http://$HOST:8080/api/1.0/search/tlay/in_rect/47.61,1.14,49.62,2.07.json
 
