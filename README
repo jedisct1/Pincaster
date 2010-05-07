@@ -97,10 +97,10 @@ Store/modify a record with geographic data:
 $ curl -XPUT -d '_loc=48.60,2.10&description=Macdo' http://$HOST:8080/api/1.0/records/tlay/macdo.json
 
 Delete a property:
-curl -XPUT -d '_delete:visits=1" http://$HOST:8080/api/1.0/records/tlay/home.json
+$ curl -XPUT -d '_delete:visits=1" http://$HOST:8080/api/1.0/records/tlay/home.json
 
 Remove all properties besides geographic data:
-curl -XPUT -d '_delete_all=1" http://$HOST:8080/api/1.0/records/tlay/home.json
+$ curl -XPUT -d '_delete_all=1" http://$HOST:8080/api/1.0/records/tlay/home.json
 
 /SEARCH:
 
@@ -123,13 +123,13 @@ $ curl http://$HOST:8080/api/1.0/search/tlay/nearby/48.61,2.14.json?radius=20000
 }
 
 Ditto, without properties:
-curl http://$HOST:8080/api/1.0/search/tlay/nearby/48.61,2.14.json?radius=20000\&properties=0
+$ curl http://$HOST:8080/api/1.0/search/tlay/nearby/48.61,2.14.json?radius=20000\&properties=0
 
 Ditto, with limits:
-curl http://$HOST:8080/api/1.0/search/tlay/nearby/48.61,2.14.json?radius=20000\&limit=10
+$ curl http://$HOST:8080/api/1.0/search/tlay/nearby/48.61,2.14.json?radius=20000\&limit=10
 
 Retrieve records within a 2D-rectangle:
-curl http://$HOST:8080/api/1.0/search/tlay/in_rect/47.61,1.14,49.62,2.07.json
+$ curl http://$HOST:8080/api/1.0/search/tlay/in_rect/47.61,1.14,49.62,2.07.json
 
 
 
