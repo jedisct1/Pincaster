@@ -102,6 +102,9 @@ $ curl -XPUT -d '_delete:visits=1" http://$HOST:8080/api/1.0/records/tlay/home.j
 Remove all properties besides geographic data:
 $ curl -XPUT -d '_delete_all=1" http://$HOST:8080/api/1.0/records/tlay/home.json
 
+Pot pourri:
+$ curl -XPUT '-d_delete:superuser=1&name=Ross&firstname=John&_add_int:score=-10&_add_int:visits=1&_loc=48.502,2.231' http://$HOST:8080/api/1.0/records/tlay/place.json
+
 /SEARCH:
 
 Retrieve records near a point and within a radius:
