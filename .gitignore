@@ -24,8 +24,6 @@ config.*
 ltmain.sh
 src/yajl/.deps
 src/yajl/*.o
-testing/a.out
-testing/*.dSYM
 src/levent2/m4/lt*.m4
 src/levent2/m4/libtool.m4
 testing
