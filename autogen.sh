@@ -1,7 +1,11 @@
 #! /bin/sh
 
-export LIBTOOL=glibtool
-export LIBTOOLIZE=glibtoolize
+export LIBTOOL=libtool
+export LIBTOOLIZE=libtoolize
+if [ -x /usr/bin/glibtoolize ]; then
+  export LIBTOOL=glibtool
+  export LIBTOOLIZE=glibtoolize
+fi
 
 $LIBTOOLIZE -f -i --recursive && \
 aclocal && \
