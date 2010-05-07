@@ -1,4 +1,3 @@
-
 PINCASTER
 
 A persistent nosql database to store geographic data and key/value
@@ -9,36 +8,93 @@ Usage :
 /SYSTEM:
 
 Ping:
-curl http://$HOST:8080/api/1.0/system/ping.json
+$ curl http://$HOST:8080/api/1.0/system/ping.json
+{
+        "tid": 8,
+        "pong": "pong"
+}
 
 /LAYERS:
 
-Create a new layer named "tlay":
-curl -d'' -XPOST http://$HOST:8080/api/1.0/layers/tlay.json
+Register a new layer named "tlay":
+$ curl -d'' -XPOST http://$HOST:8080/api/1.0/layers/tlay.json
+{
+        "tid": 9,
+        "status": "created"
+}
 
 Delete a layer named "tlay":
-curl -d'' -XDELETE http://$HOST:8080/api/1.0/layers/tlay.json
+$ curl -d'' -XDELETE http://$HOST:8080/api/1.0/layers/tlay.json
+{
+        "tid": 9,
+        "status": "deleted"
+}
 
 List active layers:
-curl http://$HOST:8080/api/1.0/layers/index.json
+$ curl http://$HOST:8080/api/1.0/layers/index.json
+{
+        "tid": 10,
+        "layers": [
+                {
+                        "name": "tlay",
+                        "nodes": 0,
+                        "type": "geoidal",
+                        "distance_accuracy": "fast",
+                        "latitude_accuracy": 0.0001,
+                        "longitude_accuracy": 0.0001,
+                        "bounds": [
+                                -180,
+                                -180,
+                                180,
+                                180
+                        ]
+                }
+        ]
+}
 
 /RECORDS:
 
 Store/modify a key/value set in a new record named "home" in the
 "tlay" layer:
-curl -XPUT -d 'description=Maison&who=Robert' http://$HOST:8080/api/1.0/records/tlay/home.json
+
+$ curl -XPUT -d 'description=Maison&who=Robert' http://$HOST:8080/api/1.0/records/tlay/home.json
+{
+        "tid": 12,
+        "status": "stored"
+}
 
 Retrieve a record:
-curl http://$HOST:8080/api/1.0/records/tlay/home.json
+$ curl http://$HOST:8080/api/1.0/records/tlay/home.json
+{
+        "tid": 13,
+        "key": "home",
+        "type": "hash",
+        "properties": {
+                "description": "Maison",
+                "who": "Robert"
+        }
+}
+
+$ curl http://$HOST:8080/api/1.0/records/tlay/macdo.json
+{
+        "tid": 21,
+        "key": "macdo",
+        "type": "point+hash",
+        "latitude": 48.6,
+        "longitude": 2.1,
+        "properties": {
+                "description": "Macdo"
+        }
+}
 
 Delete a record:
-curl -XDELETE http://$HOST:8080/api/1.0/records/tlay/home.json
+$ curl -XDELETE http://$HOST:8080/api/1.0/records/tlay/home.json
 
 Atomically create/increment a numerical property called "visits":
-curl -XPUT -d '_add_int:visits=1' http://$HOST:8080/api/1.0/records/tlay/home.json
+$ curl -XPUT -d '_add_int:visits=1' http://$HOST:8080/api/1.0/records/tlay/home.json
 
 Store/modify a record with geographic data:
-curl -XPUT -d '_loc=48.60,2.10&description=Macdo' http://$HOST:8080/api/1.0/records/tlay/macdo.json
+$ curl -XPUT -d '_loc=48.60,2.10&description=Macdo' http://$HOST:8080/api/1.0/records/tlay/macdo.json
 
 Delete a property:
 curl -XPUT -d '_delete:visits=1" http://$HOST:8080/api/1.0/records/tlay/home.json
@@ -49,7 +105,22 @@ curl -XPUT -d '_delete_all=1" http://$HOST:8080/api/1.0/records/tlay/home.json
 /SEARCH:
 
 Retrieve records near a point and within a radius:
-curl http://$HOST:8080/api/1.0/search/tlay/nearby/48.61,2.14.json?radius=20000
+$ curl http://$HOST:8080/api/1.0/search/tlay/nearby/48.61,2.14.json?radius=20000
+{
+        "tid": 22,
+        "matches": [
+                {
+                        "distance": 3110.84,
+                        "key": "macdo",
+                        "type": "point+hash",
+                        "latitude": 48.6,
+                        "longitude": 2.1,
+                        "properties": {
+                                "description": "Macdo"
+                        }
+                }
+        ]
+}
 
 Ditto, without properties:
 curl http://$HOST:8080/api/1.0/search/tlay/nearby/48.61,2.14.json?radius=20000\&properties=0
