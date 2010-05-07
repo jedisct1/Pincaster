@@ -27,7 +27,7 @@ $ curl -d'' -XPOST http://$HOST:8080/api/1.0/layers/tlay.json
 }
 
 Delete a layer named "tlay":
-$ curl -d'' -XDELETE http://$HOST:8080/api/1.0/layers/tlay.json
+$ curl -XDELETE http://$HOST:8080/api/1.0/layers/tlay.json
 {
         "tid": 9,
         "status": "deleted"
