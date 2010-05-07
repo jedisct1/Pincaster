@@ -114,10 +114,10 @@ Store/modify a record with geographic data:
 $ curl -XPUT -d '_loc=48.60,2.10&description=Macdo' http://$HOST:8080/api/1.0/records/tlay/macdo.json
 
 Delete a property:
-$ curl -XPUT -d '_delete:visits=1" http://$HOST:8080/api/1.0/records/tlay/home.json
+$ curl -XPUT -d '_delete:visits=1' http://$HOST:8080/api/1.0/records/tlay/home.json
 
 Remove all properties besides geographic data:
-$ curl -XPUT -d '_delete_all=1" http://$HOST:8080/api/1.0/records/tlay/home.json
+$ curl -XPUT -d '_delete_all=1' http://$HOST:8080/api/1.0/records/tlay/home.json
 
 Pot pourri:
 $ curl -XPUT '-d_delete:superuser=1&name=Ross&firstname=John&_add_int:score=-10&_add_int:visits=1&_loc=48.502,2.231' http://$HOST:8080/api/1.0/records/tlay/place.json
