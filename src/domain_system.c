@@ -199,9 +199,19 @@ static int rebuild_journal_record_cb(void *context_, KeyNode * const key_node)
     slip_map_foreach(&key_node->properties, rebuild_journal_property_cb,
                      &cb_context);
     evbuffer_add_printf(log_buffer, "%zx:", evbuffer_get_length(body_buffer));
-    evbuffer_add_buffer(log_buffer, body_buffer);
+    if (key_node->slot != NULL) {
+        evbuffer_add(body_buffer, "&", (size_t) 1U);
+#if PROJECTION
+    const Position2D * const position = &key_node->slot->real_position;
+#else
+    const Position2D * const position = &key_node->slot->position;
+#endif
+        evbuffer_add_printf(body_buffer, "_loc=%f,%f",
+                            (double) position->latitude,
+                            (double) position->longitude);
+    }
+    evbuffer_add_buffer(log_buffer, body_buffer);    
     evbuffer_free(body_buffer);
-    
     evbuffer_add(log_buffer, DB_LOG_RECORD_COOKIE_TAIL,
                  sizeof DB_LOG_RECORD_COOKIE_TAIL - (size_t) 1U);
     if (evbuffer_get_length(log_buffer) > TMP_LOG_BUFFER_SIZE) {
