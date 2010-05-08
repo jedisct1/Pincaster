@@ -118,8 +118,7 @@ static int flush_log_buffer(struct evbuffer *log_buffer, const int log_fd)
     int ret = 0;
     const size_t to_write = evbuffer_get_length(log_buffer);
     
-    do {
-        
+    do {        
         ssize_t written = evbuffer_write(log_buffer, log_fd);
         if (to_write > (size_t) 0U && written < (ssize_t) to_write) {
             if (errno == EINTR) {
@@ -136,11 +135,38 @@ static int flush_log_buffer(struct evbuffer *log_buffer, const int log_fd)
     return ret;
 }
 
+typedef struct RebuildJournalRecordCBContext_ {
+    HttpHandlerContext * const http_handler_context;
+    PanDB * const pan_db;
+    struct evbuffer *log_buffer;
+    int tmp_log_fd;
+    const char *layer_name;
+    const size_t layer_name_len;
+} RebuildJournalRecordCBContext;
+
 static int rebuild_journal_record_cb(void *context_, KeyNode * const key_node)
 {
-    (void) context_;
-    puts(key_node->key->val);
+    RebuildJournalRecordCBContext * const context = context_;
+    struct evbuffer * const log_buffer = context->log_buffer;
     
+    evbuffer_add(log_buffer, DB_LOG_RECORD_COOKIE_HEAD,
+                 sizeof DB_LOG_RECORD_COOKIE_HEAD - (size_t) 1U);
+    const int verb = EVHTTP_REQ_POST;
+    const Key * const key = key_node->key;
+    const size_t uri_len =
+        context->http_handler_context->encoded_base_uri_len +
+        sizeof "records/" - (size_t) 1U + context->layer_name_len +
+        sizeof "/" - (size_t) 1U + key->len +
+        sizeof ".json" - (size_t) 1U;
+    evbuffer_add_printf(log_buffer, "%x %zx:%srecords/%s/%s.json %zx:",
+                        verb, uri_len,
+                        context->http_handler_context->encoded_base_uri,
+                        context->layer_name, key->val, (size_t) 0U);
+    evbuffer_add(log_buffer, DB_LOG_RECORD_COOKIE_TAIL,
+                 sizeof DB_LOG_RECORD_COOKIE_TAIL - (size_t) 1U);
+    if (evbuffer_get_length(log_buffer) > TMP_LOG_BUFFER_SIZE) {
+        flush_log_buffer(log_buffer, context->tmp_log_fd);
+    }    
     return 0;
 }
 
@@ -169,16 +195,25 @@ static int rebuild_journal_layer_cb(void *context_, void *entry,
                         layer->name, (size_t) 0U);
     evbuffer_add(log_buffer, DB_LOG_RECORD_COOKIE_TAIL,
                  sizeof DB_LOG_RECORD_COOKIE_TAIL - (size_t) 1U);
-    ret = flush_log_buffer(log_buffer, context->tmp_log_fd);
-    evbuffer_free(log_buffer);
-    if (ret != 0) {
-        return -1;
-    }
+    
     PanDB * const pan_db = &layer->pan_db;
     KeyNodes * const key_nodes = &pan_db->key_nodes;
-    if (key_nodes_foreach(key_nodes, rebuild_journal_record_cb, NULL) != 0) {
+    RebuildJournalRecordCBContext cb_context = {
+        .http_handler_context = context->context,
+        .pan_db = pan_db,
+        .log_buffer = log_buffer,
+        .tmp_log_fd = context->tmp_log_fd,
+        .layer_name = layer->name,
+        .layer_name_len = layer_name_len
+    };
+    if (key_nodes_foreach(key_nodes,
+                          rebuild_journal_record_cb, &cb_context) != 0) {
+        evbuffer_free(log_buffer);        
         return -1;
     }
+    ret = flush_log_buffer(log_buffer, context->tmp_log_fd);
+    evbuffer_free(log_buffer);
+    
     return ret;
 }
 
