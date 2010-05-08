@@ -61,7 +61,8 @@ Records
     Property names starting with an underscore are reserved. In particular:
 
   * `_delete:(property name)=1` removes a property of the record.
-  * `_delete_all=1` removes the whole properties set of the record, downgrading its type to *void* or *point*.
+  * `_delete_all=1` removes the whole properties set of the record,
+downgrading its type to *void* or *point* .  
   * `_add_int:(property name)=(value)` atomically adds (value) to the property named (property name), creating it if necessary.
   * `_loc:(latitude),(longitude)` adds or update a geographic position associated with the record.
 
@@ -91,6 +92,7 @@ Geographic search
   The center point is defined as `latitude,longitude`.
 
   Additional arguments can be added to this query:
+  
   * `limit=(max number of results)`
   * `properties=(0 or 1)` in order to include properties or not in the reply.
 
@@ -101,6 +103,7 @@ Geographic search
     URI: `http://$HOST:8080/api/1.0/search/(layer name)/in_rect/(l0,L0,l1,L1).json`
 
   Additional arguments can be added to this query:
+  
   * `limit=(max number of results)`
   * `properties=(0 or 1)` in order to include properties or not in the reply.
 
