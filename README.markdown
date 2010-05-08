@@ -270,5 +270,5 @@ But can it ping?
 
 	$ curl http://diz:8080/api/1.0/system/ping.json
 
-No, it can't, boo-ooh!
+No, it can't any more, boo-ooh!
 

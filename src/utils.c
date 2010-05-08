@@ -103,8 +103,7 @@ int key_node_to_json(KeyNode * const key_node, yajl_gen json_gen,
 Position2D sin_projection(const Position2D * const position)
 {
     const Position2D position_sp = {
-        .latitude = position->latitude *
-            cosf(position->longitude * (Dimension) (M_PI / 180.0)),
+        .latitude = position->latitude * cosf(DEG_TO_RAD(position->longitude)),
         .longitude = position->longitude
     };
     return position_sp;
@@ -113,8 +112,7 @@ Position2D sin_projection(const Position2D * const position)
 Position2D flat_projection(const Position2D * const position)
 {
     const Position2D position_sp = {
-        .latitude = position->latitude /
-            cosf(position->longitude * (Dimension) (M_PI / 180.0)),
+        .latitude = position->latitude / cosf(DEG_TO_RAD(position->longitude)),
         .longitude = position->longitude
     };
     return position_sp;
