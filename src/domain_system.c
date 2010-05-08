@@ -135,6 +135,32 @@ static int flush_log_buffer(struct evbuffer *log_buffer, const int log_fd)
     return ret;
 }
 
+typedef struct RebuildJournalPropertyCBContext_ {
+    struct evbuffer *body_buffer;
+    _Bool first;
+} RebuildJournalPropertyCBContext;
+
+static int rebuild_journal_property_cb(void * context_,
+                                       const void * const key,
+                                       const size_t key_len,
+                                       const void * const value,
+                                       const size_t value_len)
+{
+    RebuildJournalPropertyCBContext * const context = context_;
+    struct evbuffer * const body_buffer = context->body_buffer;
+    
+    if (context->first != 0) {
+        context->first = 0;
+    } else {
+        evbuffer_add(body_buffer, "&", (size_t) 1U);
+    }
+    evbuffer_add(body_buffer, key, key_len);
+    evbuffer_add(body_buffer, "=", (size_t) 1U);
+    evbuffer_add(body_buffer, value, value_len);    
+    
+    return 0;
+}
+
 typedef struct RebuildJournalRecordCBContext_ {
     HttpHandlerContext * const http_handler_context;
     PanDB * const pan_db;
@@ -148,7 +174,6 @@ static int rebuild_journal_record_cb(void *context_, KeyNode * const key_node)
 {
     RebuildJournalRecordCBContext * const context = context_;
     struct evbuffer * const log_buffer = context->log_buffer;
-    
     evbuffer_add(log_buffer, DB_LOG_RECORD_COOKIE_HEAD,
                  sizeof DB_LOG_RECORD_COOKIE_HEAD - (size_t) 1U);
     const int verb = EVHTTP_REQ_POST;
@@ -158,10 +183,25 @@ static int rebuild_journal_record_cb(void *context_, KeyNode * const key_node)
         sizeof "records/" - (size_t) 1U + context->layer_name_len +
         sizeof "/" - (size_t) 1U + key->len +
         sizeof ".json" - (size_t) 1U;
-    evbuffer_add_printf(log_buffer, "%x %zx:%srecords/%s/%s.json %zx:",
+    evbuffer_add_printf(log_buffer, "%x %zx:%srecords/%s/%s.json ",
                         verb, uri_len,
                         context->http_handler_context->encoded_base_uri,
-                        context->layer_name, key->val, (size_t) 0U);
+                        context->layer_name, key->val);
+
+    struct evbuffer * const body_buffer = evbuffer_new();
+    if (body_buffer == NULL) {
+        return -1;
+    }
+    RebuildJournalPropertyCBContext cb_context = {
+        .body_buffer = body_buffer,
+        .first = 1
+    };
+    slip_map_foreach(&key_node->properties, rebuild_journal_property_cb,
+                     &cb_context);
+    evbuffer_add_printf(log_buffer, "%zx:", evbuffer_get_length(body_buffer));
+    evbuffer_add_buffer(log_buffer, body_buffer);
+    evbuffer_free(body_buffer);
+    
     evbuffer_add(log_buffer, DB_LOG_RECORD_COOKIE_TAIL,
                  sizeof DB_LOG_RECORD_COOKIE_TAIL - (size_t) 1U);
     if (evbuffer_get_length(log_buffer) > TMP_LOG_BUFFER_SIZE) {
