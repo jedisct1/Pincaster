@@ -176,12 +176,12 @@ static int rebuild_journal_record_cb(void *context_, KeyNode * const key_node)
     struct evbuffer * const log_buffer = context->log_buffer;
     evbuffer_add(log_buffer, DB_LOG_RECORD_COOKIE_HEAD,
                  sizeof DB_LOG_RECORD_COOKIE_HEAD - (size_t) 1U);
-    const int verb = EVHTTP_REQ_POST;
+    const int verb = EVHTTP_REQ_PUT;
     const Key * const key = key_node->key;
     const size_t uri_len =
         context->http_handler_context->encoded_base_uri_len +
         sizeof "records/" - (size_t) 1U + context->layer_name_len +
-        sizeof "/" - (size_t) 1U + key->len +
+        sizeof "/" - (size_t) 1U + key->len - (size_t) 1U +
         sizeof ".json" - (size_t) 1U;
     evbuffer_add_printf(log_buffer, "%x %zx:%srecords/%s/%s.json ",
                         verb, uri_len,
