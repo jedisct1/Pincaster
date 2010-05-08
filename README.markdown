@@ -60,10 +60,11 @@ Records
 
     Property names starting with an underscore are reserved. In particular:
 
-  * `_delete:(property name)=1` removes a property of the record.
+  * `_delete:(property name)=1` removes a property of the record,
   * `_delete_all=1` removes the whole properties set of the record,
-downgrading its type to *void* or *point* .  
-  * `_add_int:(property name)=(value)` atomically adds (value) to the property named (property name), creating it if necessary.
+downgrading its type to *void* or *point*,
+  * `_add_int:(property name)=(value)` atomically adds (value) to the
+property named (property name), creating it if necessary,
   * `_loc:(latitude),(longitude)` adds or update a geographic position associated with the record.
 
     A single request can create/change/delete any number of properties.
@@ -83,7 +84,7 @@ downgrading its type to *void* or *point* .
 Geographic search
 -----------------
 
-* **Finding records whose location is within a radius**
+* **Finding records whose location is within a radius:**
 
     Method: `GET`
 
@@ -96,7 +97,7 @@ Geographic search
   * `limit=(max number of results)`
   * `properties=(0 or 1)` in order to include properties or not in the reply.
 
-* **Finding records whose location is within a rectangle**
+* **Finding records whose location is within a rectangle:**
 
     Method: `GET`
 
