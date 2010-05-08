@@ -376,3 +376,79 @@ static int handle_special_op_system_rewrite(HttpHandlerContext * const context,
     return 0;
 }
 
+static int copy_data_between_fds(const int source_fd, const int target_fd)
+{
+    struct evbuffer *evbuf = evbuffer_new();
+    int read_nb;
+    
+    while ((read_nb = evbuffer_read
+            (evbuf, source_fd, TMP_LOG_BUFFER_SIZE)) > 0) {
+        do {
+            ssize_t written = evbuffer_write(evbuf, target_fd);
+            if (written < read_nb) {
+                if (errno == EINTR) {
+                    continue;
+                }
+                if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                    usleep((useconds_t) 1000000 / 10);
+                    continue;
+                }
+                evbuffer_free(evbuf);
+                return -1;
+            }
+        } while(0);        
+    }
+    evbuffer_free(evbuf);
+    
+    return 0;
+}
+
+int system_rewrite_after_fork_cb(void)
+{
+    DBLog * const db_log = &app_context.db_log;
+    db_log->journal_is_being_rewritten = 0;    
+    char *tmp_log_file_name = get_tmp_log_file_name();
+    if (tmp_log_file_name == NULL) {
+        return -1;
+    }
+    assert(db_log->offset_before_fork != (off_t) -1);
+    if (lseek(db_log->db_log_fd, db_log->offset_before_fork,
+              SEEK_SET) == (off_t) -1) {
+        free(tmp_log_file_name);        
+        unlink(tmp_log_file_name);
+        return -1;
+    }
+    int flags = O_RDWR;
+#ifdef O_EXLOCK
+    flags |= O_EXLOCK;
+#endif
+#ifdef O_NOATIME
+    flags |= O_NOATIME;
+#endif
+#ifdef O_LARGEFILE
+    flags |= O_LARGEFILE;
+#endif
+    int tmp_log_fd = open(tmp_log_file_name, flags, (mode_t) 0600);
+    free(tmp_log_file_name);
+    if (tmp_log_fd == -1) {
+        unlink(tmp_log_file_name);
+    }
+    if (lseek(db_log->db_log_fd, (off_t) 0, SEEK_END) == 0) {
+        exit(1);
+    }
+    if (copy_data_between_fds(db_log->db_log_fd, tmp_log_fd) != 0) {
+        unlink(tmp_log_file_name);
+        return -1;        
+    }
+    fsync(tmp_log_fd);
+    if (rename(tmp_log_file_name, db_log->db_log_file_name) == 0) {        
+        unlink(tmp_log_file_name);
+        return -1;
+    }
+    if (close(db_log->db_log_fd) != 0) {
+        perror("Unable to close the previous journal");
+    }
+    db_log->db_log_fd = tmp_log_fd;
+    
+    return 0;
+}

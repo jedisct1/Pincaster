@@ -310,10 +310,8 @@ static RETSIGTYPE sigterm_cb(const int sig)
 static RETSIGTYPE sigchld_cb(const int sig)
 {
     (void) sig;
-    DBLog * const db_log = &app_context.db_log;
     puts("SIGCHLD");
-    db_log->journal_is_being_rewritten = 0;
-    assert(db_log->offset_before_fork != (off_t) -1);
+    system_rewrite_after_fork_cb();
 }
 
 static void set_signals(void)
