@@ -65,7 +65,7 @@ Records
 downgrading its type to *void* or *point*,
   * `_add_int:(property name)=(value)` atomically adds (value) to the
 property named (property name), creating it if necessary,
-  * `_loc:(latitude),(longitude)` adds or update a geographic position associated with the record.
+  * `_loc:(latitude),(longitude)` adds or updates a geographic position associated with the record.
 
     A single request can create/change/delete any number of properties.
 
