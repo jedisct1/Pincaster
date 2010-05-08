@@ -10,4 +10,10 @@ int get_key_node_from_key(PanDB * const db, Key * const key,
 
 void free_key_node(KeyNode * const key_node);
 
+typedef int (*KeyNodesForeachCB)(void *context, void *entry,
+                                const size_t sizeof_entry);
+
+int key_nodes_foreach(KeyNodes * const key_nodes,
+                      KeyNodesForeachCB cb, void * const context);
+
 #endif

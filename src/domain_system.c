@@ -113,12 +113,13 @@ typedef struct RebuildJournalLayerCBContext_ {
     int tmp_log_fd;
 } RebuildJournalLayerCBContext;
 
-static int write_log_buffer(struct evbuffer *log_buffer, const int log_fd)
+static int flush_log_buffer(struct evbuffer *log_buffer, const int log_fd)
 {
     int ret = 0;
+    const size_t to_write = evbuffer_get_length(log_buffer);
     
     do {
-        size_t to_write = evbuffer_get_length(log_buffer);
+        
         ssize_t written = evbuffer_write(log_buffer, log_fd);
         if (to_write > (size_t) 0U && written < (ssize_t) to_write) {
             if (errno == EINTR) {
@@ -131,7 +132,7 @@ static int write_log_buffer(struct evbuffer *log_buffer, const int log_fd)
             ret = -1;
         }
     } while (0);
- 
+    
     return ret;
 }
 
@@ -160,8 +161,14 @@ static int rebuild_journal_layer_cb(void *context_, void *entry,
                         layer->name, (size_t) 0U);
     evbuffer_add(log_buffer, DB_LOG_RECORD_COOKIE_TAIL,
                  sizeof DB_LOG_RECORD_COOKIE_TAIL - (size_t) 1U);
-    ret = write_log_buffer(log_buffer, context->tmp_log_fd);
+    ret = flush_log_buffer(log_buffer, context->tmp_log_fd);
     evbuffer_free(log_buffer);
+    if (ret != 0) {
+        return -1;
+    }
+    const PanDB * const pan_db = &layer->pan_db;
+    const KeyNodes * key_nodes = &pan_db->key_nodes;
+    (void) key_nodes;
     
     return ret;
 }

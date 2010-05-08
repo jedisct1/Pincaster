@@ -73,3 +73,19 @@ void free_key_node(KeyNode * const key_node)
     key_node->properties = NULL;
     free(key_node);
 }
+
+int key_nodes_foreach(KeyNodes * const key_nodes,
+                      KeyNodesForeachCB cb, void * const context)
+{
+    if (key_nodes == NULL) {
+        return 0;
+    }
+    int ret;
+    KeyNode *key_node = NULL;
+    RB_FOREACH(key_node, KeyNodes_, key_nodes) {
+        if ((ret = cb(context, key_node, sizeof *key_node)) != 0) {
+            return ret;
+        }
+    }
+    return 0;
+}
