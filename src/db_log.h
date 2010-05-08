@@ -20,6 +20,8 @@ typedef struct DBLog_ {
     struct evbuffer *log_buffer;
     size_t journal_buffer_size;
     int fsync_period;
+    _Bool journal_is_being_rewritten;
+    off_t offset_before_fork;
 } DBLog;
 
 int init_db_log(void);

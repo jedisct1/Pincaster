@@ -199,7 +199,9 @@ static int rebuild_journal_record_cb(void *context_, KeyNode * const key_node)
     slip_map_foreach(&key_node->properties, rebuild_journal_property_cb,
                      &cb_context);
     if (key_node->slot != NULL) {
-        evbuffer_add(body_buffer, "&", (size_t) 1U);
+        if (cb_context.first == 0) {
+            evbuffer_add(body_buffer, "&", (size_t) 1U);
+        }
 #if PROJECTION
     const Position2D * const position = &key_node->slot->real_position;
 #else
@@ -322,7 +324,12 @@ int rewrite_child(HttpHandlerContext * const context)
 static int handle_special_op_system_rewrite(HttpHandlerContext * const context,
                                             SystemRewriteOp * const rewrite_op)
 {
-    if (rewrite_op->fake_req != 0) {
+    DBLog * const db_log = &app_context.db_log;
+    if (rewrite_op->fake_req != 0 || db_log->db_log_file_name == NULL ||
+        db_log->db_log_fd == -1) {
+        return 0;
+    }
+    if (db_log->journal_is_being_rewritten != 0) {
         return 0;
     }
     stop_workers(context);
@@ -335,6 +342,9 @@ static int handle_special_op_system_rewrite(HttpHandlerContext * const context,
         rewrite_child(context);
         _exit(0);
     }
+    db_log->offset_before_fork = lseek(db_log->db_log_fd,
+                                       (off_t) 0, SEEK_CUR);
+    db_log->journal_is_being_rewritten = 1;
     start_workers(context);
 
     yajl_gen json_gen;

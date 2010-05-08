@@ -12,7 +12,9 @@ int init_db_log(void)
         .db_log_fd = -1,
         .log_buffer = NULL,
         .journal_buffer_size = DEFAULT_JOURNAL_BUFFER_SIZE,
-        .fsync_period = DEFAULT_FSYNC_PERIOD
+        .fsync_period = DEFAULT_FSYNC_PERIOD,
+        .journal_is_being_rewritten = 0,
+        .offset_before_fork = (off_t) -1
     };
     return 0;
 }
