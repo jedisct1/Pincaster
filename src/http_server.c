@@ -310,7 +310,6 @@ static RETSIGTYPE sigterm_cb(const int sig)
 static RETSIGTYPE sigchld_cb(const int sig)
 {
     (void) sig;
-    puts("SIGCHLD");
     system_rewrite_after_fork_cb();
 }
 

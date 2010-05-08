@@ -285,7 +285,7 @@ int rewrite_child(HttpHandlerContext * const context)
 {
     (void) context;
     
-    puts("Child");
+    puts("Creating a new journal as a background process...");
     context->should_exit = 1;
     event_reinit(context->event_base);
     event_base_free(context->event_base);
@@ -411,6 +411,7 @@ int system_rewrite_after_fork_cb(void)
     if (tmp_log_file_name == NULL) {
         return -1;
     }
+    puts("Completing the new journal with recent transactions...");
     assert(db_log->offset_before_fork != (off_t) -1);
     if (lseek(db_log->db_log_fd, db_log->offset_before_fork,
               SEEK_SET) == (off_t) -1) {
@@ -418,7 +419,7 @@ int system_rewrite_after_fork_cb(void)
         unlink(tmp_log_file_name);
         return -1;
     }
-    int flags = O_RDWR;
+    int flags = O_RDWR | O_APPEND;
 #ifdef O_EXLOCK
     flags |= O_EXLOCK;
 #endif
@@ -429,26 +430,32 @@ int system_rewrite_after_fork_cb(void)
     flags |= O_LARGEFILE;
 #endif
     int tmp_log_fd = open(tmp_log_file_name, flags, (mode_t) 0600);
-    free(tmp_log_file_name);
     if (tmp_log_fd == -1) {
         unlink(tmp_log_file_name);
     }
-    if (lseek(db_log->db_log_fd, (off_t) 0, SEEK_END) == 0) {
-        exit(1);
-    }
     if (copy_data_between_fds(db_log->db_log_fd, tmp_log_fd) != 0) {
         unlink(tmp_log_file_name);
+        free(tmp_log_file_name);
         return -1;        
     }
+    if (lseek(db_log->db_log_fd, (off_t) 0, SEEK_END) == -1) {
+        exit(1);
+    }
     fsync(tmp_log_fd);
-    if (rename(tmp_log_file_name, db_log->db_log_file_name) == 0) {        
+    printf("Renaming [%s] to [%s]\n", tmp_log_file_name,
+           db_log->db_log_file_name);
+    if (rename(tmp_log_file_name, db_log->db_log_file_name) != 0) {
+        perror("rename()");
         unlink(tmp_log_file_name);
+        free(tmp_log_file_name);
         return -1;
     }
+    free(tmp_log_file_name);
     if (close(db_log->db_log_fd) != 0) {
         perror("Unable to close the previous journal");
     }
     db_log->db_log_fd = tmp_log_fd;
+    puts("Done - New journal activated");
     
     return 0;
 }

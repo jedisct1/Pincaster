@@ -28,7 +28,7 @@ int open_db_log(void)
         db_log->db_log_fd = -1;
         return 1;
     }
-    int flags = O_RDWR | O_CREAT;
+    int flags = O_RDWR | O_CREAT | O_APPEND;
 #ifdef O_EXLOCK
     flags |= O_EXLOCK;
 #endif
