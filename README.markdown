@@ -141,7 +141,7 @@ previous file.
 
     URI: `http://$HOST:8080/api/1.0/system/rewrite.json`
 
-    __Warning: this command is not binary-safe yet__
+    __Warning: this command is not binary-safe yet.__
 
 Example
 -------
