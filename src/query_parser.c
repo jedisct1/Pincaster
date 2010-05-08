@@ -122,23 +122,3 @@ int query_parse(const char * const query, QueryParseCB cb,
      
     return ret;
 }
-
-#if 0
-int cb(void *context, const BinVal *key, const BinVal *value)
-{
-    (void) write(1, key->val, key->size);
-    (void) write(1, "\n", (size_t) 1U);
-    (void) write(1, value->val, value->size);
-    (void) write(1, "\n", (size_t) 1U);    
-    
-    return 0;
-}
-
-int main(void)
-{
-    query_parse("X", cb, NULL);
-    query_parse("a%23+x%23=sfs%df&b=sodfpodsf&A=", cb, NULL);
-    
-    return 0;
-}
-#endif
