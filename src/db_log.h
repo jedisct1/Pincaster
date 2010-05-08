@@ -10,6 +10,9 @@
 #ifndef DB_LOG_MAX_BODY_LEN
 # define DB_LOG_MAX_BODY_LEN (size_t) 100000U
 #endif
+#ifndef DB_LOG_TMP_SUFFIX
+# define DB_LOG_TMP_SUFFIX ".tmp"
+#endif
 
 typedef struct DBLog_ {
     char *db_log_file_name;

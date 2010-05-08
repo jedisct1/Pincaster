@@ -33,6 +33,9 @@ int open_db_log(void)
 #ifdef O_NOATIME
     flags |= O_NOATIME;
 #endif
+#ifdef O_LARGEFILE
+    flags |= O_LARGEFILE;
+#endif
     db_log->db_log_fd = open(db_log_file_name, flags, (mode_t) 0600);
     if (db_log->db_log_fd == -1) {
         free_db_log();
