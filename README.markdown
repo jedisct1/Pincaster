@@ -131,7 +131,7 @@ Misc
 transaction that creates or changes data.
 
     In order to save disk space and to speed up the server start up, a
-new and optimized journal can be written as a background process. Once
+new and optimized journal can be written by a background process. Once
 this operation is complete, the new journal will automatically replace the
 previous file.
 
