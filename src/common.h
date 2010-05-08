@@ -62,4 +62,8 @@ typedef struct BinVal_ {
 # define AUTOMATICALLY_CREATE_LAYERS 0
 #endif
 
+#ifdef __APPLE_CC__
+int fdatasync(int fd);
+#endif
+
 #endif

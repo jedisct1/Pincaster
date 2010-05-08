@@ -119,11 +119,13 @@ static int write_log_buffer(struct evbuffer *log_buffer, const int log_fd)
     
     do {
         size_t to_write = evbuffer_get_length(log_buffer);
-        ssize_t written;
-        written = evbuffer_write(log_buffer, log_fd);
+        ssize_t written = evbuffer_write(log_buffer, log_fd);
         if (to_write > (size_t) 0U && written < (ssize_t) to_write) {
-            if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
-                sleep(1);
+            if (errno == EINTR) {
+                continue;
+            }
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                usleep((useconds_t) 1000000 / 10);
                 continue;
             }
             ret = -1;

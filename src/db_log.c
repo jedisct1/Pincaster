@@ -120,16 +120,31 @@ int flush_db_log(const _Bool sync)
     if (db_log->db_log_fd == -1) {
         return 0;
     }
-    struct evbuffer * const log_buffer = db_log->log_buffer;
-    if (evbuffer_get_length(log_buffer) <= (size_t) 0U) {
+    struct evbuffer * const log_buffer = db_log->log_buffer;    
+    size_t to_write;
+    to_write = evbuffer_get_length(log_buffer);
+    if (to_write <= (size_t) 0U) {
         return 0;
     }
-    if (evbuffer_write(log_buffer, db_log->db_log_fd) < (ssize_t) 0) {
-        return -1;
+    if (sync == 0) {
+        to_write = (size_t) 0U;
     }
-    if (sync != 0) {
+    do {
+        ssize_t written = evbuffer_write(log_buffer, db_log->db_log_fd);
+        if (written < (ssize_t) to_write) {
+            if (errno == EINTR) {
+                continue;
+            }
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                usleep((useconds_t) 1000000 / 10);
+                continue;
+            }
+            return -1;
+        }
+    } while(0);
+    if (sync != 0) {        
 #ifdef HAVE_FDATASYNC
-        fdatasync(db_log->db_log_fd);        
+        fdatasync(db_log->db_log_fd);
 #else
         fsync(db_log->db_log_fd);
 #endif
