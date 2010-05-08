@@ -287,9 +287,8 @@ int rewrite_child(HttpHandlerContext * const context)
     
     puts("Child");
     context->should_exit = 1;
+    event_reinit(context->event_base);
     event_base_free(context->event_base);
-    bufferevent_free(context->publisher_bev);
-    bufferevent_free(context->consumer_bev);
     free_cqueue(context->cqueue);
     DBLog * const db_log = &app_context.db_log;
     if (db_log->db_log_fd != -1) {
