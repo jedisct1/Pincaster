@@ -113,18 +113,55 @@ typedef struct RebuildJournalLayerCBContext_ {
     int tmp_log_fd;
 } RebuildJournalLayerCBContext;
 
+static int write_log_buffer(struct evbuffer *log_buffer, const int log_fd)
+{
+    int ret = 0;
+    
+    do {
+        size_t to_write = evbuffer_get_length(log_buffer);
+        ssize_t written;
+        written = evbuffer_write(log_buffer, log_fd);
+        if (to_write > (size_t) 0U && written < (ssize_t) to_write) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
+                sleep(1);
+                continue;
+            }
+            ret = -1;
+        }
+    } while (0);
+ 
+    return ret;
+}
+
 static int rebuild_journal_layer_cb(void *context_, void *entry,
                                     const size_t sizeof_entry)
 {
     (void) sizeof_entry;
     RebuildJournalLayerCBContext *context = context_;
     Layer * const layer = entry;
-    
-    (void) context;
+    int ret = 0;    
     assert(layer->name != NULL && *layer->name != 0);
     printf("Dumping layer: [%s] ...\n", layer->name);
+    struct evbuffer *log_buffer;
+    if ((log_buffer = evbuffer_new()) == NULL) {
+        return -1;
+    }
+    evbuffer_add(log_buffer, DB_LOG_RECORD_COOKIE_HEAD,
+                 sizeof DB_LOG_RECORD_COOKIE_HEAD - (size_t) 1U);
+    const int verb = EVHTTP_REQ_POST;
+    const size_t layer_name_len = strlen(layer->name);
+    const size_t uri_len = context->context->encoded_base_uri_len +
+        sizeof "layers/" - (size_t) 1U + layer_name_len +
+        sizeof ".json" - (size_t) 1U;
+    evbuffer_add_printf(log_buffer, "%x %zx:%slayers/%s.json %zx:",
+                        verb, uri_len, context->context->encoded_base_uri,
+                        layer->name, (size_t) 0U);
+    evbuffer_add(log_buffer, DB_LOG_RECORD_COOKIE_TAIL,
+                 sizeof DB_LOG_RECORD_COOKIE_TAIL - (size_t) 1U);
+    ret = write_log_buffer(log_buffer, context->tmp_log_fd);
+    evbuffer_free(log_buffer);
     
-    return 0;
+    return ret;
 }
 
 
@@ -157,7 +194,7 @@ int rewrite_child(HttpHandlerContext * const context)
     if (tmp_log_file_name == NULL) {
         return -1;
     }
-    int flags = O_WRONLY | O_CREAT;
+    int flags = O_WRONLY | O_CREAT | O_TRUNC;
 #ifdef O_EXLOCK
     flags |= O_EXLOCK;
 #endif
