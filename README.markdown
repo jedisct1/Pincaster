@@ -108,6 +108,40 @@ Geographic search
   * `limit=(max number of results)`
   * `properties=(0 or 1)` in order to include properties or not in the reply.
 
+Misc
+----
+
+* **Ping:**
+
+    Method: any
+
+    URI: `http://$HOST:8080/api/1.0/system/ping.json`
+
+
+* **Shutting the server down:**
+
+    Method: `POST`
+
+    URI: `http://$HOST:8080/api/1.0/system/shutdown.json`
+
+
+* **Compacting the journal:**
+
+    The on-disk journal is an append-only file that logs every
+transaction that creates or changes data.
+
+    In order to save disk space and to speed up the server start up, a
+new and optimized journal can be written as a background process. Once
+this operation is complete, the new journal will automatically replace the
+previous file.
+
+    This is something you might want to run as a cron job.
+
+    Method: `POST`
+
+    URI: `http://$HOST:8080/api/1.0/system/rewrite.json`
+
+
 Example
 -------
 
