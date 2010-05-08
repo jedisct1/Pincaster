@@ -136,6 +136,14 @@ static int flush_log_buffer(struct evbuffer *log_buffer, const int log_fd)
     return ret;
 }
 
+static int rebuild_journal_record_cb(void *context_, KeyNode * const key_node)
+{
+    (void) context_;
+    puts(key_node->key->val);
+    
+    return 0;
+}
+
 static int rebuild_journal_layer_cb(void *context_, void *entry,
                                     const size_t sizeof_entry)
 {
@@ -166,10 +174,11 @@ static int rebuild_journal_layer_cb(void *context_, void *entry,
     if (ret != 0) {
         return -1;
     }
-    const PanDB * const pan_db = &layer->pan_db;
-    const KeyNodes * key_nodes = &pan_db->key_nodes;
-    (void) key_nodes;
-    
+    PanDB * const pan_db = &layer->pan_db;
+    KeyNodes * const key_nodes = &pan_db->key_nodes;
+    if (key_nodes_foreach(key_nodes, rebuild_journal_record_cb, NULL) != 0) {
+        return -1;
+    }
     return ret;
 }
 

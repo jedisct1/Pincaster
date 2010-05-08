@@ -591,7 +591,7 @@ typedef struct FindNearIntCBContext_ {
     Meters distance;
     SubSlots limit;
     FindNearCB cb;
-    void *cb_context;
+    void *context_cb;
 } FindNearIntCBContext;
 
 int find_near_context_cb(void *context_, void *entry,
@@ -633,7 +633,7 @@ int find_near_context_cb(void *context_, void *entry,
        if (scanned_slot->key_node != NULL) {
            if (context->cb != NULL) {
                const int ret =
-                   context->cb(context->cb_context, scanned_slot, cd);
+                   context->cb(context->context_cb, scanned_slot, cd);
                if (ret != 0) {
                    return ret;
                }
@@ -653,7 +653,7 @@ int find_near_context_cb(void *context_, void *entry,
 }
 
 int find_near(const PanDB * const db,
-              FindNearCB cb, void * const cb_context,
+              FindNearCB cb, void * const context_cb,
               const Position2D * const position, const Meters distance,
               const SubSlots limit)
 {
@@ -703,7 +703,7 @@ int find_near(const PanDB * const db,
                     .position = position,
                     .distance = distance,
                     .cb = cb,
-                    .cb_context = cb_context,
+                    .context_cb = context_cb,
                     .limit = limit
                 };
                 const int ret = slab_foreach((Slab *) &bucket->slab,
@@ -736,7 +736,7 @@ typedef struct FindInRectIntCBContext_ {
     const Rectangle2D *rect;
     SubSlots limit;
     FindInRectCB cb;
-    void *cb_context;
+    void *context_cb;
 } FindInRectIntCBContext;
 
 int find_in_rect_context_cb(void *context_, void *entry,
@@ -762,7 +762,7 @@ int find_in_rect_context_cb(void *context_, void *entry,
     if (scanned_slot->key_node != NULL) {
         if (context->cb != NULL) {
             const int ret =
-                context->cb(context->cb_context, scanned_slot, cd);
+                context->cb(context->context_cb, scanned_slot, cd);
             if (ret != 0) {
                 return ret;
             }
@@ -780,7 +780,7 @@ int find_in_rect_context_cb(void *context_, void *entry,
 }
 
 int find_in_rect(const PanDB * const db,
-                 FindInRectCB cb, void * const cb_context,
+                 FindInRectCB cb, void * const context_cb,
                  const Rectangle2D * const rect, const SubSlots limit)
 {
     if (limit <= (SubSlots) 0) {
@@ -824,7 +824,7 @@ int find_in_rect(const PanDB * const db,
                 FindInRectIntCBContext context = {
                     .db = db,
                     .cb = cb,
-                    .cb_context = cb_context,
+                    .context_cb = context_cb,
                     .position = &rect_center,
                     .limit = limit
                 };

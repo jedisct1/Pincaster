@@ -83,7 +83,7 @@ int key_nodes_foreach(KeyNodes * const key_nodes,
     int ret;
     KeyNode *key_node = NULL;
     RB_FOREACH(key_node, KeyNodes_, key_nodes) {
-        if ((ret = cb(context, key_node, sizeof *key_node)) != 0) {
+        if ((ret = cb(context, key_node)) != 0) {
             return ret;
         }
     }
