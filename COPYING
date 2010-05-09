@@ -19,5 +19,6 @@ Pincaster is covered by the following license :
  */
 
 For conveniency, this package also includes possibly modified versions
-of libevent and yajl, whose original licenses are included in their
-respective directories.
+of libevent, yajl, and OpenBSD tree.h / queue.h headers whose original
+licenses are included in their respective directories.
+
