@@ -13,7 +13,10 @@ else
 	ECHO=echo
 fi
 
-touch "$TEST_OUTPUT_FILE" || exit 1
+if test "$TEST_OUTPUT_FILE" != "/dev/null"
+then
+	touch "$TEST_OUTPUT_FILE" || exit 1
+fi
 
 TEST_DIR=.
 
@@ -30,6 +33,7 @@ setup () {
 	EVENT_NOSELECT=yes; export EVENT_NOSELECT
 	EVENT_NOEPOLL=yes; export EVENT_NOEPOLL
 	EVENT_NOEVPORT=yes; export EVENT_NOEVPORT
+	EVENT_NOWIN32=yes; export EVENT_NOWIN32
 }
 
 announce () {
@@ -87,36 +91,35 @@ announce "Running tests:"
 # Need to do this by hand?
 setup
 unset EVENT_NOKQUEUE
-export EVENT_NOKQUEUE
 announce "KQUEUE"
 run_tests
 
 setup
 unset EVENT_NODEVPOLL
-export EVENT_NODEVPOLL
 announce "DEVPOLL"
 run_tests
 
 setup
 unset EVENT_NOPOLL
-export EVENT_NOPOLL
 announce "POLL"
 run_tests
 
 setup
 unset EVENT_NOSELECT
-export EVENT_NOSELECT
 announce "SELECT"
 run_tests
 
 setup
 unset EVENT_NOEPOLL
-export EVENT_NOEPOLL
 announce "EPOLL"
 run_tests
 
 setup
 unset EVENT_NOEVPORT
-export EVENT_NOEVPORT
 announce "EVPORT"
+run_tests
+
+setup
+unset EVENT_NOWIN32
+announce "WIN32"
 run_tests

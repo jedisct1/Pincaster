@@ -583,7 +583,6 @@ test_evbuffer_reference(void *ptr)
 	evbuffer_free(src);
 }
 
-#ifndef WIN32
 int _evbuffer_testing_use_sendfile(void);
 int _evbuffer_testing_use_mmap(void);
 int _evbuffer_testing_use_linear_file_access(void);
@@ -594,8 +593,12 @@ test_evbuffer_add_file(void *ptr)
 	const char *impl = ptr;
 	struct evbuffer *src = evbuffer_new();
 	const char *data = "this is what we add as file system data.";
+	size_t datalen;
 	const char *compare;
 	evutil_socket_t fd, pair[2];
+	int r=0, n_written=0;
+
+	/* Add a test for a big file. XXXX */
 
 	tt_assert(impl);
 	if (!strcmp(impl, "sendfile")) {
@@ -617,24 +620,29 @@ test_evbuffer_add_file(void *ptr)
 	if (evutil_socketpair(AF_UNIX, SOCK_STREAM, 0, pair) == -1)
 		tt_abort_msg("socketpair failed");
 
-	fd = regress_make_tmpfile(data, strlen(data));
+	datalen = strlen(data);
+	fd = regress_make_tmpfile(data, datalen);
 
 	tt_assert(fd != -1);
 
-	tt_assert(evbuffer_add_file(src, fd, 0, strlen(data)) != -1);
+	tt_assert(evbuffer_add_file(src, fd, 0, datalen) != -1);
 
 	evbuffer_validate(src);
 
-	while (evbuffer_write(src, pair[0]) > 0) {
+	while (evbuffer_get_length(src) &&
+	    (r = evbuffer_write(src, pair[0])) > 0) {
 		evbuffer_validate(src);
+		n_written += r;
 	}
+	tt_int_op(r, !=, -1);
+	tt_int_op(n_written, ==, datalen);
 
 	evbuffer_validate(src);
-	tt_assert(evbuffer_read(src, pair[1], strlen(data)) == strlen(data));
+	tt_assert(evbuffer_read(src, pair[1], strlen(data)) == datalen);
 	evbuffer_validate(src);
-	compare = (char *)evbuffer_pullup(src, strlen(data));
+	compare = (char *)evbuffer_pullup(src, datalen);
 	tt_assert(compare != NULL);
-	if (memcmp(compare, data, strlen(data)))
+	if (memcmp(compare, data, datalen))
 		tt_abort_msg("Data from add_file differs.");
 
 	evbuffer_validate(src);
@@ -643,7 +651,6 @@ test_evbuffer_add_file(void *ptr)
 	evutil_closesocket(pair[1]);
 	evbuffer_free(src);
 }
-#endif
 
 #ifndef _EVENT_DISABLE_MM_REPLACEMENT
 static void *
@@ -1538,7 +1545,6 @@ struct testcase_t evbuffer_testcases[] = {
 	{ "peek", test_evbuffer_peek, 0, NULL, NULL },
 	{ "freeze_start", test_evbuffer_freeze, 0, &nil_setup, (void*)"start" },
 	{ "freeze_end", test_evbuffer_freeze, 0, &nil_setup, (void*)"end" },
-#ifndef WIN32
 	/* TODO: need a temp file implementation for Windows */
 	{ "add_file_sendfile", test_evbuffer_add_file, TT_FORK, &nil_setup,
 	  (void*)"sendfile" },
@@ -1546,7 +1552,6 @@ struct testcase_t evbuffer_testcases[] = {
 	  (void*)"mmap" },
 	{ "add_file_linear", test_evbuffer_add_file, TT_FORK, &nil_setup,
 	  (void*)"linear" },
-#endif
 
 	END_OF_TESTCASES
 };

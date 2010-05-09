@@ -5,9 +5,9 @@ AC_INIT(event.c)
 
 AC_CONFIG_MACRO_DIR([m4])
 
-AM_INIT_AUTOMAKE(libevent,2.0.4-alpha-dev)
+AM_INIT_AUTOMAKE(libevent,2.0.5-beta)
 AM_CONFIG_HEADER(config.h)
-AC_DEFINE(NUMERIC_VERSION, 0x02000401, [Numeric representation of the version])
+AC_DEFINE(NUMERIC_VERSION, 0x02000500, [Numeric representation of the version])
 
 dnl Initialize prefix.
 if test "$prefix" = "NONE"; then
@@ -20,7 +20,8 @@ AC_PROG_INSTALL
 AC_PROG_LN_S
 
 AC_PROG_GCC_TRADITIONAL
-if test "$GCC" = yes ; then
+
+if test "$GCC" = "yes" ; then
         # Enable many gcc warnings by default...
         CFLAGS="$CFLAGS -Wall"
 	# And disable the strict-aliasing optimization, since it breaks
@@ -86,7 +87,12 @@ AC_SUBST(OPENSSL_LIBS)
 
 dnl Checks for header files.
 AC_HEADER_STDC
-AC_CHECK_HEADERS(fcntl.h stdarg.h inttypes.h stdint.h stddef.h poll.h unistd.h sys/epoll.h sys/time.h sys/queue.h sys/event.h sys/param.h sys/ioctl.h sys/select.h sys/devpoll.h port.h netinet/in.h netinet/in6.h sys/socket.h sys/uio.h arpa/inet.h sys/eventfd.h sys/mman.h sys/sendfile.h netdb.h sys/sysctl.h)
+AC_CHECK_HEADERS(fcntl.h stdarg.h inttypes.h stdint.h stddef.h poll.h unistd.h sys/epoll.h sys/time.h sys/queue.h sys/event.h sys/param.h sys/ioctl.h sys/select.h sys/devpoll.h port.h netinet/in.h netinet/in6.h sys/socket.h sys/uio.h arpa/inet.h sys/eventfd.h sys/mman.h sys/sendfile.h netdb.h)
+AC_CHECK_HEADERS(sys/sysctl.h, [], [], [
+#ifdef HAVE_SYS_PARAM_H
+#include <sys/param.h>
+#endif
+])
 if test "x$ac_cv_header_sys_queue_h" = "xyes"; then
 	AC_MSG_CHECKING(for TAILQ_FOREACH in sys/queue.h)
 	AC_EGREP_CPP(yes,
@@ -285,7 +291,7 @@ if test "x$ac_cv_header_sys_devpoll_h" = "xyes"; then
 	AC_DEFINE(HAVE_DEVPOLL, 1,
 		    [Define if /dev/poll is available])
 fi
-AM_CONDITIONAL(DEVPOLL_BACKEND, [test "ac_cv_header_sys_devpoll_h" = "xyes"])
+AM_CONDITIONAL(DEVPOLL_BACKEND, [test "x$ac_cv_header_sys_devpoll_h" = "xyes"])
 
 havekqueue=no
 if test "x$ac_cv_header_sys_event_h" = "xyes"; then
@@ -513,11 +519,12 @@ AC_TRY_COMPILE([],
 
 # check if we can compile with pthreads
 have_pthreads=no
-if test x$bwin32 != xtrue; then
+if test x$bwin32 != xtrue && test "$enable_thread_support" != "no"; then
   ACX_PTHREAD([
 	AC_DEFINE(HAVE_PTHREADS, 1,
 		[Define if we have pthreads on this system])
 	have_pthreads=yes])
+  CFLAGS="$CFLAGS $PTHREAD_CFLAGS"
 fi
 AM_CONDITIONAL(PTHREADS, [test "$have_pthreads" != "no" && test "$enable_thread_support" != "no"])
 

@@ -33,7 +33,8 @@ ACLOCAL_AMFLAGS = -I m4
 #
 #      2:0:0 -- Libevent 2.0.1-alpha.
 #      3:0:0 -- Libevent 2.0.4-alpha
-VERSION_INFO = 3:0:0
+#      4:0:0 -- Libevent 2.0.5-beta
+VERSION_INFO = 4:0:0
 
 dist_bin_SCRIPTS = event_rpcgen.py
 
@@ -130,8 +131,10 @@ EXTRA_SRC = event_tagging.c http.c evdns.c evrpc.c
 
 if BUILD_WIN32
 NO_UNDEFINED = -no-undefined
+MAYBE_CORE = libevent_core.la
 else
 NO_UNDEFINED =
+MAYBE_CORE = libevent_core.la
 endif
 
 libevent_la_SOURCES = $(CORE_SRC) $(EXTRA_SRC)
@@ -147,12 +150,12 @@ libevent_pthreads_la_SOURCES = evthread_pthread.c
 endif
 
 libevent_extra_la_SOURCES = $(EXTRA_SRC)
-libevent_extra_la_LIBADD = libevent_core.la $(SYS_LIBS)
+libevent_extra_la_LIBADD = $(MAYBE_CORE) $(SYS_LIBS)
 libevent_extra_la_LDFLAGS = -version-info $(VERSION_INFO) $(NO_UNDEFINED)
 
 if OPENSSL
 libevent_openssl_la_SOURCES = bufferevent_openssl.c
-libevent_openssl_la_LIBADD = libevent_core.la -lcrypto -lssl
+libevent_openssl_la_LIBADD = $(MAYBE_CORE) -lcrypto -lssl
 libevent_openssl_la_LDFLAGS = -version-info $(VERSION_INFO) $(NO_UNDEFINED)
 endif
 
