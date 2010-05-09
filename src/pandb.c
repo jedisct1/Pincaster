@@ -653,38 +653,25 @@ int find_near_context_cb(void *context_, void *entry,
     return 0;
 }
 
-int find_near(const PanDB * const db,
-              FindNearCB cb, void * const context_cb,
-              const Position2D * const position, const Meters distance,
-              const SubSlots limit)
+static int find_near_in_zone(Rectangle2D * const matching_rect,
+                             PntStack *stack_inspect,
+                             const PanDB * const db,
+                             FindNearCB cb,
+                             void * const context_cb,
+                             const Position2D * const position,
+                             const Meters distance,
+                             const SubSlots limit)
 {
-    if (limit <= (SubSlots) 0) {
-        return 0;
-    }
-    Rectangle2D scanned_qbounds = db->qbounds;
-    Rectangle2D matching_rects[1];
-    Rectangle2D *matching_rect = &matching_rects[0];    
-    PntStack *stack_inspect;
     const QuadNode *scanned_node;
+    Rectangle2D scanned_qbounds = db->qbounds;
     Rectangle2D scanned_children_qbounds[4];
+    unsigned int t;
+    Node *scanned_node_child;
     Rectangle2D *scanned_child_qbound;
     QuadNodeWithBounds qnb;
-    QuadNodeWithBounds *sqnb;
-    Node *scanned_node_child;
-    unsigned int t;
-
-    const Dimension dlat = distance / DEG_AVG_DISTANCE;
-    const Dimension dlon = distance /
-        fabs(cosf((float) DEG_TO_RAD(position->latitude)) * DEG_AVG_DISTANCE);
-    *matching_rect = (Rectangle2D) { {
-            position->latitude  - dlat,
-            position->longitude - dlon
-    }, {
-            position->latitude  + dlat,
-            position->longitude + dlon
-    } };
-    stack_inspect = new_pnt_stack((size_t) 8U, sizeof qnb);
-    scanned_node = &db->root;
+    QuadNodeWithBounds *sqnb;    
+    
+    scanned_node = &db->root;    
     for (;;) {
         assert(scanned_node->type == NODE_TYPE_QUAD_NODE);
         get_qrects_from_qbounds(scanned_children_qbounds, &scanned_qbounds);
@@ -726,9 +713,44 @@ int find_near(const PanDB * const db,
         scanned_node = sqnb->quad_node;
         scanned_qbounds = sqnb->qrect;
     }
+    return 0;
+}
+
+int find_near(const PanDB * const db,
+              FindNearCB cb, void * const context_cb,
+              const Position2D * const position, const Meters distance,
+              const SubSlots limit)
+{
+    if (limit <= (SubSlots) 0) {
+        return 0;
+    }
+    Rectangle2D matching_rects[1];
+    Rectangle2D *matching_rect = &matching_rects[0];    
+    PntStack *stack_inspect;
+
+    const Dimension dlat = distance / DEG_AVG_DISTANCE;
+    const Dimension dlon = distance /
+        fabs(cosf((float) DEG_TO_RAD(position->latitude)) * DEG_AVG_DISTANCE);
+    *matching_rect = (Rectangle2D) { {
+            position->latitude  - dlat,
+            position->longitude - dlon
+    }, {
+            position->latitude  + dlat,
+            position->longitude + dlon
+    } };
+    stack_inspect = new_pnt_stack(DEFAULT_STACK_SIZE_FOR_SEARCHES,
+                                  sizeof(QuadNodeWithBounds));
+    const int ret = find_near_in_zone(matching_rect,
+                                      stack_inspect,
+                                      db,
+                                      cb,
+                                      context_cb,
+                                      position,
+                                      distance,
+                                      limit);
     free_pnt_stack(stack_inspect);
     
-    return 0;
+    return ret;
 }
 
 typedef struct FindInRectIntCBContext_ {    
@@ -806,7 +828,8 @@ int find_in_rect(const PanDB * const db,
     unsigned int t;
 
     *matching_rect = *rect;
-    stack_inspect = new_pnt_stack((size_t) 8U, sizeof qnb);
+    stack_inspect = new_pnt_stack(DEFAULT_STACK_SIZE_FOR_SEARCHES,
+                                  sizeof qnb);
     scanned_node = &db->root;
     for (;;) {
         assert(scanned_node->type == NODE_TYPE_QUAD_NODE);

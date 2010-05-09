@@ -17,6 +17,9 @@ typedef unsigned long SubSlots;
 #ifndef DEG_AVG_DISTANCE
 # define DEG_AVG_DISTANCE    (EARTH_CIRCUMFERENCE / 360.0F)
 #endif
+#ifndef DEFAULT_STACK_SIZE_FOR_SEARCHES
+# define DEFAULT_STACK_SIZE_FOR_SEARCHES ((size_t) 8U)
+#endif
 
 typedef struct Position2D_ {
     Dimension latitude;    
