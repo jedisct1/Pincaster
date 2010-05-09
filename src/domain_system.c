@@ -344,6 +344,8 @@ int rewrite_child(HttpHandlerContext * const context)
     int db_log_fd = open(tmp_log_file_name, flags, (mode_t) 0600);
     free(tmp_log_file_name);
     if (db_log_fd == -1) {
+        fprintf(stderr, "Can't create [%s]: [%s]\n", tmp_log_file_name,
+                strerror(errno));
         return -1;
     }
     rebuild_journal(context, db_log_fd);
@@ -464,6 +466,8 @@ int system_rewrite_after_fork_cb(void)
 #endif
     int tmp_log_fd = open(tmp_log_file_name, flags, (mode_t) 0600);
     if (tmp_log_fd == -1) {
+        fprintf(stderr, "Can't reopen [%s]: [%s]\n", tmp_log_file_name,
+                strerror(errno));
         unlink(tmp_log_file_name);
     }
     if (copy_data_between_fds(db_log->db_log_fd, tmp_log_fd) != 0) {

@@ -21,8 +21,12 @@ int main(int argc, char *argv[])
     if (parse_config(argv[1]) != 0) {
         return 2;
     }
-    open_db_log();
-    http_server();
+    if (open_db_log() != 0) {
+        return 3;
+    }
+    if (http_server() != 0) {
+        return 4;
+    }
     free_db_log();
     free_config();
     

@@ -40,6 +40,8 @@ int open_db_log(void)
 #endif
     db_log->db_log_fd = open(db_log_file_name, flags, (mode_t) 0600);
     if (db_log->db_log_fd == -1) {
+        fprintf(stderr, "Can't open [%s]: [%s]\n",
+                db_log_file_name, strerror(errno));
         free_db_log();
         return -1;
     }
