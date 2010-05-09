@@ -32,32 +32,6 @@ void get_qrects_from_qbounds(Rectangle2D qrects[4],
     qrects[3].edge1.longitude = median_longitude;    
 }
 
-void print_rect(const Rectangle2D * const rect)
-{
-    printf("rect = (%.3f, %.3f) - (%.3f, %.3f)\n",
-           rect->edge0.latitude, rect->edge0.longitude,
-           rect->edge1.latitude, rect->edge1.longitude);
-}
-
-void print_position(const Position2D * const position)
-{
-    printf("position = (%.3f, %.3f)\n",
-           position->latitude, position->longitude);
-}
-
-void print_quad_rects(const Rectangle2D * const rects)
-{
-    puts("Quad:");
-    putchar('\t');
-    print_rect(&rects[0]);
-    putchar('\t');    
-    print_rect(&rects[1]);
-    putchar('\t');
-    print_rect(&rects[2]);
-    putchar('\t');    
-    print_rect(&rects[3]);    
-}
-
 int position_is_in_rect(const Position2D * const position,
                         const Rectangle2D * const rect)
 {
@@ -91,8 +65,10 @@ Node *find_node_for_position(const QuadNode * const quad_node,
             return quad_node->nodes[t];
         }
     } while (t > 0U);
-    print_position(position);
+#ifdef DEBUG
+    print_position(position);    
     print_quad_rects(qrects);
+#endif
     assert(0);
     
     return NULL;
@@ -257,89 +233,6 @@ int add_slot_to_bucket(PanDB * const db, BucketNode * const bucket_node,
         bucket_node->parent->sub_slots++;
     }
     return 0;
-}
-
-static int dump_bucket_node_cb(void *context, void *entry,
-                               const size_t sizeof_entry)
-{
-    _Bool *coma = context;
-    Slot *scanned_slot = entry;
-
-    (void) sizeof_entry;
-    if (*coma != 0) {
-        printf(", ");
-    } else {
-        *coma = 1;
-    }
-    const char *key_s;
-    
-    key_s = (const char *) scanned_slot->key_node->key->val;
-    printf("\"%.3f, %.3f [%s](%p => %p)\"",
-           scanned_slot->position.latitude,
-           scanned_slot->position.longitude,
-           key_s, scanned_slot, scanned_slot->bucket_node);
-    assert(scanned_slot->bucket_node != NULL);
-    
-    return 0;
-}
-
-static void dump_bucket_node(const BucketNode * const bucket_node)
-{
-    const Bucket *bucket = &bucket_node->bucket;
-    _Bool coma = 0;
-
-    assert(bucket != NULL);
-    printf("[");
-    slab_foreach((Slab *) &bucket->slab, dump_bucket_node_cb, &coma);
-    printf("]");    
-}
-
-static void dump_quad_node(const QuadNode * const quad_node)
-{
-    unsigned int t = 0U;
-    
-    printf("{");
-    printf("\"sub_slots\":%lu, ", (unsigned long) quad_node->sub_slots);
-    do {
-        printf("\"%u\":", t);
-        dump(quad_node->nodes[t]);
-        if (t < 3U) {
-            printf(", ");
-        }
-    } while (t++ < 3U);
-    printf("}\n");
-    fflush(stdout);    
-}
-
-void dump(Node *scanned_node)
-{
-    if (scanned_node->bare_node.type == NODE_TYPE_BUCKET_NODE) {
-        dump_bucket_node(&scanned_node->bucket_node);
-        return;
-    }
-    assert(scanned_node->bare_node.type == NODE_TYPE_QUAD_NODE);
-    dump_quad_node(&scanned_node->quad_node);
-}
-
-void dump_keys(PanDB * const db)
-{
-    KeyNode *scanned_key_node;
-    KeyNode *next_key_node;
-    puts("\n\n--KEY--");
-    for (scanned_key_node = RB_MIN(KeyNodes_, &db->key_nodes);
-         scanned_key_node != NULL; scanned_key_node = next_key_node) {
-        next_key_node = RB_NEXT(KeyNodes_, &db->key_nodes,
-                                scanned_key_node);
-        assert(scanned_key_node->key != NULL);
-        assert(scanned_key_node->key->val != NULL);
-        printf("KEY [%s] => (%p => %p)\n",
-               scanned_key_node->key->val,
-               scanned_key_node->slot,
-               scanned_key_node->slot->bucket_node);
-        assert(scanned_key_node->slot != NULL);
-        assert(scanned_key_node->slot->bucket_node != NULL);
-    }
-    puts("--/KEY--\n");
 }
 
 typedef struct RebalanceBucketCBContext_ {
@@ -1061,3 +954,114 @@ void free_pan_db(PanDB * const db)
     free_pnt_stack(stack_quad_nodes_to_delete);
     pthread_rwlock_destroy(&db->rwlock_db);
 }
+
+#ifdef DEBUG
+void print_rect(const Rectangle2D * const rect)
+{
+    printf("rect = (%.3f, %.3f) - (%.3f, %.3f)\n",
+           rect->edge0.latitude, rect->edge0.longitude,
+           rect->edge1.latitude, rect->edge1.longitude);
+}
+
+void print_position(const Position2D * const position)
+{
+    printf("position = (%.3f, %.3f)\n",
+           position->latitude, position->longitude);
+}
+
+void print_quad_rects(const Rectangle2D * const rects)
+{
+    puts("Quad:");
+    putchar('\t');
+    print_rect(&rects[0]);
+    putchar('\t');    
+    print_rect(&rects[1]);
+    putchar('\t');
+    print_rect(&rects[2]);
+    putchar('\t');    
+    print_rect(&rects[3]);    
+}
+
+static int dump_bucket_node_cb(void *context, void *entry,
+                               const size_t sizeof_entry)
+{
+    _Bool *coma = context;
+    Slot *scanned_slot = entry;
+
+    (void) sizeof_entry;
+    if (*coma != 0) {
+        printf(", ");
+    } else {
+        *coma = 1;
+    }
+    const char *key_s;
+    
+    key_s = (const char *) scanned_slot->key_node->key->val;
+    printf("\"%.3f, %.3f [%s](%p => %p)\"",
+           scanned_slot->position.latitude,
+           scanned_slot->position.longitude,
+           key_s, scanned_slot, scanned_slot->bucket_node);
+    assert(scanned_slot->bucket_node != NULL);
+    
+    return 0;
+}
+
+static void dump_bucket_node(const BucketNode * const bucket_node)
+{
+    const Bucket *bucket = &bucket_node->bucket;
+    _Bool coma = 0;
+
+    assert(bucket != NULL);
+    printf("[");
+    slab_foreach((Slab *) &bucket->slab, dump_bucket_node_cb, &coma);
+    printf("]");    
+}
+
+static void dump_quad_node(const QuadNode * const quad_node)
+{
+    unsigned int t = 0U;
+    
+    printf("{");
+    printf("\"sub_slots\":%lu, ", (unsigned long) quad_node->sub_slots);
+    do {
+        printf("\"%u\":", t);
+        dump_pan_db(quad_node->nodes[t]);
+        if (t < 3U) {
+            printf(", ");
+        }
+    } while (t++ < 3U);
+    printf("}\n");
+    fflush(stdout);    
+}
+
+void dump_pan_db(Node *scanned_node)
+{
+    if (scanned_node->bare_node.type == NODE_TYPE_BUCKET_NODE) {
+        dump_bucket_node(&scanned_node->bucket_node);
+        return;
+    }
+    assert(scanned_node->bare_node.type == NODE_TYPE_QUAD_NODE);
+    dump_quad_node(&scanned_node->quad_node);
+}
+
+void dump_keys(PanDB * const db)
+{
+    KeyNode *scanned_key_node;
+    KeyNode *next_key_node;
+    puts("\n\n--KEY--");
+    for (scanned_key_node = RB_MIN(KeyNodes_, &db->key_nodes);
+         scanned_key_node != NULL; scanned_key_node = next_key_node) {
+        next_key_node = RB_NEXT(KeyNodes_, &db->key_nodes,
+                                scanned_key_node);
+        assert(scanned_key_node->key != NULL);
+        assert(scanned_key_node->key->val != NULL);
+        printf("KEY [%s] => (%p => %p)\n",
+               scanned_key_node->key->val,
+               scanned_key_node->slot,
+               scanned_key_node->slot->bucket_node);
+        assert(scanned_key_node->slot != NULL);
+        assert(scanned_key_node->slot->bucket_node != NULL);
+    }
+    puts("--/KEY--\n");
+}
+#endif

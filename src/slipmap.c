@@ -416,6 +416,7 @@ int find_in_slip_map(SlipMap * * const slip_map_pnt,
     return 1;
 }
 
+#ifdef DEBUG
 int dump_slip_map(SlipMap * const * const slip_map_pnt)
 {
     const SlipMap *slip_map;
@@ -469,3 +470,4 @@ int dump_slip_map(SlipMap * const * const slip_map_pnt)
     }
     return 0;
 }
+#endif

@@ -138,4 +138,12 @@ int find_in_rect(const PanDB * const db,
                  FindNearCB cb, void * const cb_context,
                  const Rectangle2D * const rect, const SubSlots limit);
 
+#ifdef DEBUG
+void print_rect(const Rectangle2D * const rect);
+void print_position(const Position2D * const position);
+void print_quad_rects(const Rectangle2D * const rects);
+void dump_pan_db(Node *scanned_node);
+void dump_keys(PanDB * const db);
+#endif
+
 #endif
