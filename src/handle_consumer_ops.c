@@ -5,13 +5,12 @@
 
 static int send_json_gen(yajl_gen json_gen, const OpReply * const op_reply)
 {
-    const char *json_out_buf;
+    const unsigned char *json_out_buf;
     unsigned int json_out_len; 
     struct evbuffer *evb;
     
     yajl_gen_map_close(json_gen);        
-    yajl_gen_get_buf(json_gen, (const unsigned char * *) &json_out_buf,
-                     &json_out_len);        
+    yajl_gen_get_buf(json_gen, &json_out_buf, &json_out_len);
     evb = evbuffer_new();
     evbuffer_add(evb, json_out_buf, json_out_len);
     evhttp_send_reply(op_reply->bare_op_reply.req, HTTP_OK, "OK", evb);
