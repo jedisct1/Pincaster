@@ -343,6 +343,7 @@ int append_to_binval(BinVal * const binval, const char * const str,
     assert(binval->size + size <= binval->max_size);
     memcpy(binval->val + binval->size, str, size);
     binval->size += size;
+    *(binval->val + binval->size) = 0;
     
     return 0;
 }
