@@ -33,19 +33,19 @@ Layers
 
     Method: `POST`
 
-    URI: `http://$HOST:8080/api/1.0/layers/(layer name).json`
+    URI: `http://$HOST:4269/api/1.0/layers/(layer name).json`
 
 * **Deleting a layer:**
 
     Method: `DELETE`
 
-    URI: `http://$HOST:8080/api/1.0/layers/(layer name).json`
+    URI: `http://$HOST:4269/api/1.0/layers/(layer name).json`
 
 * **Retrieving registered layers:**
 
     Method: `GET`
 
-    URI: `http://$HOST:8080/api/1.0/layers/index.json`
+    URI: `http://$HOST:4269/api/1.0/layers/index.json`
 
 Records
 -------
@@ -54,7 +54,7 @@ Records
 
     Method: `PUT`
 
-    URI: `http://$HOST:8080/api/1.0/records/(layer name)/(record name).json`
+    URI: `http://$HOST:4269/api/1.0/records/(layer name)/(record name).json`
 
     This `PUT` request can contain application/x-www-form-urlencoded data, in order to create/update arbitrary properties.
 
@@ -73,13 +73,13 @@ property named (property name), creating it if necessary,
 
     Method: `GET`
 
-    URI: `http://$HOST:8080/api/1.0/records/(layer name)/(record name).json`
+    URI: `http://$HOST:4269/api/1.0/records/(layer name)/(record name).json`
 
 * **Deleting a record:**
 
     Method: `DELETE`
 
-    URI: `http://$HOST:8080/api/1.0/records/(layer name)/(record name).json`
+    URI: `http://$HOST:4269/api/1.0/records/(layer name)/(record name).json`
 
 Geographic search
 -----------------
@@ -88,7 +88,7 @@ Geographic search
 
     Method: `GET`
 
-    URI: `http://$HOST:8080/api/1.0/search/(layer name)/nearby/(center point).json?radius=(radius, in meters)`
+    URI: `http://$HOST:4269/api/1.0/search/(layer name)/nearby/(center point).json?radius=(radius, in meters)`
 
   The center point is defined as `latitude,longitude`.
 
@@ -101,7 +101,7 @@ Geographic search
 
     Method: `GET`
 
-    URI: `http://$HOST:8080/api/1.0/search/(layer name)/in_rect/(l0,L0,l1,L1).json`
+    URI: `http://$HOST:4269/api/1.0/search/(layer name)/in_rect/(l0,L0,l1,L1).json`
 
   Additional arguments can be added to this query:
   
@@ -115,14 +115,14 @@ Misc
 
     Method: any
 
-    URI: `http://$HOST:8080/api/1.0/system/ping.json`
+    URI: `http://$HOST:4269/api/1.0/system/ping.json`
 
 
 * **Shutting the server down:**
 
     Method: `POST`
 
-    URI: `http://$HOST:8080/api/1.0/system/shutdown.json`
+    URI: `http://$HOST:4269/api/1.0/system/shutdown.json`
 
 
 * **Compacting the journal:**
@@ -139,7 +139,7 @@ previous file.
 
     Method: `POST`
 
-    URI: `http://$HOST:8080/api/1.0/system/rewrite.json`
+    URI: `http://$HOST:4269/api/1.0/system/rewrite.json`
 
 Example
 -------
@@ -148,7 +148,7 @@ Command-line example with *curl*:
 
 Register a new layer called "restaurants":
 
-	$ curl -dx http://diz:8080/api/1.0/layers/restaurants.json
+	$ curl -dx http://diz:4269/api/1.0/layers/restaurants.json
 	{
 		"tid": 1,
 		"status": "created"
@@ -156,7 +156,7 @@ Register a new layer called "restaurants":
 
 Check the list of active layers:
 
-	$ curl http://diz:8080/api/1.0/layers/index.json
+	$ curl http://diz:4269/api/1.0/layers/index.json
 	{
 		"tid": 2,
 		"layers": [
@@ -179,7 +179,7 @@ Check the list of active layers:
 
 Now let's add a hash record called "info". Just a set of key/values with no geographic data:
 
-	$ curl -XPUT -d'secret_key=supersecret&last_update=2001/07/08' http://diz:8080/api/1.0/records/restaurants/info.json
+	$ curl -XPUT -d'secret_key=supersecret&last_update=2001/07/08' http://diz:4269/api/1.0/records/restaurants/info.json
 	{
 		"tid": 3,
 		"status": "stored"
@@ -187,7 +187,7 @@ Now let's add a hash record called "info". Just a set of key/values with no geog
 
 What does the record look like?
 
-	$ curl http://diz:8080/api/1.0/records/restaurants/info.json
+	$ curl http://diz:4269/api/1.0/records/restaurants/info.json
 	{
 		"tid": 4,
 		"key": "info",
@@ -200,7 +200,7 @@ What does the record look like?
 
 Let's add a McDonald's, just with geographic data:
 
-	$ curl -XPUT -d'_loc=48.512,2.243' http://diz:8080/api/1.0/records/restaurants/abcd.json
+	$ curl -XPUT -d'_loc=48.512,2.243' http://diz:4269/api/1.0/records/restaurants/abcd.json
 	{
 		"tid": 5,
 		"status": "stored"
@@ -208,7 +208,7 @@ Let's add a McDonald's, just with geographic data:
 
 What does the "abcd" record of the "restaurants" layer look like?
 
-	$ curl http://diz:8080/api/1.0/records/restaurants/abcd.json
+	$ curl http://diz:4269/api/1.0/records/restaurants/abcd.json
 	{
 		"tid": 6,
 		"key": "abcd",
@@ -219,7 +219,7 @@ What does the "abcd" record of the "restaurants" layer look like?
 
 Let's add some properties to this record, like a name, the fact that it's currently closed, an address and an initial number of visits:
 
-	$ curl -XPUT -d'name=MacDonalds&closed=1&address=blabla&visits=100000' http://diz:8080/api/1.0/records/restaurants/abcd.json
+	$ curl -XPUT -d'name=MacDonalds&closed=1&address=blabla&visits=100000' http://diz:4269/api/1.0/records/restaurants/abcd.json
 	{
 		"tid": 7,
 		"status": "stored"
@@ -227,7 +227,7 @@ Let's add some properties to this record, like a name, the fact that it's curren
 
 Let's check it:
 
-	$ curl http://diz:8080/api/1.0/records/restaurants/abcd.json
+	$ curl http://diz:4269/api/1.0/records/restaurants/abcd.json
 	{
 		"tid": 8,
 		"key": "abcd",
@@ -244,7 +244,7 @@ Let's check it:
 
 Atomically delete the "closed" property from this record and add 127 visits:
 
-	$ curl -XPUT -d'_delete:closed=1&_add_int:visits=127' http://diz:8080/api/1.0/records/restaurants/abcd.json
+	$ curl -XPUT -d'_delete:closed=1&_add_int:visits=127' http://diz:4269/api/1.0/records/restaurants/abcd.json
 	{
 		"tid": 9,
 		"status": "stored"
@@ -252,7 +252,7 @@ Atomically delete the "closed" property from this record and add 127 visits:
 
 Now let's look for records whose location is near N 48.510 E 2.240, within a 7 kilometers radius:
 
-	$ curl http://diz:8080/api/1.0/search/restaurants/nearby/48.510,2.240.json?radius=7000
+	$ curl http://diz:4269/api/1.0/search/restaurants/nearby/48.510,2.240.json?radius=7000
 	{
 		"tid": 10,
 		"matches": [
@@ -273,7 +273,7 @@ Now let's look for records whose location is near N 48.510 E 2.240, within a 7 k
 
 And what's in a rectangle, without properties?
 
-	$ curl http://diz:8080/api/1.0/search/restaurants/in_rect/48.000,2.000,49.000,3.000.json?properties=0
+	$ curl http://diz:4269/api/1.0/search/restaurants/in_rect/48.000,2.000,49.000,3.000.json?properties=0
 	{
 		"tid": 11,
 		"matches": [
@@ -289,7 +289,7 @@ And what's in a rectangle, without properties?
 
 Let's delete the record:
 
-	$ curl -XDELETE http://diz:8080/api/1.0/records/restaurants/abcd.json
+	$ curl -XDELETE http://diz:4269/api/1.0/records/restaurants/abcd.json
 	{
 		"tid": 12,
 		"status": "deleted"
@@ -297,11 +297,11 @@ Let's delete the record:
 
 And shut the server down:
 
-	$ curl -XPOST http://diz:8080/api/1.0/system/shutdown.json
+	$ curl -XPOST http://diz:4269/api/1.0/system/shutdown.json
 
 But can it ping?
 
-	$ curl http://diz:8080/api/1.0/system/ping.json
+	$ curl http://diz:4269/api/1.0/system/ping.json
 
 No, it can't any more, boo-ooh!
 
