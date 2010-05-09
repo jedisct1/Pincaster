@@ -139,6 +139,7 @@ static int flush_log_buffer(struct evbuffer *log_buffer, const int log_fd)
 typedef struct RebuildJournalPropertyCBContext_ {
     struct evbuffer *body_buffer;
     _Bool first;
+    BinVal * const encoding_record_buffer;
 } RebuildJournalPropertyCBContext;
 
 static int rebuild_journal_property_cb(void * context_,
@@ -155,10 +156,25 @@ static int rebuild_journal_property_cb(void * context_,
     } else {
         evbuffer_add(body_buffer, "&", (size_t) 1U);
     }
-    evbuffer_add(body_buffer, key, key_len);
+    BinVal * const encoding_record_buffer = context->encoding_record_buffer;
+    BinVal decoded = { .max_size = (size_t) 0U };
+    decoded = (BinVal) {
+        .val = (char *) key, .size = key_len
+    };
+    if (uri_encode_binval(encoding_record_buffer, &decoded) != 0) {
+        return -1;
+    }
+    evbuffer_add(body_buffer, encoding_record_buffer->val,
+                 encoding_record_buffer->size);
     evbuffer_add(body_buffer, "=", (size_t) 1U);
-    evbuffer_add(body_buffer, value, value_len);    
-    
+    decoded = (BinVal) {
+        .val = (char *) value, .size = value_len
+    };
+    if (uri_encode_binval(encoding_record_buffer, &decoded) != 0) {
+        return -1;
+    }    
+    evbuffer_add(body_buffer, encoding_record_buffer->val,
+                 encoding_record_buffer->size);    
     return 0;
 }
 
@@ -168,6 +184,7 @@ typedef struct RebuildJournalRecordCBContext_ {
     struct evbuffer *log_buffer;
     int tmp_log_fd;
     const BinVal *encoded_layer_name;
+    BinVal * const encoding_record_buffer;
 } RebuildJournalRecordCBContext;
 
 static int rebuild_journal_record_cb(void *context_, KeyNode * const key_node)
@@ -194,7 +211,8 @@ static int rebuild_journal_record_cb(void *context_, KeyNode * const key_node)
     }
     RebuildJournalPropertyCBContext cb_context = {
         .body_buffer = body_buffer,
-        .first = 1
+        .first = 1,
+        .encoding_record_buffer = context->encoding_record_buffer
     };
     slip_map_foreach(&key_node->properties, rebuild_journal_property_cb,
                      &cb_context);
@@ -242,6 +260,8 @@ static int rebuild_journal_layer_cb(void *context_, void *entry,
     init_binval(&encoded_layer_name);    
     BinVal decoded_layer_name;
     init_binval(&decoded_layer_name);
+    BinVal encoding_record_buffer;
+    init_binval(&encoding_record_buffer);
     decoded_layer_name.val = layer->name;
     decoded_layer_name.size = strlen(layer->name);    
     if (uri_encode_binval(&encoded_layer_name, &decoded_layer_name) != 0) {
@@ -264,22 +284,24 @@ static int rebuild_journal_layer_cb(void *context_, void *entry,
         .pan_db = pan_db,
         .log_buffer = log_buffer,
         .tmp_log_fd = context->tmp_log_fd,
-        .encoded_layer_name = &encoded_layer_name
+        .encoded_layer_name = &encoded_layer_name,
+        .encoding_record_buffer = &encoding_record_buffer
     };
     if (key_nodes_foreach(key_nodes,
                           rebuild_journal_record_cb, &cb_context) != 0) {
         free_binval(&encoded_layer_name);
+        free_binval(&encoding_record_buffer);
         evbuffer_free(log_buffer);        
         return -1;
     }
     assert(decoded_layer_name.max_size == (size_t) 0U);
     free_binval(&encoded_layer_name);
+    free_binval(&encoding_record_buffer);
     ret = flush_log_buffer(log_buffer, context->tmp_log_fd);
     evbuffer_free(log_buffer);
     
     return ret;
 }
-
 
 int rebuild_journal(HttpHandlerContext * const context, const int tmp_log_fd)
 {
