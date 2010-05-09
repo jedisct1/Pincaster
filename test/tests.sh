@@ -7,9 +7,9 @@ cleanup() {
     rm -f /tmp/pincaster.db
 }
 trap 'cleanup' 0
-./src/pincaster pincaster.conf &
+../src/pincaster ../pincaster.conf &
 pincaster_pid=$!
-sleep 1
+sleep 5
 
 EXPECTED=$(python -m json.tool <<EOF
 {
