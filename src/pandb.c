@@ -830,7 +830,13 @@ int find_near(const PanDB * const db,
     }, {
         position->latitude + dlat, position->longitude + dlon
     } };
-    unsigned int nb_zones = find_zones(db, &rect , matching_rects);
+    unsigned int nb_zones;
+    if (db->layer_type == LAYER_TYPE_FLAT) {
+        matching_rects[0] = rect;        
+        nb_zones = 1U;
+    } else {
+        nb_zones = find_zones(db, &rect , matching_rects);
+    }
     assert(nb_zones >= 1U);
     assert(nb_zones <= 4U);
     stack_inspect = new_pnt_stack(DEFAULT_STACK_SIZE_FOR_SEARCHES,
