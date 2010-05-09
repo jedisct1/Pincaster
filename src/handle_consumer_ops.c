@@ -161,6 +161,9 @@ void consumer_cb(struct bufferevent * const bev, void *context_)
             break;
         case OP_TYPE_SEARCH_IN_RECT:
             ret = handle_consumer_op_search_in_rect(op_reply);
+            break;
+        default:
+            ret = -1;
         }
         if (ret != 0) {
             evhttp_send_error(op_reply->bare_op_reply.req,
