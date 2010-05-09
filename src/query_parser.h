@@ -8,4 +8,6 @@ typedef int (*QueryParseCB)(void *context,
 int query_parse(const char * const query, QueryParseCB cb,
                 void * const context);
 
+int uri_encode_binval(const BinVal * const value, BinVal * const evalue);
+
 #endif

@@ -123,31 +123,6 @@ int query_parse(const char * const query, QueryParseCB cb,
     return ret;
 }
 
-int append_to_binval(BinVal * const binval, const char * const str,
-                     const size_t size)
-{
-    char *tmp_buf;    
-    const size_t free_space = binval->max_size - binval->size;
-    
-    if (free_space < size) {
-        const size_t wanted_max_size = binval->size + size;
-        if (wanted_max_size < binval->size || wanted_max_size < size) {
-            return -1;
-        }
-        if ((tmp_buf = realloc(binval->val,
-                               wanted_max_size + (size_t) 1U)) == NULL) {
-            return -1;
-        }
-        binval->val = tmp_buf;
-        binval->max_size = wanted_max_size;
-    }
-    assert(binval->size + size <= binval->max_size);
-    memcpy(binval->val + binval->size, str, size);
-    binval->size += size;
-    
-    return 0;
-}
-
 static const _Bool uri_chars[256] = { // from libevent
 	0, 0, 0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0, 0, 0,
 	0, 0, 0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0, 0, 0,
@@ -203,23 +178,4 @@ int uri_encode_binval(const BinVal * const value, BinVal * const evalue)
         }
     }
     return 0;
-}
-
-int init_binval(BinVal * const binval)
-{
-    *binval = (BinVal) {
-        .val = NULL,
-        .size = (size_t) 0U,
-        .max_size = (size_t) 0U
-    };
-    return 0;
-}
-
-void free_binval(BinVal * const binval)
-{
-    if (binval == NULL) {
-        return;
-    }
-    free(binval->val);
-    init_binval(binval);
 }

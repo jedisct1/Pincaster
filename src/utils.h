@@ -53,6 +53,8 @@ int fcntl_nand_flags(const int socket, const int nand_flags);
 
 int init_binval(BinVal * const binval);
 void free_binval(BinVal * const binval);
-int uri_encode_binval(const BinVal * const value, BinVal * const evalue);
+
+int append_to_binval(BinVal * const binval, const char * const str,
+                     const size_t size);
 
 #endif
