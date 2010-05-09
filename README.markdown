@@ -21,7 +21,6 @@ Schema overview
 
 Installation
 ------------
-    ./autogen.sh
     ./configure
     make install
 
