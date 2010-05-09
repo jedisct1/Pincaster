@@ -141,8 +141,6 @@ previous file.
 
     URI: `http://$HOST:8080/api/1.0/system/rewrite.json`
 
-    __Warning: this command is still under construction.__
-
 Example
 -------
 
