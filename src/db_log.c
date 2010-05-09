@@ -160,7 +160,7 @@ int replay_log_record(HttpHandlerContext * const context)
     DBLog * const db_log = &app_context.db_log;
     
     if (db_log->db_log_fd == -1) {
-        return 0;
+        return 1;
     }
     char buf_cookie_head[sizeof DB_LOG_RECORD_COOKIE_HEAD - (size_t) 1U];
     char buf_cookie_tail[sizeof DB_LOG_RECORD_COOKIE_TAIL - (size_t) 1U];
