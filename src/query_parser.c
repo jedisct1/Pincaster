@@ -7,7 +7,7 @@ static size_t query_decode(const char *encoded, size_t encoded_size,
 {
     char c;
     char *pnt_decoded = decoded;
-    char hexbuf[3] = { [2] = 42 };
+    char hexbuf[3] = { [2] = 0 };
     
     assert(max_decoded_size >= encoded_size);
 
@@ -121,4 +121,105 @@ int query_parse(const char * const query, QueryParseCB cb,
     value.val = NULL;
      
     return ret;
+}
+
+int append_to_binval(BinVal * const binval, const char * const str,
+                     const size_t size)
+{
+    char *tmp_buf;    
+    const size_t free_space = binval->max_size - binval->size;
+    
+    if (free_space < size) {
+        const size_t wanted_max_size = binval->size + size;
+        if (wanted_max_size < binval->size || wanted_max_size < size) {
+            return -1;
+        }
+        if ((tmp_buf = realloc(binval->val,
+                               wanted_max_size + (size_t) 1U)) == NULL) {
+            return -1;
+        }
+        binval->val = tmp_buf;
+        binval->max_size = wanted_max_size;
+    }
+    assert(binval->size + size <= binval->max_size);
+    memcpy(binval->val + binval->size, str, size);
+    binval->size += size;
+    
+    return 0;
+}
+
+static const _Bool uri_chars[256] = { // from libevent
+	0, 0, 0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0, 0, 0,
+	0, 1, 0, 0, 1, 0, 0, 1,   1, 1, 1, 1, 1, 1, 1, 1,
+	1, 1, 1, 1, 1, 1, 1, 1,   1, 1, 1, 0, 0, 1, 0, 0,
+	/* 64 */
+	1, 1, 1, 1, 1, 1, 1, 1,   1, 1, 1, 1, 1, 1, 1, 1,
+	1, 1, 1, 1, 1, 1, 1, 1,   1, 1, 1, 0, 0, 0, 0, 1,
+	0, 1, 1, 1, 1, 1, 1, 1,   1, 1, 1, 1, 1, 1, 1, 1,
+	1, 1, 1, 1, 1, 1, 1, 1,   1, 1, 1, 0, 0, 0, 1, 0,
+	/* 128 */
+	0, 0, 0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0, 0, 0,
+	/* 192 */
+	0, 0, 0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0, 0, 0,
+};
+
+int uri_encode_binval(const BinVal * const value, BinVal * const evalue)
+{
+    size_t size = value->size;
+    size_t wanted_max_size;
+    unsigned char c;
+    char *tmp_buf;
+    char *pnt_decoded = value->val;
+    char hexbuf[4] = { [3] = 0 };
+
+    evalue->size = (size_t) 0;    
+    if (value->size > evalue->max_size || evalue->val == NULL) {
+        wanted_max_size = value->size * (size_t) 3 / (size_t) 2;
+        if (wanted_max_size <= value->size) {
+            exit(1);
+        }
+        assert(wanted_max_size > (size_t) 0U);
+        if ((tmp_buf = realloc(evalue->val,
+                               wanted_max_size + (size_t) 1U)) == NULL) {
+            return -1;
+        }
+        evalue->val = tmp_buf;
+        evalue->max_size = wanted_max_size;
+    }
+    while (size-- > (size_t) 0U) {
+        c = (unsigned char) *pnt_decoded++;
+        if (uri_chars[c] != 0) {
+            append_to_binval(evalue, (char *) &c, (size_t) 1U);
+        } else {
+            snprintf(hexbuf, sizeof hexbuf, "%%%02x", c);
+            append_to_binval(evalue, hexbuf, sizeof hexbuf - (size_t) 1U);
+        }
+    }
+    return 0;
+}
+
+int init_binval(BinVal * const binval)
+{
+    *binval = (BinVal) {
+        .val = NULL,
+        .size = (size_t) 0U,
+        .max_size = (size_t) 0U
+    };
+    return 0;
+}
+
+void free_binval(BinVal * const binval)
+{
+    if (binval == NULL) {
+        return;
+    }
+    free(binval->val);
+    init_binval(binval);
 }

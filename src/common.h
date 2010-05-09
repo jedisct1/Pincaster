@@ -52,12 +52,6 @@ extern AppContext app_context;
 AppContext app_context;
 #endif
 
-typedef struct BinVal_ {
-    char *val;
-    size_t size;
-    size_t max_size;
-} BinVal;
-
 #ifndef AUTOMATICALLY_CREATE_LAYERS
 # define AUTOMATICALLY_CREATE_LAYERS 0
 #endif

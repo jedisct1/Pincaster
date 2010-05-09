@@ -5,7 +5,7 @@
 void skip_spaces(const char * * const str)
 {
     const char *s = *str;
-    while (*s != 0 && isspace(*s)) {
+    while (*s != 0 && isspace((unsigned char ) *s)) {
         s++;
     }
     *str = s;

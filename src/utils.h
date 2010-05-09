@@ -8,6 +8,12 @@
 
 #define DEG_TO_RAD(X) ((X) * M_PI / 180.0)
 
+typedef struct BinVal_ {
+    char *val;
+    size_t size;
+    size_t max_size;
+} BinVal;
+
 void skip_spaces(const char * * const str);
 
 int key_node_to_json(KeyNode * const key_node, yajl_gen json_gen,
@@ -44,5 +50,9 @@ ssize_t safe_read(const int fd, void * const buf_, size_t maxlen);
 
 int fcntl_or_flags(const int socket, const int or_flags);
 int fcntl_nand_flags(const int socket, const int nand_flags);
+
+int init_binval(BinVal * const binval);
+void free_binval(BinVal * const binval);
+int uri_encode_binval(const BinVal * const value, BinVal * const evalue);
 
 #endif
