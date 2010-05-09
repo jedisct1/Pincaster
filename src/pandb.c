@@ -818,30 +818,37 @@ int find_near(const PanDB * const db,
     if (limit <= (SubSlots) 0) {
         return 0;
     }
-    Rectangle2D matching_rects[1];
+    Rectangle2D matching_rects[4];
     Rectangle2D *matching_rect = &matching_rects[0];    
     PntStack *stack_inspect;
 
     const Dimension dlat = distance / DEG_AVG_DISTANCE;
     const Dimension dlon = distance /
         fabs(cosf((float) DEG_TO_RAD(position->latitude)) * DEG_AVG_DISTANCE);
-    *matching_rect = (Rectangle2D) { {
-            position->latitude  - dlat,
-            position->longitude - dlon
+    const Rectangle2D rect = { {
+        position->latitude - dlat, position->longitude - dlon
     }, {
-            position->latitude  + dlat,
-            position->longitude + dlon
+        position->latitude + dlat, position->longitude + dlon
     } };
+    unsigned int nb_zones = find_zones(db, &rect , matching_rects);
+    assert(nb_zones >= 1U);
+    assert(nb_zones <= 4U);
     stack_inspect = new_pnt_stack(DEFAULT_STACK_SIZE_FOR_SEARCHES,
                                   sizeof(QuadNodeWithBounds));
-    const int ret = find_near_in_zone(matching_rect,
-                                      stack_inspect,
-                                      db,
-                                      cb,
-                                      context_cb,
-                                      position,
-                                      distance,
-                                      limit);
+    if (stack_inspect == NULL) {
+        return -1;
+    }
+    int ret;
+    do {
+        ret = find_near_in_zone(matching_rect,
+                                stack_inspect,
+                                db,
+                                cb,
+                                context_cb,
+                                position,
+                                distance,
+                                limit);
+    } while (ret == 0 && --nb_zones > 0U);
     free_pnt_stack(stack_inspect);
     
     return ret;
