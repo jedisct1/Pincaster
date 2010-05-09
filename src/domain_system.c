@@ -1,6 +1,7 @@
 
 #include "common.h"
 #include "http_server.h"
+#include "query_parser.h"
 #include "domain_system.h"
 
 static int handle_special_op_system_rewrite(HttpHandlerContext * const context,
@@ -166,8 +167,7 @@ typedef struct RebuildJournalRecordCBContext_ {
     PanDB * const pan_db;
     struct evbuffer *log_buffer;
     int tmp_log_fd;
-    const char *layer_name;
-    const size_t layer_name_len;
+    const BinVal *encoded_layer_name;
 } RebuildJournalRecordCBContext;
 
 static int rebuild_journal_record_cb(void *context_, KeyNode * const key_node)
@@ -180,13 +180,13 @@ static int rebuild_journal_record_cb(void *context_, KeyNode * const key_node)
     const Key * const key = key_node->key;
     const size_t uri_len =
         context->http_handler_context->encoded_base_uri_len +
-        sizeof "records/" - (size_t) 1U + context->layer_name_len +
+        sizeof "records/" - (size_t) 1U + context->encoded_layer_name->size +
         sizeof "/" - (size_t) 1U + key->len - (size_t) 1U +
         sizeof ".json" - (size_t) 1U;
     evbuffer_add_printf(log_buffer, "%x %zx:%srecords/%s/%s.json ",
                         verb, uri_len,
                         context->http_handler_context->encoded_base_uri,
-                        context->layer_name, key->val);
+                        context->encoded_layer_name->val, key->val);
 
     struct evbuffer * const body_buffer = evbuffer_new();
     if (body_buffer == NULL) {
@@ -238,13 +238,22 @@ static int rebuild_journal_layer_cb(void *context_, void *entry,
     evbuffer_add(log_buffer, DB_LOG_RECORD_COOKIE_HEAD,
                  sizeof DB_LOG_RECORD_COOKIE_HEAD - (size_t) 1U);
     const int verb = EVHTTP_REQ_POST;
-    const size_t layer_name_len = strlen(layer->name);
+    BinVal encoded_layer_name;
+    init_binval(&encoded_layer_name);    
+    BinVal decoded_layer_name;
+    init_binval(&decoded_layer_name);
+    decoded_layer_name.val = layer->name;
+    decoded_layer_name.size = strlen(layer->name);    
+    if (uri_encode_binval(&encoded_layer_name, &decoded_layer_name) != 0) {
+        evbuffer_free(log_buffer);
+        return -1;
+    }
     const size_t uri_len = context->context->encoded_base_uri_len +
-        sizeof "layers/" - (size_t) 1U + layer_name_len +
+        sizeof "layers/" - (size_t) 1U + encoded_layer_name.size +
         sizeof ".json" - (size_t) 1U;
     evbuffer_add_printf(log_buffer, "%x %zx:%slayers/%s.json %zx:",
                         verb, uri_len, context->context->encoded_base_uri,
-                        layer->name, (size_t) 0U);
+                        encoded_layer_name.val, (size_t) 0U);
     evbuffer_add(log_buffer, DB_LOG_RECORD_COOKIE_TAIL,
                  sizeof DB_LOG_RECORD_COOKIE_TAIL - (size_t) 1U);
     
@@ -255,14 +264,16 @@ static int rebuild_journal_layer_cb(void *context_, void *entry,
         .pan_db = pan_db,
         .log_buffer = log_buffer,
         .tmp_log_fd = context->tmp_log_fd,
-        .layer_name = layer->name,
-        .layer_name_len = layer_name_len
+        .encoded_layer_name = &encoded_layer_name
     };
     if (key_nodes_foreach(key_nodes,
                           rebuild_journal_record_cb, &cb_context) != 0) {
+        free_binval(&encoded_layer_name);
         evbuffer_free(log_buffer);        
         return -1;
     }
+    assert(decoded_layer_name.max_size == (size_t) 0U);
+    free_binval(&encoded_layer_name);
     ret = flush_log_buffer(log_buffer, context->tmp_log_fd);
     evbuffer_free(log_buffer);
     

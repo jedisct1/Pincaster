@@ -145,7 +145,7 @@ static const _Bool uri_chars[256] = { // from libevent
 	0, 0, 0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0, 0, 0,
 };
 
-int uri_encode_binval(const BinVal * const value, BinVal * const evalue)
+int uri_encode_binval(BinVal * const evalue, const BinVal * const value)
 {
     size_t size = value->size;
     size_t wanted_max_size;
