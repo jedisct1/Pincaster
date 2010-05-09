@@ -3,7 +3,8 @@ Pinecaster
 
 Pinecaster is an in-memory, persistent data store for geographic data and key/value pairs, with a HTTP/JSON interface.
 
-[Pinecaster git repository](http://github.com/jedisct1/Pincaster)
+* [Pinecaster git repository](http://github.com/jedisct1/Pincaster)
+* [Download snapshots tarballs](http://download.pureftpd.org/pincaster/snapshots/)
 
 Schema overview
 ---------------
