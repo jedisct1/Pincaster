@@ -716,46 +716,46 @@ static int find_near_in_zone(Rectangle2D * const matching_rect,
     return 0;
 }
 
-unsigned int find_zones(PanDB * const db, Rectangle2D * const rect,
+unsigned int find_zones(const PanDB * const db,
+                        const Rectangle2D * const rect_,
                         Rectangle2D rects[4])
 {
     const Rectangle2D qbounds = db->qbounds;
-    Rectangle2D *rect_pnt = &rects[0];
-    
-    *rect = (Rectangle2D) {
+    Rectangle2D *rect_pnt = &rects[0];    
+    Rectangle2D rect = (Rectangle2D) {
         .edge0 = {
             .latitude = MAX(qbounds.edge0.latitude * 2.0,
-                            rect->edge0.latitude),
+                            rect_->edge0.latitude),
             .longitude = MAX(qbounds.edge0.longitude * 2.0,
-                             rect->edge0.longitude)
+                             rect_->edge0.longitude)
         },
         .edge1 = {
             .latitude = MIN(qbounds.edge1.latitude * 2.0,
-                            rect->edge1.latitude),
+                            rect_->edge1.latitude),
             .longitude = MIN(qbounds.edge1.longitude * 2.0,
-                             rect->edge1.longitude)
+                             rect_->edge1.longitude)
         }        
     };
     const Rectangle2D bounded_rect = {
         .edge0 = {
             .latitude = MAX(qbounds.edge0.latitude,
-                            rect->edge0.latitude),
+                            rect.edge0.latitude),
             .longitude = MAX(qbounds.edge0.longitude,
-                             rect->edge0.longitude)
+                             rect.edge0.longitude)
         },
         .edge1 = {
             .latitude = MIN(qbounds.edge1.latitude,
-                            rect->edge1.latitude),
+                            rect.edge1.latitude),
             .longitude = MIN(qbounds.edge1.longitude,
-                             rect->edge1.longitude)
+                             rect.edge1.longitude)
         }
     };
     *rect_pnt++ = bounded_rect;
-    if (rect->edge0.latitude < qbounds.edge0.latitude) {
+    if (rect.edge0.latitude < qbounds.edge0.latitude) {
         *rect_pnt++ = (Rectangle2D) {
             {
                 MAX(bounded_rect.edge1.latitude,
-                    rect->edge0.latitude - qbounds.edge0.latitude +
+                    rect.edge0.latitude - qbounds.edge0.latitude +
                     qbounds.edge1.latitude),
                 bounded_rect.edge0.longitude
             },
@@ -765,12 +765,12 @@ unsigned int find_zones(PanDB * const db, Rectangle2D * const rect,
             }
         };
     }
-    if (rect->edge0.longitude < qbounds.edge0.longitude) {
+    if (rect.edge0.longitude < qbounds.edge0.longitude) {
         *rect_pnt++ = (Rectangle2D) {
             {
                 bounded_rect.edge0.latitude,
                 MAX(bounded_rect.edge1.longitude,
-                    rect->edge0.longitude - qbounds.edge0.longitude +
+                    rect.edge0.longitude - qbounds.edge0.longitude +
                     qbounds.edge1.longitude)
             },
             {
@@ -779,7 +779,7 @@ unsigned int find_zones(PanDB * const db, Rectangle2D * const rect,
             }
         };
     }    
-    if (rect->edge1.latitude > qbounds.edge1.latitude) {
+    if (rect.edge1.latitude > qbounds.edge1.latitude) {
         *rect_pnt++ = (Rectangle2D) {
             { 
                 qbounds.edge0.latitude,
@@ -787,13 +787,13 @@ unsigned int find_zones(PanDB * const db, Rectangle2D * const rect,
             },
             { 
                 MIN(bounded_rect.edge0.latitude,
-                    rect->edge1.latitude + qbounds.edge0.latitude -
+                    rect.edge1.latitude + qbounds.edge0.latitude -
                     qbounds.edge1.latitude),
                 bounded_rect.edge1.longitude
             }
         };
     }    
-    if (rect->edge1.longitude > qbounds.edge1.longitude) {
+    if (rect.edge1.longitude > qbounds.edge1.longitude) {
         *rect_pnt++ = (Rectangle2D) {
             {
                 bounded_rect.edge0.latitude,
@@ -802,7 +802,7 @@ unsigned int find_zones(PanDB * const db, Rectangle2D * const rect,
             {
                 bounded_rect.edge1.latitude,
                 MIN(bounded_rect.edge0.longitude,
-                    rect->edge1.longitude + qbounds.edge0.longitude -
+                    rect.edge1.longitude + qbounds.edge0.longitude -
                     qbounds.edge1.longitude)
             }
         };
