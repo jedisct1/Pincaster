@@ -7,6 +7,12 @@
         strncasecmp((BV)->val, (S), sizeof (S) - (size_t) 1U) == 0)
 
 #define DEG_TO_RAD(X) ((X) * M_PI / 180.0)
+#ifndef MIN
+# define MIN(X, Y) ((X) < (Y) ? (X) : (Y))
+#endif
+#ifndef MAX
+# define MAX(X, Y) ((X) > (Y) ? (X) : (Y))
+#endif
 
 typedef struct BinVal_ {
     char *val;
