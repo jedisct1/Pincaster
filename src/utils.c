@@ -233,6 +233,20 @@ Meters romboid_distance_between_geoidal_positions(const Position2D * const p1,
     return (Meters) d;
 }
 
+void untangle_rect(Rectangle2D * const rect)
+{
+    if (rect->edge0.latitude > rect->edge1.latitude) {
+        const Dimension tmp = rect->edge0.latitude;
+        rect->edge0.latitude = rect->edge1.latitude;
+        rect->edge0.latitude = tmp;
+    }
+    if (rect->edge0.longitude > rect->edge1.longitude) {
+        const Dimension tmp = rect->edge0.longitude;
+        rect->edge0.longitude = rect->edge1.longitude;
+        rect->edge1.longitude = tmp;
+    }
+}
+
 int safe_write(const int fd, const void * const buf_, size_t count,
                const int timeout)
 {
