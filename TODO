@@ -1,4 +1,8 @@
 
+- Handle clusterized geographic searches (don't traverse child nodes if it
+would fit below a query-defined scale; return the number of children
+instead).
+
 - Output error messages.
 
 - Write tests.
