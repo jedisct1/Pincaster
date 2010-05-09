@@ -778,7 +778,7 @@ unsigned int find_zones(const PanDB * const db,
                 qbounds.edge1.longitude
             }
         };
-    }    
+    }
     if (rect.edge1.latitude > qbounds.edge1.latitude) {
         *rect_pnt++ = (Rectangle2D) {
             { 
@@ -792,8 +792,11 @@ unsigned int find_zones(const PanDB * const db,
                 bounded_rect.edge1.longitude
             }
         };
-    }    
+    }
     if (rect.edge1.longitude > qbounds.edge1.longitude) {
+        if ((unsigned int) (rect_pnt - &rects[0]) >= 4U) {
+            return 1U;
+        }
         *rect_pnt++ = (Rectangle2D) {
             {
                 bounded_rect.edge0.latitude,
