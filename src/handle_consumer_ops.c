@@ -122,13 +122,12 @@ static int handle_consumer_op_search_in_rect(OpReply * const op_reply)
 void consumer_cb(struct bufferevent * const bev, void *context_)
 {
     OpReply *op_reply;
-    int ret;
+    int ret = -1;
 
     (void) context_;
     while (evbuffer_get_length(bev->input) >= sizeof op_reply) {
         assert(bufferevent_read(bev, &op_reply, sizeof op_reply)
                == sizeof op_reply);
-        ret = -1;
         switch (op_reply->bare_op_reply.type) {
         case OP_TYPE_ERROR:
             ret = handle_consumer_op_error(op_reply);
@@ -162,9 +161,6 @@ void consumer_cb(struct bufferevent * const bev, void *context_)
             break;
         case OP_TYPE_SEARCH_IN_RECT:
             ret = handle_consumer_op_search_in_rect(op_reply);
-            break;
-        default:
-            ret = -1;
         }
         if (ret != 0) {
             evhttp_send_error(op_reply->bare_op_reply.req,

@@ -137,7 +137,10 @@ Dimension2 compute_square_distance(const PanDB * const pan_db,
     Dimension2 d_longitude = (Dimension2) position2->longitude -
         (Dimension2) position1->longitude;
     
-    if (pan_db == NULL || pan_db->layer_type != LAYER_TYPE_FLAT) {
+    if (pan_db == NULL) {
+        return (Dimension2) 0.0;
+    }
+    if (pan_db->layer_type != LAYER_TYPE_FLAT) {
         if (pan_db->layer_type == LAYER_TYPE_FLATWRAP) {
             if (d_latitude > pan_db->qbounds.edge1.latitude) {
                 d_latitude = d_latitude - pan_db->qbounds.edge1.latitude +
