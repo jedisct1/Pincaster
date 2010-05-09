@@ -602,6 +602,7 @@ yajl_lex_lex(yajl_lexer lexer, const unsigned char * jsonText,
                     /* "error" is silly, but that's the initial
                      * state of tok.  guilty until proven innocent. */  
                     tok = yajl_tok_error;
+                    (void) tok;
                     yajl_buf_clear(lexer->buf);
                     lexer->bufInUse = 0;
                     startOffset = *offset; 

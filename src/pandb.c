@@ -515,8 +515,8 @@ int find_near_context_cb(void *context_, void *entry,
                 (context->position, &scanned_slot->position);
             break;
         default:
-            cd = (Meters) 0.0;
             assert(0);
+            return -1;
         }
     } else {
         cd = distance_between_flat_positions(context->db,
