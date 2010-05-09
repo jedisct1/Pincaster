@@ -1,9 +1,17 @@
 
+- Output error messages.
+
+- Write tests.
+
+- Replace pointers + size and stringz with binvals.
+
 - Drop the global rwlock for layer-specific rwlocks.
 
 - Drop pthread rwlocks for fcfs rwlocks.
 
 - Handle expiration.
+
+- Add configuration to the journal at startup time.
 
 - Add time to journal entries for point-in-time recovery.
 
@@ -16,13 +24,9 @@ rbtree, this should be fast).
 
 - Symbolic links to other records, a la Riak.
 
-- Replace remaining fixed-size malloc() calls by slab allocations.
-
-- Dump configuration to the journal at startup time.
+- Get rid of the remaining fixed-size malloc() calls and use slab allocation.
 
 - Replication.
-
-- Output error messages.
 
 - Scripting through TinyScheme, LUA or Spidermonkey.
 
