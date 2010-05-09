@@ -2354,51 +2354,6 @@ evhttp_parse_query(const char *uri, struct evkeyvalq *headers)
 	mm_free(line);
 }
 
-/*
- * Helper function to parse out arguments in the arguments part of a query.
- * The arguments are separated by key and value.
- */
-
-void
-evhttp_parse_query_part(const char *uri, struct evkeyvalq *headers)
-{
-	char *line;
-	char *argument;
-	char *p;
-
-	TAILQ_INIT(headers);
-	if (*uri == '\0')
-		return;
-
-	if ((line = mm_strdup(uri)) == NULL) {
-		event_warn("%s: strdup", __func__);
-		return;
-	}
-	argument = line;
-	p = argument;
-	while (p != NULL && *p != '\0') {
-		char *key, *value, *decoded_value;
-		argument = strsep(&p, "&");
-
-		value = argument;
-		key = strsep(&value, "=");
-		if (value == NULL || *key == '\0')
-			goto error;
-
-		if ((decoded_value = mm_malloc(strlen(value) + 1)) == NULL) {
-			event_warn("%s: mm_malloc", __func__);
-			break;
-		}
-		evhttp_decode_uri_internal(value, strlen(value),
-		    decoded_value, 1);
-		evhttp_add_header_internal(headers, key, decoded_value);
-		mm_free(decoded_value);
-	}
-
- error:
-	mm_free(line);
-}
-
 static struct evhttp_cb *
 evhttp_dispatch_callback(struct httpcbq *callbacks, struct evhttp_request *req)
 {

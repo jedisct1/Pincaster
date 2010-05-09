@@ -124,7 +124,7 @@ INTERNALS, PERFORMANCE, AND AND CODE CLEANUPS
  o Rewrite evbuffer_expand and its users (d5ebcf3)
  o Add evutil_tv_to_msec for safe conversion of timevals to milliseconds. (850c3ff Christopher Davis)
  o Initialize last_with_datap correctly in evbuffer_overlapped (a0983b6)
- o Replace EVUTIL_CLOSESOCKET macro with a function (899c1dc Sebastian SjÃ¶berg)
+ o Replace EVUTIL_CLOSESOCKET macro with a function (899c1dc Sebastian Sjöberg)
  o Move domain search state to evdns_request. (beaa14a Christopher Davis)
  o Remove redundant checks for lock!=NULL before calling EVLOCK_LOCK (50ec59f)
  o Rename current_base symbol to event_global_current_base_ (c16e684)

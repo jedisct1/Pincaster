@@ -543,22 +543,6 @@ char *evhttp_decode_uri(const char *uri);
  */
 void evhttp_parse_query(const char *uri, struct evkeyvalq *headers);
 
-/**
-   Helper function to parse out arguments in the arguments part of a query.
-
-   Parsing a uri like
-
-      q=test&s=some+thing
-
-   will result in two entries in the key value queue.
-
-   The first entry is: key="q", value="test"
-   The second entry is: key="s", value="some thing"
-
-   @param uri the encoded arguments
-   @param headers the head of the evkeyval queue
- */
-void evhttp_parse_query_part(const char *uri, struct evkeyvalq *headers);
 
 /**
  * Escape HTML character entities in a string.
