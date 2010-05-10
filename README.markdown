@@ -1,15 +1,15 @@
-Pinecaster
-==========
+Pincaster
+=========
 
-Pinecaster is an in-memory, persistent data store for geographic data and key/value pairs, with a HTTP/JSON interface.
+Pincaster is an in-memory, persistent data store for geographic data and key/value pairs, with a HTTP/JSON interface.
 
-* [Pinecaster git repository](http://github.com/jedisct1/Pincaster)
+* [Pincaster git repository](http://github.com/jedisct1/Pincaster)
 * [Download snapshots tarballs](http://download.pureftpd.org/pincaster/snapshots/)
 
 Schema overview
 ---------------
 
-* A Pinecaster database contains a set of independent layers.
+* A Pincaster database contains a set of independent layers.
 * A layer is a namespace and a geographic space (flat or spherical). Each layer stores dynamic records.
 * A record is uniquely identified by a name and can hold either:
   1. No related value (*void* type).
@@ -24,9 +24,9 @@ Installation
     ./configure
     make install
 
-Review the `pinecaster.conf` configuration file and run:
+Review the `pincaster.conf` configuration file and run:
 
-    pinecaster /path/to/pinecaster.conf
+    pincaster /path/to/pincaster.conf
 
 Layers
 ------
