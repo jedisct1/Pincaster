@@ -3,6 +3,7 @@
 set -ex
 
 cleanup() {
+    sleep 5
     kill $pincaster_pid
     rm -f /tmp/pincaster.db
 }
@@ -336,6 +337,16 @@ EXPECTED=$(python -m json.tool <<EOF
 EOF
 )
 RESULT=$(curl --silent -XDELETE http://localhost:4269/api/1.0/layers/tlay.json | python -m json.tool)
+[ "$RESULT" = "$EXPECTED" ]
+
+EXPECTED=$(python -m json.tool <<EOF
+{
+        "tid": 25,
+        "rewrite": "started"
+}
+EOF
+)
+RESULT=$(curl --silent -d'x' http://localhost:4269/api/1.0/system/rewrite.json | python -m json.tool)
 [ "$RESULT" = "$EXPECTED" ]
 
 echo "SUCCESS"
