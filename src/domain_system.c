@@ -318,7 +318,6 @@ int rewrite_child(HttpHandlerContext * const context)
 {
     (void) context;
     
-    puts("Creating a new journal as a background process...");
     context->should_exit = 1;
     event_reinit(context->event_base);
     event_base_free(context->event_base);
@@ -327,6 +326,8 @@ int rewrite_child(HttpHandlerContext * const context)
     if (db_log->db_log_fd != -1) {
         close(db_log->db_log_fd);
     }
+    nice(BGREWRITEAOF_NICENESS);
+    puts("Creating a new journal as a background process...");    
     char *tmp_log_file_name = get_tmp_log_file_name();
     if (tmp_log_file_name == NULL) {
         return -1;

@@ -3,6 +3,9 @@
 #define __DOMAIN_SYSTEM_H__ 1
 
 #define TMP_LOG_BUFFER_SIZE 65536
+#ifndef BGREWRITEAOF_NICENESS
+# define BGREWRITEAOF_NICENESS 10
+#endif
 
 int handle_domain_system(struct evhttp_request * const req,
                          HttpHandlerContext * const context,
