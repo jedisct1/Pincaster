@@ -157,7 +157,7 @@ int uri_encode_binval(BinVal * const evalue, const BinVal * const value)
     evalue->size = (size_t) 0;    
     if (value->size > evalue->max_size || evalue->val == NULL) {
         wanted_max_size = value->size * (size_t) 3 / (size_t) 2;
-        if (wanted_max_size <= value->size) {
+        if (wanted_max_size < value->size) {
             exit(1);
         }
         assert(wanted_max_size > (size_t) 0U);
