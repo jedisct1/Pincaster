@@ -127,7 +127,7 @@ stab:
         } else {
             assert(0);
         }
-        if (ret != 0) {
+        if (ret != 0 && op.bare_op.fake_req == 0) {
             OpReply *op_reply = malloc(sizeof *op_reply);
             if (op_reply == NULL) {
                 return 0;
