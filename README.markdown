@@ -164,7 +164,7 @@ Check the list of active layers:
 		"layers": [
 			{
 				"name": "restaurants",
-				"nodes": 0,
+				"geo_nodes": 0,
 				"type": "geoidal",
 				"distance_accuracy": "fast",
 				"latitude_accuracy": 0.0001,

@@ -308,8 +308,8 @@ int add_layer_name_to_json_gen(void *context_, void *entry,
                     (unsigned int) strlen(layer->name));
     
     yajl_gen_string(json_gen,
-                    (const unsigned char *) "nodes",
-                    (unsigned int) sizeof "nodes" - (size_t) 1U);
+                    (const unsigned char *) "geo_nodes",
+                    (unsigned int) sizeof "geo_nodes" - (size_t) 1U);
     yajl_gen_integer(json_gen, (long) pan_db->root.sub_slots);
 
     yajl_gen_string(json_gen,
