@@ -84,6 +84,12 @@ int key_node_to_json(KeyNode * const key_node, yajl_gen json_gen,
     if (with_properties == 0) {
         return 0;
     }
+    if (key_node->expirable != NULL) {
+        assert(key_node->expirable->ts != (time_t) 0);
+        yajl_gen_string(json_gen, (const unsigned char *) "expires_at",
+                        (unsigned int) sizeof "expires_at" - (size_t) 1U);
+        yajl_gen_integer(json_gen, (long) key_node->expirable->ts);
+    }
     RecordsGetPropertiesCBContext cb_context = {
         .json_gen = json_gen
     };

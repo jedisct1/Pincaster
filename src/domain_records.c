@@ -5,16 +5,9 @@
 #include "domain_layers.h"
 #include "query_parser.h"
 
-#define INT_PROPERTY_COMMON_PREFIX     '_'
-#define INT_PROPERTY_TYPE              "_type"
-#define INT_PROPERTY_EXPIRES_AT        "_expires_at"
-#define INT_PROPERTY_TTL               "_ttl"
-#define INT_PROPERTY_POSITION          "_loc"
-#define INT_PROPERTY_DELETE_PREFIX     "_delete:"
-#define INT_PROPERTY_DELETE_ALL_PREFIX "_delete_all"
-#define INT_PROPERTY_ADD_INT_PREFIX    "_add_int:"
-
-#define PROPERTIES_DEFAULT_SLIP_MAP_BUFFER_SIZE (size_t) 32U
+#ifndef PROPERTIES_DEFAULT_SLIP_MAP_BUFFER_SIZE
+# define PROPERTIES_DEFAULT_SLIP_MAP_BUFFER_SIZE (size_t) 32U
+#endif
 
 RB_PROTOTYPE_STATIC(KeyNodes_, KeyNode_, entry, key_node_cmp);
 RB_GENERATE_STATIC(KeyNodes_, KeyNode_, entry, key_node_cmp);
@@ -472,6 +465,7 @@ int handle_op_records_put(RecordsPutOp * const put_op,
             };
             expirable = add_entry_to_slab(&context->expirables_slab,
                                           &new_expirable);
+            key_node->expirable = expirable;
         }
     }
     if (put_op->fake_req != 0) {

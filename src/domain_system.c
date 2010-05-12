@@ -2,6 +2,7 @@
 #include "common.h"
 #include "http_server.h"
 #include "query_parser.h"
+#include "domain_records.h"
 #include "domain_system.h"
 
 static int handle_special_op_system_rewrite(HttpHandlerContext * const context,
@@ -234,9 +235,18 @@ static int rebuild_journal_record_cb(void *context_, KeyNode * const key_node)
 #else
     const Position2D * const position = &key_node->slot->position;
 #endif
-        evbuffer_add_printf(body_buffer, "_loc=%f,%f",
+        evbuffer_add_printf(body_buffer, 
+                            INT_PROPERTY_POSITION "=%f,%f",
                             (double) position->latitude,
                             (double) position->longitude);
+    }
+    if (key_node->expirable != NULL) {
+        if (cb_context.first == 0) {
+            evbuffer_add(body_buffer, "&", (size_t) 1U);
+        }
+        evbuffer_add_printf(body_buffer,
+                            INT_PROPERTY_EXPIRES_AT "=%lu",
+                            key_node->expirable->ts);
     }
     evbuffer_add_printf(log_buffer, "%zx:", evbuffer_get_length(body_buffer));
     evbuffer_add_buffer(log_buffer, body_buffer);    
