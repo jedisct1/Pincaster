@@ -230,6 +230,7 @@ static int rebuild_journal_record_cb(void *context_, KeyNode * const key_node)
         if (cb_context.first == 0) {
             evbuffer_add(body_buffer, "&", (size_t) 1U);
         }
+        cb_context.first = 0;
 #if PROJECTION
     const Position2D * const position = &key_node->slot->real_position;
 #else
@@ -244,9 +245,10 @@ static int rebuild_journal_record_cb(void *context_, KeyNode * const key_node)
         if (cb_context.first == 0) {
             evbuffer_add(body_buffer, "&", (size_t) 1U);
         }
+        cb_context.first = 0;
         evbuffer_add_printf(body_buffer,
                             INT_PROPERTY_EXPIRES_AT "=%lu",
-                            key_node->expirable->ts);
+                            (unsigned long) key_node->expirable->ts);
     }
     evbuffer_add_printf(log_buffer, "%zx:", evbuffer_get_length(body_buffer));
     evbuffer_add_buffer(log_buffer, body_buffer);    
