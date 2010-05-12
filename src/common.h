@@ -17,6 +17,7 @@
 #include <signal.h>
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <poll.h>
 #include <pthread.h>
 #include "ext/queue.h"
