@@ -525,7 +525,7 @@ int find_near_context_cb(void *context_, void *entry,
     }
     if (cd <= context->distance) {
        if (scanned_slot->key_node != NULL) {
-           if (context->cb != NULL) {
+           if (context->cb != NULL) {               
                const int ret =
                    context->cb(context->context_cb, scanned_slot, cd);
                if (ret != 0) {
@@ -565,6 +565,14 @@ static int find_near_in_zone(Rectangle2D * const matching_rect,
     QuadNodeWithBounds *sqnb;    
     
     scanned_node = &db->root;    
+    FindNearIntCBContext context = {
+        .db = db,
+        .position = position,
+        .distance = distance,
+        .cb = cb,
+        .context_cb = context_cb,
+        .limit = limit
+    };
     for (;;) {
         assert(scanned_node->type == NODE_TYPE_QUAD_NODE);
         get_qrects_from_qbounds(scanned_children_qbounds, &scanned_qbounds);
@@ -578,15 +586,6 @@ static int find_near_in_zone(Rectangle2D * const matching_rect,
             }
             if (scanned_node_child->bare_node.type == NODE_TYPE_BUCKET_NODE) {
                 const Bucket *bucket = &scanned_node_child->bucket_node.bucket;
-                           
-                FindNearIntCBContext context = {
-                    .db = db,
-                    .position = position,
-                    .distance = distance,
-                    .cb = cb,
-                    .context_cb = context_cb,
-                    .limit = limit
-                };
                 const int ret = slab_foreach((Slab *) &bucket->slab,
                                              find_near_context_cb, &context);
                 if (ret != 0) {
@@ -846,6 +845,13 @@ int find_in_rect(const PanDB * const db,
     stack_inspect = new_pnt_stack(DEFAULT_STACK_SIZE_FOR_SEARCHES,
                                   sizeof qnb);
     scanned_node = &db->root;
+    FindInRectIntCBContext context = {
+        .db = db,
+        .cb = cb,
+        .context_cb = context_cb,
+        .position = &rect_center,
+        .limit = limit
+    };
     for (;;) {
         assert(scanned_node->type == NODE_TYPE_QUAD_NODE);
         get_qrects_from_qbounds(scanned_children_qbounds, &scanned_qbounds);
@@ -859,14 +865,6 @@ int find_in_rect(const PanDB * const db,
             }
             if (scanned_node_child->bare_node.type == NODE_TYPE_BUCKET_NODE) {
                 const Bucket *bucket = &scanned_node_child->bucket_node.bucket;
-                           
-                FindInRectIntCBContext context = {
-                    .db = db,
-                    .cb = cb,
-                    .context_cb = context_cb,
-                    .position = &rect_center,
-                    .limit = limit
-                };
                 context.rect = rect;
                 const int ret = slab_foreach((Slab *) &bucket->slab,
                                              find_in_rect_context_cb, &context);
