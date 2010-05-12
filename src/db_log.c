@@ -63,6 +63,13 @@ void free_db_log(void)
         evbuffer_free(db_log->log_buffer);
         db_log->log_buffer = NULL;
     }
+    if (db_log->db_log_file_name != NULL) {
+        char * const tmp_log_file_name = get_tmp_log_file_name();
+        if (tmp_log_file_name != NULL) {
+            unlink(tmp_log_file_name);
+            free(tmp_log_file_name);
+        }
+    }
 }
 
 int close_db_log(void)

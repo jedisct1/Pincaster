@@ -305,6 +305,10 @@ void free_layer_slab_entry_cb(void *layer_)
 static RETSIGTYPE sigterm_cb(const int sig)
 {
     (void) sig;
+    if (app_context.db_log.journal_rewrite_process != (pid_t) -1) {
+        kill(app_context.db_log.journal_rewrite_process, SIGKILL);
+        app_context.db_log.journal_rewrite_process = (pid_t) -1;
+    }
     if (event_base != NULL) {
         event_base_loopbreak(event_base);
     }
@@ -496,7 +500,7 @@ bye:
     pthread_cond_destroy(&http_handler_context.cond_cqueue);
     pthread_mutex_destroy(&http_handler_context.mtx_cqueue);
     pthread_rwlock_destroy(&http_handler_context.rwlock_layers);
-    free_slab(&http_handler_context.layers_slab, free_layer_slab_entry_cb);
+    free_slab(&http_handler_context.layers_slab, free_layer_slab_entry_cb);    
     
     return 0;
 }

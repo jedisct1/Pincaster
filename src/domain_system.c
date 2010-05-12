@@ -35,6 +35,10 @@ int handle_domain_system(struct evhttp_request * const req,
         return 0;
     }
     if (req->type == EVHTTP_REQ_POST && strcasecmp(uri, "shutdown") == 0) {
+        if (app_context.db_log.journal_rewrite_process != (pid_t) -1) {
+            kill(app_context.db_log.journal_rewrite_process, SIGKILL);
+            app_context.db_log.journal_rewrite_process = (pid_t) -1;
+        }
         event_base_loopbreak(context->event_base);
         return 0;
     }
