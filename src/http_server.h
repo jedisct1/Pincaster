@@ -98,6 +98,7 @@ typedef struct RecordsPutOp_ {
     SlipMap *properties;
     SlipMap *special_properties;    
     _Bool position_set;
+    time_t expires_at;
 } RecordsPutOp;
 
 typedef struct RecordsGetOp_ {
@@ -274,6 +275,7 @@ typedef struct HttpHandlerContext_ {
     struct bufferevent *consumer_bev;
     Slab layers_slab;
     struct event ev_flush_log_db;
+    Slab expirables_slab;
 } HttpHandlerContext;
 
 typedef int (*DomainHandler)(struct evhttp_request * const req,

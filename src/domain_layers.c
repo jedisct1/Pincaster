@@ -131,7 +131,7 @@ static Layer *register_new_layer(HttpHandlerContext * const context_,
         free(tmp_layer.name);
         return NULL;
     }
-    if (init_pan_db(&layer->pan_db) != 0) {
+    if (init_pan_db(&layer->pan_db, context) != 0) {
         assert(tmp_layer.name == layer->name);
         free(layer->name);
         remove_entry_from_slab(&context->layers_slab, layer);

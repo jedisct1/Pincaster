@@ -80,11 +80,17 @@ typedef union Node_ {
     struct QuadNode_   quad_node;
 } Node;
 
+typedef struct Expirable_ {
+    time_t ts;
+    struct KeyNode_ *key_node;
+} Expirable;
+
 typedef struct KeyNode_ {
     RB_ENTRY(KeyNode_) entry;
     Key *key;
     Slot *slot;
     SlipMap *properties;
+    Expirable *expirable;
 } KeyNode;
 
 typedef RB_HEAD(KeyNodes_, KeyNode_) KeyNodes;
@@ -94,6 +100,7 @@ typedef enum Accuracy_ {
 } Accuracy;
 
 typedef struct PanDB_ {
+    struct HttpHandlerContext_ *context;    
     QuadNode root;
     KeyNodes key_nodes;
     pthread_rwlock_t rwlock_db;
@@ -117,7 +124,9 @@ typedef int (*FindInRectCB)(void * const context,
 
 void dump(Node *scanned_node);
 
-int init_pan_db(PanDB * const db);
+int init_pan_db(PanDB * const db,
+                struct HttpHandlerContext_ * const context);
+
 void free_pan_db(PanDB * const db);
 
 int remove_entry_from_key_node(PanDB * const db,

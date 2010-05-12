@@ -6,8 +6,8 @@
 #include "query_parser.h"
 
 #define INT_PROPERTY_COMMON_PREFIX     '_'
-#define INT_PROPERTY_EXPIRES_AT        "_expires_at"
 #define INT_PROPERTY_TYPE              "_type"
+#define INT_PROPERTY_EXPIRES_AT        "_expires_at"
 #define INT_PROPERTY_TTL               "_ttl"
 #define INT_PROPERTY_POSITION          "_loc"
 #define INT_PROPERTY_DELETE_PREFIX     "_delete:"
@@ -55,6 +55,17 @@ static int records_put_opt_parse_cb(void * const context_,
         }
         *zeroed1 = ',';
         put_op->position_set = 1;
+    } else if (BINVAL_IS_EQUAL_TO_CONST_STRING(key, INT_PROPERTY_EXPIRES_AT)) {
+        char *svalue = value->val;
+        skip_spaces((const char * *) &svalue);
+        if (*svalue == 0) {
+            return -1;
+        }
+        char *endptr;
+        put_op->expires_at = (time_t) strtoul(svalue, &endptr, 10);
+        if (endptr == NULL || endptr == svalue) {
+            return -1;
+        }
     } else {
         assert(key->size > (size_t) 0U);
         if (*key->val == INT_PROPERTY_COMMON_PREFIX) {
@@ -176,7 +187,8 @@ int handle_domain_records(struct evhttp_request * const req,
             },
             .position_set = 0,
             .properties = NULL,
-            .special_properties = NULL
+            .special_properties = NULL,
+            .expires_at = (time_t) 0
         };
         RecordsPutOptParseCBContext cb_context = {
             .put_op = put_op
@@ -422,7 +434,7 @@ int handle_op_records_put(RecordsPutOp * const put_op,
         if (add_slot(pan_db, &slot, &new_slot) != 0) {
             RB_REMOVE(KeyNodes_, &pan_db->key_nodes, key_node);
             key_node->slot = NULL;
-            free_key_node(key_node);
+            free_key_node(pan_db, key_node);
             free_slip_map(&put_op->properties);
             free_slip_map(&put_op->special_properties);            
             
@@ -449,6 +461,18 @@ int handle_op_records_put(RecordsPutOp * const put_op,
         slip_map_foreach(&put_op->properties, records_put_merge_properties_cb,
                          &cb_context);
         free_slip_map(&put_op->properties);
+    }
+    if (put_op->expires_at != (time_t) 0) {
+        Expirable *expirable = key_node->expirable;
+        
+        if (expirable == NULL) {
+            Expirable new_expirable = {
+                .ts = put_op->expires_at,
+                .key_node = key_node
+            };
+            expirable = add_entry_to_slab(&context->expirables_slab,
+                                          &new_expirable);
+        }
     }
     if (put_op->fake_req != 0) {
         return 0;
@@ -564,7 +588,7 @@ int handle_op_records_delete(RecordsDeleteOp * const delete_op,
     }
     assert(key_node->slot == NULL);
     RB_REMOVE(KeyNodes_, &pan_db->key_nodes, key_node);
-    free_key_node(key_node);
+    free_key_node(pan_db, key_node);
     if (delete_op->fake_req != 0) {
         return 0;
     }

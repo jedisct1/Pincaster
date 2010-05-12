@@ -367,7 +367,7 @@ int remove_entry_from_key_node(PanDB * const db,
     if (should_free_key_node != 0) {
         RB_REMOVE(KeyNodes_, &db->key_nodes, key_node);        
         key_node->slot = NULL;
-        free_key_node(key_node);
+        free_key_node(db, key_node);
     }
     bucket_node = slot->bucket_node;
     assert(bucket_node != NULL);
@@ -890,7 +890,8 @@ int find_in_rect(const PanDB * const db,
     return 0;
 }
 
-int init_pan_db(PanDB * const db)
+int init_pan_db(PanDB * const db,
+                struct HttpHandlerContext_ * const context)
 {
     pthread_rwlock_init(&db->rwlock_db, NULL);
     init_quad_node(&db->root);
@@ -902,6 +903,8 @@ int init_pan_db(PanDB * const db)
         app_context.dimension_accuracy;
     db->layer_type = app_context.default_layer_type;
     db->accuracy = app_context.default_accuracy;
+    assert(context != NULL);
+    db->context = context;
     RB_INIT(&db->key_nodes);
     
     return 0;
@@ -928,7 +931,7 @@ void free_pan_db(PanDB * const db)
                                 scanned_key_node);
         RB_REMOVE(KeyNodes_, &db->key_nodes, scanned_key_node);
         scanned_key_node->slot = NULL;
-        free_key_node(scanned_key_node);
+        free_key_node(db, scanned_key_node);
     }
     stack_inspect = new_pnt_stack((size_t) 8U, sizeof qn);
     stack_quad_nodes_to_delete = new_pnt_stack((size_t) 8U, sizeof qn);
@@ -962,6 +965,8 @@ void free_pan_db(PanDB * const db)
         free_quad_node(qn);
     }
     free_pnt_stack(stack_quad_nodes_to_delete);
+    assert(db->context != NULL);
+    db->context = NULL;
     pthread_rwlock_destroy(&db->rwlock_db);
 }
 

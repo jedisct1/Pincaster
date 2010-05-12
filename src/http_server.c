@@ -294,12 +294,21 @@ int fake_request(HttpHandlerContext * const context,
     return 0;
 }
 
-void free_layer_slab_entry_cb(void *layer_)
+static void free_layer_slab_entry_cb(void *layer_)
 {
     Layer * const layer = layer_;
     free(layer->name);
     layer->name = NULL;
     free_pan_db(&layer->pan_db);
+}
+
+static void free_expirables_slab_entry_cb(void *expirable_)
+{
+    Expirable * const expirable = expirable_;
+    *expirable = (Expirable) {
+        .ts = (time_t) 0,
+        .key_node = NULL
+    };
 }
 
 static RETSIGTYPE sigterm_cb(const int sig)
@@ -437,6 +446,10 @@ int http_server(void)
                   sizeof(Layer), "layers") != 0) {
         return -1;
     }
+    if (init_slab(&http_handler_context.expirables_slab,
+                  sizeof(Expirable), "expirables") != 0) {
+        return -1;
+    }
     http_handler_context.cqueue = malloc(sizeof *http_handler_context.cqueue);
     if (http_handler_context.cqueue == NULL ||
         init_cqueue(http_handler_context.cqueue,
@@ -500,7 +513,9 @@ bye:
     pthread_cond_destroy(&http_handler_context.cond_cqueue);
     pthread_mutex_destroy(&http_handler_context.mtx_cqueue);
     pthread_rwlock_destroy(&http_handler_context.rwlock_layers);
-    free_slab(&http_handler_context.layers_slab, free_layer_slab_entry_cb);    
+    free_slab(&http_handler_context.layers_slab, free_layer_slab_entry_cb);
+    free_slab(&http_handler_context.expirables_slab,
+              free_expirables_slab_entry_cb);
     
     return 0;
 }

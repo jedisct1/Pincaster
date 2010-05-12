@@ -1,5 +1,6 @@
 
 #include "common.h"
+#include "http_server.h"
 #include "key_nodes.h"
 
 RB_PROTOTYPE_STATIC(KeyNodes_, KeyNode_, entry, key_node_cmp);
@@ -49,7 +50,8 @@ int get_key_node_from_key(PanDB * const db, Key * const key,
     *new_key_node = (KeyNode) {
         .key = key,
         .slot = NULL,
-        .properties = NULL
+        .properties = NULL,
+        .expirable = NULL
     };
     if (RB_INSERT(KeyNodes_, &db->key_nodes, new_key_node) != NULL) {
         release_key(key);
@@ -61,7 +63,7 @@ int get_key_node_from_key(PanDB * const db, Key * const key,
     return 1;
 }
 
-void free_key_node(KeyNode * const key_node)
+void free_key_node(PanDB * const db, KeyNode * const key_node)
 {
     if (key_node == NULL) {
         return;
@@ -71,6 +73,11 @@ void free_key_node(KeyNode * const key_node)
     key_node->key = NULL;
     free_slip_map(&key_node->properties);
     key_node->properties = NULL;
+    HttpHandlerContext * context = db->context;
+    if (key_node->expirable != NULL) {
+        remove_entry_from_slab(&context->expirables_slab, key_node->expirable);
+        key_node->expirable = NULL;
+    }
     free(key_node);
 }
 
