@@ -1,6 +1,7 @@
 
 #include "common.h"
 #include "http_server.h"
+#include "domain_system.h"
 #include "db_log.h"
 
 int init_db_log(void)
