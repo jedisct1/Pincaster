@@ -287,6 +287,7 @@ int fake_request(HttpHandlerContext * const context,
     evbuffer_add(req.input_buffer, body, body_len);
     process_request(context, &req, 1);
     evbuffer_free(req.input_buffer);
+    worker_do_work(context);
     
     return 0;
 }
@@ -425,7 +426,6 @@ int http_server(void)
     };
     struct evhttp *event_http;
     struct bufferevent *bev_pair[2];
-
     set_signals();
     if (init_slab(&http_handler_context.layers_slab,
                   sizeof(Layer), "layers") != 0) {
@@ -467,11 +467,6 @@ int http_server(void)
     evhttp_set_gencb(event_http, http_dispatcher_cb, &http_handler_context);
     bufferevent_setcb(http_handler_context.consumer_bev,
                       consumer_cb, NULL, NULL, &http_handler_context);
-
-    if (start_workers(&http_handler_context) != 0) {
-        goto bye;
-    }
-    
     if (app_context.db_log.fsync_period > 0) {
         evtimer_assign(&http_handler_context.ev_flush_log_db, event_base,
                        flush_log_db, &http_handler_context);
@@ -482,6 +477,9 @@ int http_server(void)
         evtimer_add(&http_handler_context.ev_flush_log_db, &tv);
     }
     replay_log(&http_handler_context);
+    if (start_workers(&http_handler_context) != 0) {
+        goto bye;
+    }    
     event_base_dispatch(event_base);
     stop_workers(&http_handler_context);
     if (app_context.db_log.fsync_period > 0) {
