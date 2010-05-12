@@ -10,6 +10,8 @@ int get_key_node_from_key(PanDB * const db, Key * const key,
 
 void free_key_node(KeyNode * const key_node);
 
+SubSlots count_key_nodes(const KeyNodes * const key_nodes);
+
 typedef int (*KeyNodesForeachCB)(void *context, KeyNode * const key_node);
 
 int key_nodes_foreach(KeyNodes * const key_nodes,

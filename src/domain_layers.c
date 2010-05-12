@@ -307,11 +307,20 @@ int add_layer_name_to_json_gen(void *context_, void *entry,
                     (const unsigned char *) layer->name,
                     (unsigned int) strlen(layer->name));
     
+    const SubSlots nb_key_nodes = count_key_nodes(&pan_db->key_nodes);
+    
     yajl_gen_string(json_gen,
-                    (const unsigned char *) "geo_nodes",
-                    (unsigned int) sizeof "geo_nodes" - (size_t) 1U);
+                    (const unsigned char *) "records",
+                    (unsigned int) sizeof "records" - (size_t) 1U);
+    yajl_gen_integer(json_gen, (long) nb_key_nodes);
+
+    yajl_gen_string(json_gen,
+                    (const unsigned char *) "geo_records",
+                    (unsigned int) sizeof "geo_records" - (size_t) 1U);
     yajl_gen_integer(json_gen, (long) pan_db->root.sub_slots);
 
+    assert(nb_key_nodes >= pan_db->root.sub_slots);
+    
     yajl_gen_string(json_gen,
                     (const unsigned char *) "type",
                     (unsigned int) sizeof "type" - (size_t) 1U);

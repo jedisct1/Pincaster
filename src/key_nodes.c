@@ -74,6 +74,21 @@ void free_key_node(KeyNode * const key_node)
     free(key_node);
 }
 
+SubSlots count_key_nodes(const KeyNodes * const key_nodes_)
+{
+    KeyNodes * const key_nodes = (KeyNodes *) key_nodes_;
+    SubSlots count = (SubSlots) 0U;
+    
+    if (key_nodes == NULL) {
+        return count;
+    }
+    KeyNode *key_node = NULL;
+    RB_FOREACH(key_node, KeyNodes_, key_nodes) {
+        count++;
+    }
+    return count;    
+}
+
 int key_nodes_foreach(KeyNodes * const key_nodes,
                       KeyNodesForeachCB cb, void * const context)
 {
