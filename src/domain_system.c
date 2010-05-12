@@ -421,13 +421,15 @@ static int handle_special_op_system_rewrite(HttpHandlerContext * const context,
 static int copy_data_between_fds(const int source_fd, const int target_fd)
 {
     struct evbuffer *evbuf = evbuffer_new();
-    int read_nb;
+    int evbuf_read_size;
+    size_t to_write;
     
-    while ((read_nb = evbuffer_read
+    while ((evbuf_read_size = (ssize_t) evbuffer_read
             (evbuf, source_fd, TMP_LOG_BUFFER_SIZE)) > 0) {
+        to_write = (size_t) evbuf_read_size;
         do {
             ssize_t written = evbuffer_write(evbuf, target_fd);
-            if (written < read_nb) {
+            if (written < (ssize_t) 0) {
                 if (errno == EINTR) {
                     continue;
                 }
@@ -437,8 +439,14 @@ static int copy_data_between_fds(const int source_fd, const int target_fd)
                 }
                 evbuffer_free(evbuf);
                 return -1;
+            }            
+            if (written == (ssize_t) 0) {
+                evbuffer_free(evbuf);                
+                return -1;
             }
-        } while(0);        
+            assert((ssize_t) to_write >= written);
+            to_write -= (size_t) written;
+        } while (to_write > (size_t) 0U);
     }
     evbuffer_free(evbuf);
     
