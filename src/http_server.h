@@ -15,6 +15,13 @@
 #ifndef MAX_URI_LEN
 # define MAX_URI_LEN (size_t) 10000U
 #endif
+#ifndef BEAUTIFY_JSON
+# ifdef DEBUG
+#  define BEAUTIFY_JSON 1
+# else
+#  define BEAUTIFY_JSON 0
+# endif
+#endif
 
 typedef enum OpType_ {
     OP_TYPE_NONE,

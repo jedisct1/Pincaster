@@ -271,7 +271,7 @@ static int find_near_cb(void * const context_,
     FindNearCBContext * const context = context_;
     yajl_gen json_gen = context->json_gen;
     KeyNode * const key_node = slot->key_node;
-    
+
     assert(key_node != NULL);
     yajl_gen_map_open(json_gen);
     yajl_gen_string(json_gen,

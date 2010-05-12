@@ -47,8 +47,10 @@ int send_op_reply(HttpHandlerContext * const context,
 
 yajl_gen new_json_gen(const OpReply * const op_reply)
 {
-    yajl_gen json_gen = yajl_gen_alloc
-        (&(yajl_gen_config) { .beautify = 1, .indentString = "\t" }, NULL);
+    yajl_gen json_gen = yajl_gen_alloc(&(yajl_gen_config) {
+        .beautify = BEAUTIFY_JSON,
+        .indentString = "\t"
+    }, NULL);
     if (json_gen == NULL) {
         return NULL;
     }
