@@ -364,3 +364,71 @@ int append_to_binval(BinVal * const binval, const char * const str,
     
     return 0;
 }
+
+int init_buffered_read(BufferedReadContext * const context,
+                       const int fd)
+{
+    *context = (BufferedReadContext) {
+        .buf = NULL,
+        .fd = fd,
+        .offset = (off_t) 0,
+        .total_size = (off_t) 0,
+        .buffer_size = DEFAULT_BUFFERED_READ_BUFFER_SIZE
+    };
+    struct stat st;
+    
+    if (fstat(fd, &st) != 0) {
+        return -1;
+    }
+    context->total_size = st.st_size;
+    struct evbuffer *buf = evbuffer_new();
+    if (buf == NULL) {
+        return -1;
+    }
+    context->buf = buf;
+    
+    return 0;
+}
+
+void free_buffered_read(BufferedReadContext * const context)
+{
+    evbuffer_free(context->buf);
+    *context = (BufferedReadContext) {
+        .buf = NULL,
+        .fd = -1,
+        .offset = (off_t) 0,            
+        .total_size = (off_t) 0,
+        .buffer_size = DEFAULT_BUFFERED_READ_BUFFER_SIZE
+    };
+}
+
+ssize_t buffered_read(BufferedReadContext * const context,
+                      char * const out_buf, const size_t length)
+{
+    struct evbuffer * const buf = context->buf;
+    const size_t available_in_buf = evbuffer_get_length(buf);
+    if (available_in_buf < length) {
+        if (context->offset >= context->total_size) {
+            return 0;
+        }        
+        size_t to_read = length - available_in_buf;
+        const off_t remaining = context->total_size - context->offset;
+        if ((off_t) to_read > remaining) {
+            return 0;
+        }
+        if (remaining - (off_t) to_read >= (off_t) context->buffer_size) {
+            to_read += context->buffer_size;
+        }
+        const ssize_t readnb =
+            (ssize_t) evbuffer_read(buf, context->fd, to_read);
+        if (readnb <= (ssize_t) 0) {
+            return readnb;
+        }
+        context->offset += (off_t) readnb;
+        assert(context->offset <= context->total_size);
+    }
+    if (evbuffer_remove(buf, out_buf, length) <= 0) {
+        return -1;
+    }
+    return (ssize_t) length;
+}

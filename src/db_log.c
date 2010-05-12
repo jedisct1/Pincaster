@@ -156,8 +156,8 @@ int flush_db_log(const _Bool sync)
     return 0;
 }
 
-// This is dog slow, all these calls to read() absolutely need to go away.
-int replay_log_record(HttpHandlerContext * const context)
+int replay_log_record(HttpHandlerContext * const context,
+                      BufferedReadContext * const brc)
 {
     DBLog * const db_log = &app_context.db_log;
     
@@ -171,8 +171,8 @@ int replay_log_record(HttpHandlerContext * const context)
     char *endptr;
     off_t current_offset = lseek(db_log->db_log_fd, (off_t) 0, SEEK_CUR);
     
-    ssize_t readnb = safe_read(db_log->db_log_fd, buf_cookie_head,
-                               sizeof buf_cookie_head);
+    ssize_t readnb = buffered_read(brc, buf_cookie_head,
+                                   sizeof buf_cookie_head);
     if (readnb == (ssize_t) 0) {
         return 1;
     }
@@ -185,7 +185,7 @@ int replay_log_record(HttpHandlerContext * const context)
     }
     pnt = buf_number;
     for (;;) {
-        if (safe_read(db_log->db_log_fd, pnt, (size_t) 1U) != (ssize_t) 1U) {
+        if (buffered_read(brc, pnt, (size_t) 1U) != (ssize_t) 1U) {
             return -1;
         }
         if (*pnt == ' ') {
@@ -202,7 +202,7 @@ int replay_log_record(HttpHandlerContext * const context)
     
     pnt = buf_number;
     for (;;) {
-        if (safe_read(db_log->db_log_fd, pnt, (size_t) 1U) != (ssize_t) 1U) {
+        if (buffered_read(brc, pnt, (size_t) 1U) != (ssize_t) 1U) {
             return -1;
         }
         if (*pnt == ':') {
@@ -220,19 +220,19 @@ int replay_log_record(HttpHandlerContext * const context)
     if ((uri = malloc(uri_len + (size_t) 1U)) == NULL) {
         _exit(1);
     }    
-    if (safe_read(db_log->db_log_fd, uri, uri_len) != (ssize_t) uri_len) {
+    if (buffered_read(brc, uri, uri_len) != (ssize_t) uri_len) {
         return -1;
     }
     *(uri + uri_len) = 0;
     
     pnt = buf_number;
-    if (safe_read(db_log->db_log_fd, pnt, (size_t) 1U) != (ssize_t) 1U ||
+    if (buffered_read(brc, pnt, (size_t) 1U) != (ssize_t) 1U ||
         *pnt != ' ') {
         free(uri);
         return -1;
     }    
     for (;;) {
-        if (safe_read(db_log->db_log_fd, pnt, (size_t) 1U) != (ssize_t) 1U) {
+        if (buffered_read(brc, pnt, (size_t) 1U) != (ssize_t) 1U) {
             free(uri);
             return -1;
         }
@@ -260,16 +260,14 @@ int replay_log_record(HttpHandlerContext * const context)
     }
     if (body != NULL) {
         assert(body_len > (size_t) 0U);
-        if (safe_read(db_log->db_log_fd, body, body_len) !=
-            (ssize_t) body_len) {
+        if (buffered_read(brc, body, body_len) != (ssize_t) body_len) {
             free(uri);
             free(body);
             return -1;
         }
         *(body + body_len) = 0;
     }
-    readnb = safe_read(db_log->db_log_fd, buf_cookie_tail,
-                       sizeof buf_cookie_tail);
+    readnb = buffered_read(brc, buf_cookie_tail, sizeof buf_cookie_tail);
     if (readnb != (ssize_t) sizeof buf_cookie_tail ||
         memcmp(buf_cookie_tail, buf_cookie_tail, readnb) != 0) {
         free(body);
@@ -285,13 +283,21 @@ int replay_log_record(HttpHandlerContext * const context)
 
 int replay_log(HttpHandlerContext * const context)
 {
+    DBLog * const db_log = &app_context.db_log;    
     int res;
     uintmax_t counter = (uintmax_t) 0U;
+    BufferedReadContext brc;
 
+    if (db_log->db_log_fd == -1 || db_log->db_log_file_name == NULL) {
+        puts("No journal");
+        return 0;
+    }
+    init_buffered_read(&brc, db_log->db_log_fd);
     puts("Replaying journal...");
-    while ((res = replay_log_record(context)) == 0) {
+    while ((res = replay_log_record(context, &brc)) == 0) {
         counter++;
     }
+    free_buffered_read(&brc);
     printf("%" PRIuMAX " transactions replayed.\n", counter);
     if (res < 0) {
         puts("Possibly corrupted journal.");

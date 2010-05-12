@@ -2,6 +2,10 @@
 #ifndef __UTILS_H__
 #define __UTILS_H__ 1
 
+#ifndef DEFAULT_BUFFERED_READ_BUFFER_SIZE
+# define DEFAULT_BUFFERED_READ_BUFFER_SIZE ((size_t) 65536U)
+#endif
+
 #define BINVAL_IS_EQUAL_TO_CONST_STRING(BV, S) \
     ((BV)->size == sizeof (S) - (size_t) 1U && \
         strncasecmp((BV)->val, (S), sizeof (S) - (size_t) 1U) == 0)
@@ -13,6 +17,14 @@ typedef struct BinVal_ {
     size_t size;
     size_t max_size;
 } BinVal;
+
+typedef struct BufferedReadContext_ {
+    struct evbuffer *buf;
+    int fd;
+    off_t offset;
+    off_t total_size;
+    size_t buffer_size;
+} BufferedReadContext;
 
 void skip_spaces(const char * * const str);
 
@@ -58,5 +70,13 @@ void free_binval(BinVal * const binval);
 
 int append_to_binval(BinVal * const binval, const char * const str,
                      const size_t size);
+
+int init_buffered_read(BufferedReadContext * const context,
+                       const int fd);
+
+void free_buffered_read(BufferedReadContext * const context);
+
+ssize_t buffered_read(BufferedReadContext * const context,
+                      char * const out_buf, const size_t length);
 
 #endif

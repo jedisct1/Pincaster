@@ -2,8 +2,6 @@
 #ifndef __HTTP_SERVER_H__
 #define __HTTP_SERVER_H__ 1
 
-#include <event2/thread.h>
-#include <event.h>
 #include <evhttp.h>
 
 #ifndef ENCODED_BASE_URI

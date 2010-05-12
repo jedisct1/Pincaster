@@ -16,12 +16,15 @@
 #include <errno.h>
 #include <signal.h>
 #include <fcntl.h>
+#include <sys/stat.h>
 #include <poll.h>
 #include <pthread.h>
-#include "../src/yajl/api/yajl_parse.h"
-#include "../src/yajl/api/yajl_gen.h"
 #include "ext/queue.h"
 #include "ext/tree.h"
+#include "../src/yajl/api/yajl_parse.h"
+#include "../src/yajl/api/yajl_gen.h"
+#include <event2/thread.h>
+#include <event.h>
 #include "app_config.h"
 #include "slab.h"
 #include "cqueue.h"
