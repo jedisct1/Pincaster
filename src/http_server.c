@@ -433,7 +433,8 @@ int http_server(void)
     }
     http_handler_context.cqueue = malloc(sizeof *http_handler_context.cqueue);
     if (http_handler_context.cqueue == NULL ||
-        init_cqueue(http_handler_context.cqueue, 1000U, sizeof(Op)) != 0) {
+        init_cqueue(http_handler_context.cqueue,
+                    app_context.max_queued_replies, sizeof(Op)) != 0) {
         return -1;
     }
     pthread_mutex_init(&http_handler_context.mtx_cqueue, NULL);
