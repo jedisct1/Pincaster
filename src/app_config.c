@@ -33,17 +33,15 @@ int parse_config(const char * const file)
         { "FsyncPeriod",       &cfg_fsync_period_s },
         { NULL,                NULL }
     };
-    app_context = (AppContext) {
-        .server_ip = NULL,
-        .server_port = strdup(DEFAULT_SERVER_PORT),
-        .timeout = DEFAULT_CLIENT_TIMEOUT,
-        .nb_workers = NB_WORKERS,
-        .max_queued_replies = MAX_QUEUED_REPLIES,
-        .default_layer_type = DEFAULT_LAYER_TYPE,
-        .default_accuracy = DEFAULT_ACCURACY,
-        .bucket_size = BUCKET_SIZE,            
-        .dimension_accuracy = DEFAULT_DIMENSION_ACCURACY
-    };
+    app_context.server_ip = NULL;
+    app_context.server_port = strdup(DEFAULT_SERVER_PORT);
+    app_context.timeout = DEFAULT_CLIENT_TIMEOUT;
+    app_context.nb_workers = NB_WORKERS;
+    app_context.max_queued_replies = MAX_QUEUED_REPLIES;
+    app_context.default_layer_type = DEFAULT_LAYER_TYPE;
+    app_context.default_accuracy = DEFAULT_ACCURACY;
+    app_context.bucket_size = BUCKET_SIZE;
+    app_context.dimension_accuracy = DEFAULT_DIMENSION_ACCURACY;
     if (app_context.server_port == NULL) {
         _exit(1);
     }

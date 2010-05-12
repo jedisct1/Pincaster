@@ -48,8 +48,7 @@ int handle_domain_system(struct evhttp_request * const req,
             .fake_req = fake_req,
             .op_tid = ++context->op_tid            
         };
-        handle_special_op_system_rewrite(context, rewrite_op);
-        return 0;
+        return handle_special_op_system_rewrite(context, rewrite_op);
     }
     return HTTP_NOTFOUND;
 }
@@ -117,11 +116,11 @@ typedef struct RebuildJournalLayerCBContext_ {
 static int flush_log_buffer(struct evbuffer *log_buffer, const int log_fd)
 {
     int ret = 0;
-    const size_t to_write = evbuffer_get_length(log_buffer);
+    size_t to_write = evbuffer_get_length(log_buffer);
     
-    do {        
+    do {
         ssize_t written = evbuffer_write(log_buffer, log_fd);
-        if (to_write > (size_t) 0U && written < (ssize_t) to_write) {
+        if (written < (ssize_t) 0) {
             if (errno == EINTR) {
                 continue;
             }
@@ -130,8 +129,14 @@ static int flush_log_buffer(struct evbuffer *log_buffer, const int log_fd)
                 continue;
             }
             ret = -1;
+            break;
         }
-    } while (0);
+        if (written == (ssize_t) 0) {
+            break;
+        }
+        assert((ssize_t) to_write >= written);
+        to_write -= (size_t) written;
+    } while (to_write > (size_t) 0U);
     
     return ret;
 }
@@ -291,9 +296,10 @@ static int rebuild_journal_layer_cb(void *context_, void *entry,
                           rebuild_journal_record_cb, &cb_context) != 0) {
         free_binval(&encoded_layer_name);
         free_binval(&encoding_record_buffer);
-        evbuffer_free(log_buffer);        
+        evbuffer_free(log_buffer);
+
         return -1;
-    }
+    }    
     assert(decoded_layer_name.max_size == (size_t) 0U);
     free_binval(&encoded_layer_name);
     free_binval(&encoding_record_buffer);
@@ -310,7 +316,7 @@ int rebuild_journal(HttpHandlerContext * const context, const int tmp_log_fd)
         .tmp_log_fd = tmp_log_fd
     };
     slab_foreach(&context->layers_slab, rebuild_journal_layer_cb,
-                 &cb_context);    
+                 &cb_context);
     return 0;
 }
 
@@ -362,10 +368,10 @@ static int handle_special_op_system_rewrite(HttpHandlerContext * const context,
     DBLog * const db_log = &app_context.db_log;
     if (rewrite_op->fake_req != 0 || db_log->db_log_file_name == NULL ||
         db_log->db_log_fd == -1) {
-        return 0;
+        return HTTP_NOCONTENT;
     }
-    if (db_log->journal_is_being_rewritten != 0) {
-        return 0;
+    if (db_log->journal_rewrite_process != (pid_t) -1) {
+        return HTTP_NOTMODIFIED;
     }
     stop_workers(context);
     flush_db_log(1);
@@ -377,9 +383,9 @@ static int handle_special_op_system_rewrite(HttpHandlerContext * const context,
         rewrite_child(context);
         _exit(0);
     }
+    db_log->journal_rewrite_process = child;
     db_log->offset_before_fork = lseek(db_log->db_log_fd,
                                        (off_t) 0, SEEK_CUR);
-    db_log->journal_is_being_rewritten = 1;
     start_workers(context);
 
     yajl_gen json_gen;
@@ -442,7 +448,7 @@ static int copy_data_between_fds(const int source_fd, const int target_fd)
 int system_rewrite_after_fork_cb(void)
 {
     DBLog * const db_log = &app_context.db_log;
-    db_log->journal_is_being_rewritten = 0;    
+    db_log->journal_rewrite_process = (pid_t) -1;
     char *tmp_log_file_name = get_tmp_log_file_name();
     if (tmp_log_file_name == NULL) {
         return -1;

@@ -41,3 +41,6 @@ layers and rectangles.
 
 - Proxy for easy sharding and caching.
 
+- rewriteaof should compress the journal. New operations would happen
+on a second, uncompressed journal.
+

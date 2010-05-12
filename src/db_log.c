@@ -13,7 +13,7 @@ int init_db_log(void)
         .log_buffer = NULL,
         .journal_buffer_size = DEFAULT_JOURNAL_BUFFER_SIZE,
         .fsync_period = DEFAULT_FSYNC_PERIOD,
-        .journal_is_being_rewritten = 0,
+        .journal_rewrite_process = (pid_t) -1,
         .offset_before_fork = (off_t) -1
     };
     return 0;

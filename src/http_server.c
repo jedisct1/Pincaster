@@ -310,7 +310,24 @@ static RETSIGTYPE sigterm_cb(const int sig)
 static RETSIGTYPE sigchld_cb(const int sig)
 {
     (void) sig;
-    system_rewrite_after_fork_cb();
+    
+    for (;;) {
+        int status;
+        pid_t pid;
+
+        pid = waitpid((pid_t) -1, &status, WNOHANG);
+        if (pid == (pid_t) -1 || pid == (pid_t) 0) {
+            break;
+        }
+        if (WIFEXITED(status) == 0 || WEXITSTATUS(status) != 0) {
+            continue;
+        }
+        assert(app_context.db_log.journal_rewrite_process != (pid_t) -1);
+        assert(pid == app_context.db_log.journal_rewrite_process);
+        if (pid == app_context.db_log.journal_rewrite_process) {
+            system_rewrite_after_fork_cb();       
+        }
+    }        
 }
 
 static void set_signals(void)
