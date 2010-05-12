@@ -52,7 +52,8 @@ static int records_put_opt_parse_cb(void * const context_,
         char *svalue = value->val;
         skip_spaces((const char * *) &svalue);
         if (*svalue == 0) {
-            return -1;
+            put_op->expires_at = (time_t) 0;
+            return 0;
         }
         char *endptr;
         put_op->expires_at = (time_t) strtoul(svalue, &endptr, 10);
@@ -455,9 +456,8 @@ int handle_op_records_put(RecordsPutOp * const put_op,
                          &cb_context);
         free_slip_map(&put_op->properties);
     }
-    if (put_op->expires_at != (time_t) 0) {
-        Expirable *expirable = key_node->expirable;
-        
+    Expirable *expirable = key_node->expirable;    
+    if (put_op->expires_at != (time_t) 0) {        
         if (expirable == NULL) {
             Expirable new_expirable = {
                 .ts = put_op->expires_at,
@@ -467,6 +467,11 @@ int handle_op_records_put(RecordsPutOp * const put_op,
                                           &new_expirable);
             key_node->expirable = expirable;
         }
+        assert(expirable->key_node == key_node);
+    } else if (expirable != NULL) {
+        assert(expirable->key_node == key_node);        
+        remove_entry_from_slab(&context->expirables_slab, expirable);
+        key_node->expirable = NULL;
     }
     if (put_op->fake_req != 0) {
         return 0;
