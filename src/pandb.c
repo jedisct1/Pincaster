@@ -906,6 +906,7 @@ int init_pan_db(PanDB * const db,
     assert(context != NULL);
     db->context = context;
     RB_INIT(&db->key_nodes);
+    RB_INIT(&db->expirables);    
     
     return 0;
 }

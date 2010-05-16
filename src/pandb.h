@@ -81,9 +81,12 @@ typedef union Node_ {
 } Node;
 
 typedef struct Expirable_ {
+    RB_ENTRY(Expirable_) entry;
     time_t ts;
     struct KeyNode_ *key_node;
 } Expirable;
+
+typedef RB_HEAD(Expirables_, Expirable_) Expirables;
 
 typedef struct KeyNode_ {
     RB_ENTRY(KeyNode_) entry;
@@ -109,6 +112,7 @@ typedef struct PanDB_ {
     Dimension longitude_accuracy;
     LayerType layer_type;
     Accuracy accuracy;
+    Expirables expirables;
 } PanDB;
 
 typedef struct QuadNodeWithBounds_ {

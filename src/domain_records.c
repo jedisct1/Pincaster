@@ -4,6 +4,7 @@
 #include "domain_records.h"
 #include "domain_layers.h"
 #include "query_parser.h"
+#include "expirables.h"
 
 #ifndef PROPERTIES_DEFAULT_SLIP_MAP_BUFFER_SIZE
 # define PROPERTIES_DEFAULT_SLIP_MAP_BUFFER_SIZE (size_t) 32U
@@ -466,10 +467,18 @@ int handle_op_records_put(RecordsPutOp * const put_op,
             expirable = add_entry_to_slab(&context->expirables_slab,
                                           &new_expirable);
             key_node->expirable = expirable;
+            add_expirable_to_tree(pan_db, expirable);
+        } else {
+            if (expirable->ts != put_op->expires_at) {
+                remove_expirable_from_tree(pan_db, expirable);
+                expirable->ts = put_op->expires_at;
+                add_expirable_to_tree(pan_db, expirable);
+            }
         }
         assert(expirable->key_node == key_node);
     } else if (expirable != NULL) {
-        assert(expirable->key_node == key_node);        
+        assert(expirable->key_node == key_node);
+        remove_expirable_from_tree(pan_db, expirable);        
         remove_entry_from_slab(&context->expirables_slab, expirable);
         key_node->expirable = NULL;
     }

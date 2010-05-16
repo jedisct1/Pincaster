@@ -2,6 +2,7 @@
 #include "common.h"
 #include "http_server.h"
 #include "key_nodes.h"
+#include "expirables.h"
 
 RB_PROTOTYPE_STATIC(KeyNodes_, KeyNode_, entry, key_node_cmp);
 RB_GENERATE_STATIC(KeyNodes_, KeyNode_, entry, key_node_cmp);
@@ -75,6 +76,7 @@ void free_key_node(PanDB * const db, KeyNode * const key_node)
     key_node->properties = NULL;
     HttpHandlerContext * context = db->context;
     if (key_node->expirable != NULL) {
+        remove_expirable_from_tree(db, key_node->expirable);        
         remove_entry_from_slab(&context->expirables_slab, key_node->expirable);
         key_node->expirable = NULL;
     }
