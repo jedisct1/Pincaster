@@ -11,8 +11,8 @@
 
 static struct event_base *event_base;
 
-void http_close_cb(struct evhttp_connection * const cnx,
-                   void * const context_)
+static void http_close_cb(struct evhttp_connection * const cnx,
+                          void * const context_)
 {
     (void) context_;
     evhttp_connection_set_closecb(cnx, NULL, NULL);
@@ -163,7 +163,7 @@ stab:
     return 0;
 }
 
-void *worker_thread(void *context_)
+static void *worker_thread(void *context_)
 {
     HttpHandlerContext * const context = context_;
     printf("Worker thread: [%p]\n", (void *) pthread_self());
@@ -175,9 +175,9 @@ void *worker_thread(void *context_)
     return NULL;
 }
 
-int process_request(HttpHandlerContext *context,
-                    struct evhttp_request * const req,
-                    const _Bool fake_req)
+static int process_request(HttpHandlerContext *context,
+                           struct evhttp_request * const req,
+                           const _Bool fake_req)
 {
     const char *uri;    
     char *decoded_uri;
@@ -257,8 +257,8 @@ int process_request(HttpHandlerContext *context,
     return 0;
 }
 
-void http_dispatcher_cb(struct evhttp_request * const req,
-                        void * const context_)
+static void http_dispatcher_cb(struct evhttp_request * const req,
+                               void * const context_)
 {
     HttpHandlerContext *context = context_;
     

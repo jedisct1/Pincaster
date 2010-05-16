@@ -2,8 +2,8 @@
 #include "common.h"
 #include "pandb.h"
 
-void get_qrects_from_qbounds(Rectangle2D qrects[4],
-                             const Rectangle2D * const qbounds)
+static void get_qrects_from_qbounds(Rectangle2D qrects[4],
+                                    const Rectangle2D * const qbounds)
 {
     const Dimension median_latitude =
         (qbounds->edge0.latitude + qbounds->edge1.latitude) / 2.0;
@@ -29,8 +29,8 @@ void get_qrects_from_qbounds(Rectangle2D qrects[4],
     qrects[3].edge1.longitude = median_longitude;    
 }
 
-int position_is_in_rect(const Position2D * const position,
-                        const Rectangle2D * const rect)
+static int position_is_in_rect(const Position2D * const position,
+                               const Rectangle2D * const rect)
 {
     if (position->latitude >= rect->edge0.latitude &&
         position->longitude >= rect->edge0.longitude &&
@@ -41,11 +41,11 @@ int position_is_in_rect(const Position2D * const position,
     return 0;
 }
 
-Node *find_node_for_position(const QuadNode * const quad_node,
-                             const Rectangle2D * const qrects,
-                             const Position2D * const position,
-                             Rectangle2D * const rect_pnt,
-                             unsigned int *part_id)
+static Node *find_node_for_position(const QuadNode * const quad_node,
+                                    const Rectangle2D * const qrects,
+                                    const Position2D * const position,
+                                    Rectangle2D * const rect_pnt,
+                                    unsigned int *part_id)
 {
     unsigned int t = 4U;
     
@@ -90,7 +90,7 @@ void free_slot(Slot * const slot)
     slot->bucket_node = NULL;
 }
 
-int init_bucket(Bucket * const bucket)
+static int init_bucket(Bucket * const bucket)
 {
     init_slab(&bucket->slab, sizeof(Slot), "slots");
     bucket->bucket_size = (NbSlots) BUCKET_SIZE;
@@ -112,7 +112,7 @@ static int free_bucket_cb(void *context, void *entry,
     return 0;
 }
 
-void free_bucket(Bucket * const bucket)
+static void free_bucket(Bucket * const bucket)
 {
     if (bucket == NULL) {
         return;
@@ -123,8 +123,8 @@ void free_bucket(Bucket * const bucket)
     bucket->busy_slots = (NbSlots) 0U;    
 }
 
-int init_bucket_node(BucketNode * const bucket_node,
-                     const QuadNode * const parent)
+static int init_bucket_node(BucketNode * const bucket_node,
+                            const QuadNode * const parent)
 {
     bucket_node->type = NODE_TYPE_BUCKET_NODE;
     assert(parent->type == NODE_TYPE_QUAD_NODE);
@@ -134,7 +134,7 @@ int init_bucket_node(BucketNode * const bucket_node,
     return 0;
 }
 
-void free_bucket_node(BucketNode * const bucket_node)
+static void free_bucket_node(BucketNode * const bucket_node)
 {
     if (bucket_node == NULL) {
         return;
@@ -145,7 +145,7 @@ void free_bucket_node(BucketNode * const bucket_node)
     free(bucket_node);
 }
 
-BucketNode *new_bucket_node(const QuadNode * const parent)
+static BucketNode *new_bucket_node(const QuadNode * const parent)
 {
     BucketNode *bucket_node;
 
@@ -159,7 +159,7 @@ BucketNode *new_bucket_node(const QuadNode * const parent)
     return bucket_node;
 }
 
-int init_quad_node(QuadNode * const quad_node)
+static int init_quad_node(QuadNode * const quad_node)
 {
     quad_node->type = NODE_TYPE_QUAD_NODE;
     quad_node->parent = NULL;
@@ -172,7 +172,7 @@ int init_quad_node(QuadNode * const quad_node)
     return 0;
 }
 
-void free_quad_node(QuadNode * const quad_node)
+static void free_quad_node(QuadNode * const quad_node)
 {
     if (quad_node == NULL) {
         return;
@@ -187,7 +187,7 @@ void free_quad_node(QuadNode * const quad_node)
     free(quad_node);
 }
 
-QuadNode *new_quad_node(void)
+static QuadNode *new_quad_node(void)
 {
     QuadNode *quad_node;
     
@@ -200,9 +200,9 @@ QuadNode *new_quad_node(void)
     return quad_node;
 }
 
-int add_slot_to_bucket(PanDB * const db, BucketNode * const bucket_node,
-                       const Slot * const slot, int update_sub_slots,
-                       Slot * * const new_slot)
+static int add_slot_to_bucket(PanDB * const db, BucketNode * const bucket_node,
+                              const Slot * const slot, int update_sub_slots,
+                              Slot * * const new_slot)
 {
     QuadNode *parent;
     Bucket *bucket;
@@ -238,8 +238,8 @@ typedef struct RebalanceBucketCBContext_ {
     Rectangle2D *qrects_;
 } RebalanceBucketCBContext;
 
-int rebalance_bucket_cb(void *context_, void *entry,
-                        const size_t sizeof_entry)
+static int rebalance_bucket_cb(void *context_, void *entry,
+                               const size_t sizeof_entry)
 {
     Node * target_node;    
     Slot * scanned_slot = (Slot *) entry;
@@ -463,8 +463,8 @@ int remove_entry(PanDB * const db, Key * const key)
     return 0;
 }
 
-int rectangle2d_intersect(const Rectangle2D * const r1,
-                          const Rectangle2D * const r2)
+static int rectangle2d_intersect(const Rectangle2D * const r1,
+                                 const Rectangle2D * const r2)
 {
     if (!(r1->edge0.longitude > r2->edge1.longitude ||
           r1->edge1.longitude < r2->edge0.longitude ||
@@ -484,8 +484,8 @@ typedef struct FindNearIntCBContext_ {
     void *context_cb;
 } FindNearIntCBContext;
 
-int find_near_context_cb(void *context_, void *entry,
-                         const size_t sizeof_entry)
+static int find_near_context_cb(void *context_, void *entry,
+                                const size_t sizeof_entry)
 {
     FindNearIntCBContext *context = context_;
     Slot *scanned_slot = entry;
@@ -617,9 +617,9 @@ static inline Dimension dimension_max(const Dimension d1,
     return d1 > d2 ? d1 : d2;    
 }
 
-unsigned int find_zones(const PanDB * const db,
-                        const Rectangle2D * const rect_,
-                        Rectangle2D rects[4])
+static unsigned int find_zones(const PanDB * const db,
+                               const Rectangle2D * const rect_,
+                               Rectangle2D rects[4])
 {
     const Rectangle2D qbounds = db->qbounds;
     Rectangle2D *rect_pnt = &rects[0];    
@@ -773,8 +773,8 @@ typedef struct FindInRectIntCBContext_ {
     void *context_cb;
 } FindInRectIntCBContext;
 
-int find_in_rect_context_cb(void *context_, void *entry,
-                            const size_t sizeof_entry)
+static int find_in_rect_context_cb(void *context_, void *entry,
+                                   const size_t sizeof_entry)
 {
     FindInRectIntCBContext *context = context_;
     Slot *scanned_slot = entry;
