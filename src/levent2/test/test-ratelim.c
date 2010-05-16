@@ -37,6 +37,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #endif
+#include <signal.h>
 
 #include <event2/bufferevent.h>
 #include <event2/buffer.h>
@@ -54,11 +55,16 @@ static int cfg_connlimit = 0;
 static int cfg_grouplimit = 0;
 static int cfg_tick_msec = 1000;
 
+static int cfg_connlimit_tolerance = -1;
+static int cfg_grouplimit_tolerance = -1;
+static int cfg_stddev_tolerance = -1;
+
 static struct timeval cfg_tick = { 0, 500*1000 };
 
 static struct ev_token_bucket_cfg *conn_bucket_cfg = NULL;
 static struct ev_token_bucket_cfg *group_bucket_cfg = NULL;
 struct bufferevent_rate_limit_group *ratelim_group = NULL;
+static double seconds_per_tick = 0.0;
 
 struct client_state {
 	size_t queued;
@@ -115,6 +121,22 @@ echo_readcb(struct bufferevent *bev, void *ctx)
 }
 
 static void
+echo_writecb(struct bufferevent *bev, void *ctx)
+{
+	struct evbuffer *output = bufferevent_get_output(bev);
+	if (evbuffer_get_length(output) < 512000)
+		bufferevent_enable(bev, EV_READ);
+}
+
+static void
+echo_eventcb(struct bufferevent *bev, short what, void *ctx)
+{
+	if (what & (BEV_EVENT_EOF|BEV_EVENT_ERROR)) {
+		bufferevent_free(bev);
+	}
+}
+
+static void
 echo_listenercb(struct evconnlistener *listener, evutil_socket_t newsock,
     struct sockaddr *sourceaddr, int socklen, void *ctx)
 {
@@ -123,7 +145,7 @@ echo_listenercb(struct evconnlistener *listener, evutil_socket_t newsock,
 	struct bufferevent *bev;
 
 	bev = bufferevent_socket_new(base, newsock, flags);
-	bufferevent_setcb(bev, echo_readcb, NULL, NULL, NULL);
+	bufferevent_setcb(bev, echo_readcb, echo_writecb, echo_eventcb, NULL);
 	if (conn_bucket_cfg)
 		bufferevent_set_rate_limit(bev, conn_bucket_cfg);
 	if (ratelim_group)
@@ -131,7 +153,7 @@ echo_listenercb(struct evconnlistener *listener, evutil_socket_t newsock,
 	bufferevent_enable(bev, EV_READ|EV_WRITE);
 }
 
-static void
+static int
 test_ratelimiting(void)
 {
 	struct event_base *base;
@@ -151,6 +173,8 @@ test_ratelimiting(void)
 	ev_uint64_t total_received;
 	double total_sq_persec, total_persec;
 	double variance;
+	double expected_total_persec = -1.0, expected_avg_persec = -1.0;
+	int ok = 1;
 
 	memset(&sin, 0, sizeof(sin));
 	sin.sin_family = AF_INET;
@@ -166,7 +190,7 @@ test_ratelimiting(void)
 	if (getsockname(evconnlistener_get_fd(listener), (struct sockaddr *)&ss,
 		&slen) < 0) {
 		perror("getsockname");
-		return;
+		return 1;
 	}
 
 	if (cfg_connlimit > 0) {
@@ -184,7 +208,19 @@ test_ratelimiting(void)
 			&cfg_tick);
 		ratelim_group = bufferevent_rate_limit_group_new(
 			base, group_bucket_cfg);
-	};
+		expected_total_persec = cfg_grouplimit;
+		expected_avg_persec = cfg_grouplimit / cfg_n_connections;
+		if (cfg_connlimit > 0 && expected_avg_persec > cfg_connlimit)
+			expected_avg_persec = cfg_connlimit;
+	}
+
+	if (expected_avg_persec < 0 && cfg_connlimit > 0)
+		expected_avg_persec = cfg_connlimit;
+
+	if (expected_avg_persec > 0)
+		expected_avg_persec /= seconds_per_tick;
+	if (expected_total_persec > 0)
+		expected_total_persec /= seconds_per_tick;
 
 	bevs = calloc(cfg_n_connections, sizeof(struct bufferevent *));
 	states = calloc(cfg_n_connections, sizeof(struct client_state));
@@ -200,12 +236,25 @@ test_ratelimiting(void)
 		    slen);
 	}
 
-	tv.tv_sec = cfg_duration;
-	tv.tv_usec = 0;
+	tv.tv_sec = cfg_duration - 1;
+	tv.tv_usec = 995000;
 
 	event_base_loopexit(base, &tv);
 
 	event_base_dispatch(base);
+
+	for (i = 0; i < cfg_n_connections; ++i)
+		bufferevent_free(bevs[i]);
+	evconnlistener_free(listener);
+
+	/* This should get _everybody_ freed */
+	tv.tv_sec = 0;
+	tv.tv_usec = 300000;
+	event_base_loopexit(base, &tv);
+	event_base_dispatch(base);
+
+	if (ratelim_group)
+		bufferevent_rate_limit_group_free(ratelim_group);
 
 	total_received = 0;
 	total_persec = 0.0;
@@ -216,16 +265,43 @@ test_ratelimiting(void)
 		total_received += states[i].received;
 		total_persec += persec;
 		total_sq_persec += persec*persec;
-		printf("%d: %f per second\n", i, persec);
+		printf("%d: %f per second\n", i+1, persec);
 	}
 	printf("   total: %f per second\n",
 	    ((double)total_received)/cfg_duration);
+	if (expected_total_persec > 0) {
+		double diff = expected_total_persec -
+		    ((double)total_received/cfg_duration);
+		printf("  [Off by %lf]\n", diff);
+		if (cfg_grouplimit_tolerance > 0 &&
+		    fabs(diff) > cfg_grouplimit_tolerance) {
+			fprintf(stderr, "Group bandwidth out of bounds\n");
+			ok = 0;
+		}
+	}
+
 	printf(" average: %f per second\n",
 	    (((double)total_received)/cfg_duration)/cfg_n_connections);
+	if (expected_avg_persec > 0) {
+		double diff = expected_avg_persec - (((double)total_received)/cfg_duration)/cfg_n_connections;
+		printf("  [Off by %lf]\n", diff);
+		if (cfg_connlimit_tolerance > 0 &&
+		    fabs(diff) > cfg_connlimit_tolerance) {
+			fprintf(stderr, "Connection bandwidth out of bounds\n");
+			ok = 0;
+		}
+	}
 
 	variance = total_sq_persec/cfg_n_connections - total_persec*total_persec/(cfg_n_connections*cfg_n_connections);
 
 	printf("  stddev: %f per second\n", sqrt(variance));
+	if (cfg_stddev_tolerance > 0 &&
+	    sqrt(variance) > cfg_stddev_tolerance) {
+		fprintf(stderr, "Connection variance out of bounds\n");
+		ok = 0;
+	}
+
+	return ok ? 0 : 1;
 }
 
 static struct option {
@@ -238,6 +314,9 @@ static struct option {
 	{ "-c", &cfg_connlimit, 0, 0 },
 	{ "-g", &cfg_grouplimit, 0, 0 },
 	{ "-t", &cfg_tick_msec, 10, 0 },
+	{ "--check-connlimit", &cfg_connlimit_tolerance, 0, 0 },
+	{ "--check-grouplimit", &cfg_grouplimit_tolerance, 0, 0 },
+	{ "--check-stddev", &cfg_stddev_tolerance, 0, 0 },
 	{ NULL, NULL, -1, 0 },
 };
 
@@ -301,7 +380,10 @@ main(int argc, char **argv)
 	err = WSAStartup(wVersionRequested, &wsaData);
 #endif
 
-
+#ifndef WIN32
+	if (signal(SIGPIPE, SIG_IGN) == SIG_ERR)
+		return 1;
+#endif
 	for (i = 1; i < argc; ++i) {
 		for (j = 0; options[j].name; ++j) {
 			if (!strcmp(argv[i],options[j].name)) {
@@ -324,7 +406,7 @@ main(int argc, char **argv)
 	cfg_tick.tv_sec = cfg_tick_msec / 1000;
 	cfg_tick.tv_usec = (cfg_tick_msec % 1000)*1000;
 
-	ratio = cfg_tick_msec / 1000.0;
+	seconds_per_tick = ratio = cfg_tick_msec / 1000.0;
 
 	cfg_connlimit *= ratio;
 	cfg_grouplimit *= ratio;
@@ -343,7 +425,5 @@ main(int argc, char **argv)
 	evthread_enable_lock_debuging();
 #endif
 
-	test_ratelimiting();
-
-	return 0;
+	return test_ratelimiting();
 }
