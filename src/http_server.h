@@ -279,6 +279,8 @@ typedef struct HttpHandlerContext_ {
     struct event ev_expiration_cron;
     Slab expirables_slab;
     time_t now;
+    char *log_file_name;
+    int log_fd;
 } HttpHandlerContext;
 
 typedef int (*DomainHandler)(struct evhttp_request * const req,

@@ -457,11 +457,11 @@ int dump_slip_map(SlipMap * const * const slip_map_pnt)
             printf("(empty, free: [%zu])\n", slot_free);
             fflush(stdout);
         } else {
-            if (write(1, "[", sizeof "[" - (size_t) 1U) <= 0 ||
-                write(1, scanned_key, scanned_key_len) <= 0 ||
-                write(1, "] => [", sizeof "] => [" - (size_t) 1U) <= 0 ||
-                write(1, scanned_value, scanned_value_len) <= 0 ||
-                write(1, "] ", sizeof "] " - (size_t) 1U) <= 0) {
+            if (write(STDOUT_FILENO, "[", sizeof "[" - (size_t) 1U) <= 0 ||
+                write(STDOUT_FILENO, scanned_key, scanned_key_len) <= 0 ||
+                write(STDOUT_FILENO, "] => [", sizeof "] => [" - (size_t) 1U) <= 0 ||
+                write(STDOUT_FILENO, scanned_value, scanned_value_len) <= 0 ||
+                write(STDOUT_FILENO, "] ", sizeof "] " - (size_t) 1U) <= 0) {
                 return 0;
             }
             printf("(free: [%zu])\n", slot_free);

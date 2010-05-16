@@ -19,6 +19,8 @@ pincaster_SOURCES = \
         app_config.h \
         utils.c \
         utils.h \
+        log.c \
+        log.h \
         cqueue.c \
         cqueue.h \
         keys.c \

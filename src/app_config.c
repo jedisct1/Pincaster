@@ -7,6 +7,7 @@ int parse_config(const char * const file)
 {
     char *cfg_server_ip = NULL;
     char *cfg_server_port = NULL;
+    char *cfg_log_file_name = NULL;
     char *cfg_timeout_s = NULL;    
     char *cfg_nb_workers_s = NULL;
     char *cfg_max_queued_replies_s = NULL;
@@ -21,7 +22,8 @@ int parse_config(const char * const file)
     ConfigKeywords config_keywords[] = {
         { "ServerIP",          &cfg_server_ip },
         { "ServerPort",        &cfg_server_port },
-        { "Timeout",           &cfg_timeout_s },        
+        { "LogFileName",       &cfg_log_file_name },
+        { "Timeout",           &cfg_timeout_s },
         { "Workers",           &cfg_nb_workers_s },
         { "MaxQueuedReplies",  &cfg_max_queued_replies_s },
         { "DefaultLayerType",  &cfg_default_layer_type_s },
@@ -35,6 +37,7 @@ int parse_config(const char * const file)
     };
     app_context.server_ip = NULL;
     app_context.server_port = strdup(DEFAULT_SERVER_PORT);
+    app_context.log_file_name = NULL;    
     app_context.timeout = DEFAULT_CLIENT_TIMEOUT;
     app_context.nb_workers = NB_WORKERS;
     app_context.max_queued_replies = MAX_QUEUED_REPLIES;
@@ -63,6 +66,14 @@ int parse_config(const char * const file)
         } else {
             free(app_context.server_port);            
             app_context.server_port = cfg_server_port;
+        }
+    }
+    if (cfg_log_file_name != NULL) {
+        if (*cfg_log_file_name == 0) {
+            ret = -1;
+        } else {
+            free(app_context.log_file_name);
+            app_context.log_file_name = cfg_log_file_name;
         }
     }
     if (cfg_timeout_s != NULL) {
@@ -176,8 +187,9 @@ int check_sys_config(void)
     if ((fp = fopen("/proc/sys/vm/overcommit_memory", "r")) != NULL) {
         if (fgets(tmp, sizeof tmp, fp) != NULL) {
             if (atoi(tmp) <= 0) {
-                fputs("* Please add vm.overcommit_memory=1 "
-                      "to /etc/sysctl.conf\n", stderr);
+                logfile_noformat(NULL, LOG_WARNING,
+                                 "Please add vm.overcommit_memory=1 "
+                                 "to /etc/sysctl.conf");
                 ret = -1;
             }
         }
@@ -186,8 +198,9 @@ int check_sys_config(void)
     if ((fp = fopen("/proc/sys/net/ipv4/tcp_tw_reuse", "r")) != NULL) {
         if (fgets(tmp, sizeof tmp, fp) != NULL) {
             if (atoi(tmp) <= 0) {
-                fputs("* Please add net.ipv4.tcp_tw_reuse=1 "
-                      "to /etc/sysctl.conf\n", stderr);
+                logfile_noformat(NULL, LOG_WARNING,
+                                 "Please add net.ipv4.tcp_tw_reuse=1 "
+                                 "to /etc/sysctl.conf");
             }
         }
         fclose(fp);
@@ -202,6 +215,8 @@ void free_config(void)
     app_context.server_ip = NULL;
     free(app_context.server_port);
     app_context.server_port = NULL;
+    free(app_context.log_file_name);
+    app_context.log_file_name = NULL;
     free(app_context.db_log.db_log_file_name);    
     app_context.db_log.db_log_file_name = NULL;
 }

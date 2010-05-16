@@ -43,8 +43,8 @@ int open_db_log(void)
 #endif
     db_log->db_log_fd = open(db_log_file_name, flags, (mode_t) 0600);
     if (db_log->db_log_fd == -1) {
-        fprintf(stderr, "Can't open [%s]: [%s]\n",
-                db_log_file_name, strerror(errno));
+        logfile(NULL, LOG_ERR, "Can't open [%s]: [%s]", db_log_file_name,
+               strerror(errno));
         free_db_log();
         return -1;
     }
@@ -336,18 +336,21 @@ int replay_log(HttpHandlerContext * const context)
     BufferedReadContext brc;
 
     if (db_log->db_log_fd == -1 || db_log->db_log_file_name == NULL) {
-        puts("No journal");
+        logfile_noformat(context, LOG_INFO, "No journal");
+        
         return 0;
     }
     init_buffered_read(&brc, db_log->db_log_fd);
-    puts("Replaying journal...");
+    logfile_noformat(context, LOG_INFO, "Replaying journal...");
     while ((res = replay_log_record(context, &brc)) == 0) {
         counter++;
     }
     free_buffered_read(&brc);
-    printf("%" PRIuMAX " transactions replayed.\n", counter);
+    logfile(context, LOG_INFO, "%" PRIuMAX " transactions replayed.",
+            counter);
     if (res < 0) {
-        puts("Possibly corrupted journal.");
+        logfile_noformat(context, LOG_ERR, "Possibly corrupted journal.");
+        
         return -1;
     }
     return 0;

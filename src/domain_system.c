@@ -270,7 +270,8 @@ static int rebuild_journal_layer_cb(void *context_, void *entry,
     Layer * const layer = entry;
     int ret = 0;    
     assert(layer->name != NULL && *layer->name != 0);
-    printf("Dumping layer: [%s] ...\n", layer->name);
+    logfile(context->context, LOG_INFO, "Dumping layer: [%s] ...",
+            layer->name);
     struct evbuffer *log_buffer;
     if ((log_buffer = evbuffer_new()) == NULL) {
         return -1;
@@ -358,7 +359,8 @@ int rewrite_child(HttpHandlerContext * const context)
         close(db_log->db_log_fd);
     }
     nice(BGREWRITEAOF_NICENESS);
-    puts("Creating a new journal as a background process...");    
+    logfile_noformat(context, LOG_INFO,
+                     "Creating a new journal as a background process...");
     char *tmp_log_file_name = get_tmp_log_file_name();
     if (tmp_log_file_name == NULL) {
         return -1;
@@ -374,12 +376,13 @@ int rewrite_child(HttpHandlerContext * const context)
     flags |= O_LARGEFILE;
 #endif
     int db_log_fd = open(tmp_log_file_name, flags, (mode_t) 0600);
-    free(tmp_log_file_name);
     if (db_log_fd == -1) {
-        fprintf(stderr, "Can't create [%s]: [%s]\n", tmp_log_file_name,
-                strerror(errno));
+        logfile(context, LOG_ERR, "Can't create [%s]: [%s]", tmp_log_file_name,
+               strerror(errno));
+        free(tmp_log_file_name);
         return -1;
     }
+    free(tmp_log_file_name);    
     rebuild_journal(context, db_log_fd);
     fsync(db_log_fd);
     close(db_log_fd);    
@@ -486,7 +489,8 @@ int system_rewrite_after_fork_cb(void)
     if (tmp_log_file_name == NULL) {
         return -1;
     }
-    puts("Completing the new journal with recent transactions...");
+    logfile_noformat(NULL, LOG_INFO,
+                     "Completing the new journal with recent transactions...");
     assert(db_log->offset_before_fork != (off_t) -1);
     if (lseek(db_log->db_log_fd, db_log->offset_before_fork,
               SEEK_SET) == (off_t) -1) {
@@ -506,7 +510,7 @@ int system_rewrite_after_fork_cb(void)
 #endif
     int tmp_log_fd = open(tmp_log_file_name, flags, (mode_t) 0600);
     if (tmp_log_fd == -1) {
-        fprintf(stderr, "Can't reopen [%s]: [%s]\n", tmp_log_file_name,
+        logfile(NULL, LOG_ERR, "Can't reopen [%s]: [%s]", tmp_log_file_name,
                 strerror(errno));
         unlink(tmp_log_file_name);
     }
@@ -522,17 +526,19 @@ int system_rewrite_after_fork_cb(void)
     printf("Renaming [%s] to [%s]\n", tmp_log_file_name,
            db_log->db_log_file_name);
     if (rename(tmp_log_file_name, db_log->db_log_file_name) != 0) {
-        perror("rename()");
+        logfile(NULL, LOG_ERR, "Unable to rename [%s] to [%s]: [%s]",
+                tmp_log_file_name, db_log->db_log_file_name,
+                strerror(errno));
         unlink(tmp_log_file_name);
         free(tmp_log_file_name);
         return -1;
     }
     free(tmp_log_file_name);
     if (close(db_log->db_log_fd) != 0) {
-        perror("Unable to close the previous journal");
+        logfile_error(NULL, "Unable to close the previous journal");
     }
     db_log->db_log_fd = tmp_log_fd;
-    puts("Done - New journal activated");
+    logfile_noformat(NULL, LOG_INFO, "Done - New journal activated");
     
     return 0;
 }

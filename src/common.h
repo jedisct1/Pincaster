@@ -3,6 +3,14 @@
 #define __COMMON_H__ 1
 
 #include <config.h>
+
+#ifndef __GNUC__
+# ifdef __attribute__
+#  undef __attribute__
+# endif
+# define __attribute__(a)
+#endif
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -20,6 +28,7 @@
 #include <sys/wait.h>
 #include <poll.h>
 #include <pthread.h>
+#include <syslog.h>
 #include "ext/queue.h"
 #include "ext/tree.h"
 #include "../src/yajl/api/yajl_parse.h"
@@ -36,10 +45,12 @@
 #include "key_nodes.h"
 #include "utils.h"
 #include "db_log.h"
+#include "log.h"
 
 typedef struct AppContext_ {
     char *server_ip;
     char *server_port;
+    char *log_file_name;
     int timeout;
     unsigned int nb_workers;
     size_t max_queued_replies;

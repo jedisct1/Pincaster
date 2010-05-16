@@ -166,11 +166,13 @@ stab:
 static void *worker_thread(void *context_)
 {
     HttpHandlerContext * const context = context_;
-    printf("Worker thread: [%p]\n", (void *) pthread_self());
+    logfile(context, LOG_INFO, "Starting worker thread: [%p]",
+            (void *) pthread_self());
     
     while (worker_do_work(context) == 0);
     
-    printf("Exited worker thread: [%p]\n", (void *) pthread_self());
+    logfile(context, LOG_INFO, "Exited worker thread: [%p]",
+            (void *) pthread_self());
     
     return NULL;
 }
@@ -462,6 +464,41 @@ static void expiration_cron(evutil_socket_t fd, short event,
     evtimer_add(&context->ev_expiration_cron, &tv);
 }
 
+static int open_log_file(HttpHandlerContext * const context)
+{
+    int flags = O_RDWR | O_CREAT | O_APPEND;
+#ifdef O_EXLOCK
+    flags |= O_EXLOCK;
+#endif
+#ifdef O_NOATIME
+    flags |= O_NOATIME;
+#endif
+#ifdef O_LARGEFILE
+    flags |= O_LARGEFILE;
+#endif
+    assert(context->log_fd == -1);
+    if (app_context.log_file_name == NULL) {
+        return 0;
+    }
+    context->log_fd = open(context->log_file_name, flags, (mode_t) 0600);
+    if (context->log_fd == -1) {
+        logfile(NULL, LOG_ERR, "Can't open [%s]: [%s]", context->log_file_name,
+                strerror(errno));
+        return -1;
+    }
+    return 0;
+}
+
+static int close_log_file(HttpHandlerContext * const context)
+{
+    if (context->log_fd != -1) {
+        fsync(context->log_fd);
+        close(context->log_fd);
+        context->log_fd = -1;
+    }
+    return 0;
+}
+
 int http_server(void)
 {
     HttpHandlerContext http_handler_context = {
@@ -473,11 +510,19 @@ int http_server(void)
         .cqueue = NULL,
         .publisher_bev = NULL,
         .consumer_bev = NULL,
-        .nb_layers = (size_t) 0U
+        .nb_layers = (size_t) 0U,
+        .log_file_name = NULL,
+        .log_fd = -1
     };
     if (time(&http_handler_context.now) == (time_t) -1) {
         return -1;
     }
+    http_handler_context.log_file_name = app_context.log_file_name;    
+    if (open_log_file(&http_handler_context) != 0) {
+        return -1;
+    }
+    logfile_noformat(&http_handler_context, LOG_INFO,
+                     PACKAGE_STRING " started.");
     struct evhttp *event_http;
     struct bufferevent *bev_pair[2];
     set_signals();
@@ -565,6 +610,7 @@ bye:
     free_slab(&http_handler_context.layers_slab, free_layer_slab_entry_cb);
     free_slab(&http_handler_context.expirables_slab,
               free_expirables_slab_entry_cb);
+    close_log_file(&http_handler_context);
     
     return 0;
 }
