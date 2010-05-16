@@ -47,6 +47,46 @@ int remove_expirable_from_tree(PanDB * const pan_db,
     return 0;
 }
 
+typedef struct HasExpiredKeysInLayerCBContext_ {
+    HttpHandlerContext * const context;
+    _Bool has_expired_keys;
+} HasExpiredKeysInLayerCBContext;
+
+static int has_expired_keys_in_layer(void *cb_context_, void *entry,
+                                     const size_t sizeof_entry)
+{
+    (void) sizeof_entry;
+    HasExpiredKeysInLayerCBContext *cb_context = cb_context_;
+    HttpHandlerContext * const context = cb_context->context;
+    const time_t now = context->now;    
+    Layer * const layer = entry;    
+    PanDB * const pan_db = &layer->pan_db;
+    Expirables * const expirables = &pan_db->expirables;
+    if (expirables == NULL) {
+        return 0;
+    }
+    const Expirable * const expirable = RB_MIN(Expirables_, expirables);
+    if (expirable != NULL && now >= expirable->ts) {
+        cb_context->has_expired_keys = 1;
+        return 1;
+    }
+    return 0;
+}
+    
+static _Bool has_expired_keys(HttpHandlerContext * const context)
+{
+    HasExpiredKeysInLayerCBContext cb_context = {
+        .context = context,
+        .has_expired_keys = 0
+    };    
+    pthread_rwlock_rdlock(&context->rwlock_layers);
+    slab_foreach(&context->layers_slab, has_expired_keys_in_layer,
+                 &cb_context);
+    pthread_rwlock_unlock(&context->rwlock_layers);
+    
+    return cb_context.has_expired_keys;
+}
+
 typedef struct PurgeExpiredKeysFromLayerCBContext_ {
     HttpHandlerContext * const context;
     _Bool did_purge;
@@ -57,15 +97,18 @@ static int purge_expired_keys_from_layer(void *cb_context_, void *entry,
 {
     (void) sizeof_entry;
     PurgeExpiredKeysFromLayerCBContext *cb_context = cb_context_;
-    HttpHandlerContext * const context = cb_context->context;    
+    HttpHandlerContext * const context = cb_context->context;
+    const time_t now = context->now;
     Layer * const layer = entry;    
     PanDB * const pan_db = &layer->pan_db;
     Expirables * const expirables = &pan_db->expirables;
     Expirable *expirable;
     Expirable *next;    
     KeyNode *key_node;
-    const time_t now = context->now;
-    
+
+    if (expirables == NULL) {
+        return 0;
+    }
     for (expirable = RB_MIN(Expirables_, expirables); expirable != NULL;
          expirable = next) {
         if (now < expirable->ts) {
@@ -92,6 +135,9 @@ static int purge_expired_keys_from_layer(void *cb_context_, void *entry,
 
 int purge_expired_keys(HttpHandlerContext * const context)
 {
+    if (has_expired_keys(context) == 0) {
+        return 0;
+    }
     PurgeExpiredKeysFromLayerCBContext cb_context = {
         .context = context,
         .did_purge = 0
