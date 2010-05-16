@@ -456,7 +456,8 @@ int http_server(void)
         .encoded_base_uri = NULL,
         .cqueue = NULL,
         .publisher_bev = NULL,
-        .consumer_bev = NULL
+        .consumer_bev = NULL,
+        .nb_layers = (size_t) 0U
     };
     if (time(&http_handler_context.now) == (time_t) -1) {
         return -1;

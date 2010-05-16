@@ -135,8 +135,10 @@ static Layer *register_new_layer(HttpHandlerContext * const context_,
         assert(tmp_layer.name == layer->name);
         free(layer->name);
         remove_entry_from_slab(&context->layers_slab, layer);
-        layer = NULL;
+        return NULL;
     }
+    context->nb_layers++;
+
     return layer;
 }
 
@@ -236,7 +238,11 @@ static int delete_layer_by_layer_name(HttpHandlerContext * const context_,
     }
     free_pan_db(&layer->pan_db);
     free(layer->name);
-    layer->name = NULL;    
+    layer->name = NULL;
+    assert(context->nb_layers > (size_t) 0U);
+    if (context->nb_layers > (size_t) 0U) {
+        context->nb_layers--;
+    }
     if (remove_entry_from_slab(&context->layers_slab, layer) != 0) {
         return -1;
     }

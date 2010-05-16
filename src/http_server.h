@@ -274,6 +274,7 @@ typedef struct HttpHandlerContext_ {
     struct bufferevent *publisher_bev;
     struct bufferevent *consumer_bev;
     Slab layers_slab;
+    size_t nb_layers;
     struct event ev_flush_log_db;
     struct event ev_expiration_cron;
     Slab expirables_slab;
