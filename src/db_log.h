@@ -4,6 +4,8 @@
 
 #define DB_LOG_RECORD_COOKIE_HEAD "-<"
 #define DB_LOG_RECORD_COOKIE_TAIL ">\n"
+#define DB_LOG_RECORD_COOKIE_MARK_CHAR '@'
+#define DB_LOG_RECORD_COOKIE_TIMESTAMP_CHAR 'T'
 #ifndef DB_LOG_MAX_URI_LEN
 # define DB_LOG_MAX_URI_LEN  (size_t) 10000U
 #endif

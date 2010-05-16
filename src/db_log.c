@@ -185,7 +185,7 @@ int replay_log_record(HttpHandlerContext * const context,
         return 1;
     }
     if (readnb != (ssize_t) sizeof buf_cookie_head ||
-        memcmp(buf_cookie_head, buf_cookie_head, readnb) != 0) {
+        memcmp(buf_cookie_head, DB_LOG_RECORD_COOKIE_HEAD, readnb) != 0) {
         if (lseek(db_log->db_log_fd, current_offset, SEEK_SET) == (off_t) -1 ||
             ftruncate(db_log->db_log_fd, current_offset) != 0) {
         }
@@ -202,6 +202,23 @@ int replay_log_record(HttpHandlerContext * const context,
         if (++pnt == &buf_number[sizeof buf_number]) {
             return -1;
         }
+    }
+    if (*buf_number == DB_LOG_RECORD_COOKIE_MARK_CHAR) {
+        time_t ts = (time_t) strtol(buf_number + 1U, &endptr, 16);
+        if (endptr == NULL || endptr == buf_number + 1U || ts <= (time_t) 0) {
+            return -1;
+        }
+        char t;
+        if (buffered_read(brc, &t, (size_t) 1U) != (size_t) 1U ||
+            t != DB_LOG_RECORD_COOKIE_TIMESTAMP_CHAR) {
+            return -1;
+        }
+        readnb = buffered_read(brc, buf_cookie_tail, sizeof buf_cookie_tail);
+        if (readnb != (ssize_t) sizeof buf_cookie_tail ||
+            memcmp(buf_cookie_tail, DB_LOG_RECORD_COOKIE_TAIL, readnb) != 0) {
+            return -1;
+        }
+        return 0;
     }
     int verb = (int) strtol(buf_number, &endptr, 16);
     if (endptr == NULL || endptr == buf_number) {
@@ -277,7 +294,7 @@ int replay_log_record(HttpHandlerContext * const context,
     }
     readnb = buffered_read(brc, buf_cookie_tail, sizeof buf_cookie_tail);
     if (readnb != (ssize_t) sizeof buf_cookie_tail ||
-        memcmp(buf_cookie_tail, buf_cookie_tail, readnb) != 0) {
+        memcmp(buf_cookie_tail, DB_LOG_RECORD_COOKIE_TAIL, readnb) != 0) {
         free(body);
         free(uri);
         return -1;
