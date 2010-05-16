@@ -10,9 +10,6 @@
 # define PROPERTIES_DEFAULT_SLIP_MAP_BUFFER_SIZE (size_t) 32U
 #endif
 
-RB_PROTOTYPE_STATIC(KeyNodes_, KeyNode_, entry, key_node_cmp);
-RB_GENERATE_STATIC(KeyNodes_, KeyNode_, entry, key_node_cmp);
-
 typedef struct RecordsPutOptParseCBContext_ {
     RecordsPutOp *put_op;
 } RecordsPutOptParseCBContext;

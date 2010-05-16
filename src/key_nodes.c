@@ -4,8 +4,7 @@
 #include "key_nodes.h"
 #include "expirables.h"
 
-RB_PROTOTYPE_STATIC(KeyNodes_, KeyNode_, entry, key_node_cmp);
-RB_GENERATE_STATIC(KeyNodes_, KeyNode_, entry, key_node_cmp);
+RB_GENERATE(KeyNodes_, KeyNode_, entry, key_node_cmp);
 
 int key_node_cmp(const KeyNode * const kn1, const KeyNode * const kn2)
 {

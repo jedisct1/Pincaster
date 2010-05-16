@@ -2,6 +2,8 @@
 #ifndef __KEY_NODES_H__
 #define __KEY_NODES_H__ 1
 
+RB_PROTOTYPE(KeyNodes_, KeyNode_, entry, key_node_cmp);
+
 int key_node_cmp(const KeyNode * const kn1, const KeyNode * const kn2);
 
 int get_key_node_from_key(PanDB * const db, Key * const key,

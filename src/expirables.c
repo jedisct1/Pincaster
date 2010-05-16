@@ -9,9 +9,6 @@ static int expirable_cmp(const Expirable * const exp1,
 RB_PROTOTYPE_STATIC(Expirables_, Expirable_, entry, expirable_cmp);
 RB_GENERATE_STATIC(Expirables_, Expirable_, entry, expirable_cmp);
 
-RB_PROTOTYPE_STATIC(KeyNodes_, KeyNode_, entry, key_node_cmp);
-RB_GENERATE_STATIC(KeyNodes_, KeyNode_, entry, key_node_cmp);
-
 static int expirable_cmp(const Expirable * const exp1,
                          const Expirable * const exp2)
 {

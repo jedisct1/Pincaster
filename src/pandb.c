@@ -2,9 +2,6 @@
 #include "common.h"
 #include "pandb.h"
 
-RB_PROTOTYPE_STATIC(KeyNodes_, KeyNode_, entry, key_node_cmp);
-RB_GENERATE_STATIC(KeyNodes_, KeyNode_, entry, key_node_cmp);
-
 void get_qrects_from_qbounds(Rectangle2D qrects[4],
                              const Rectangle2D * const qbounds)
 {
