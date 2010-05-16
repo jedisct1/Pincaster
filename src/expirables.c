@@ -127,7 +127,11 @@ static int purge_expired_keys_from_layer(void *cb_context_, void *entry,
         free_key_node(pan_db, key_node);
         cb_context->did_purge = 1;
     }
+#if SPREAD_EXPIRATION
+    return 1;
+#else
     return 0;
+#endif
 }
 
 int purge_expired_keys(HttpHandlerContext * const context)

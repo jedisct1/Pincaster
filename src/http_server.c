@@ -34,8 +34,8 @@ int send_op_reply(HttpHandlerContext * const context,
             break;
         }
         ts = (struct timespec) {
-            .tv_sec = tv.tv_sec + 1,
-            .tv_nsec = tv.tv_usec * 1000
+            .tv_sec = tv.tv_sec + 1L,
+            .tv_nsec = tv.tv_usec * 1000L
         };
         pthread_mutex_lock(&fake_mutex);
         pthread_cond_timedwait(&fake_cond, &fake_mutex, &ts);
@@ -423,7 +423,7 @@ static void flush_log_db(evutil_socket_t fd, short event,
     flush_db_log(1);
     struct timeval tv = {
         .tv_sec = app_context.db_log.fsync_period,
-        .tv_usec = 0
+        .tv_usec = 0L
     };
     evtimer_add(&context->ev_flush_log_db, &tv);
 }
@@ -438,11 +438,26 @@ static void expiration_cron(evutil_socket_t fd, short event,
     if (time(&context->now) == (time_t) -1) {
         return;
     }
-    purge_expired_keys(context);
     struct timeval tv = {
-        .tv_sec = 1,
-        .tv_usec = 0
+        .tv_sec = 1L,
+        .tv_usec = 0L
     };
+#if SPREAD_EXPIRATION
+    const int ret = purge_expired_keys(context);
+    if (ret != 0 && context->nb_layers > (size_t) 1U) {
+        const long required_usec = 1000000L / (long) context->nb_layers;
+        if (required_usec < 10000L) {
+            while (purge_expired_keys(context) > 0);
+        } else {
+            tv = (struct timeval) {
+                .tv_sec = 0L,
+                .tv_usec = required_usec
+            };
+        }
+    }
+#else
+    purge_expired_keys(context);
+#endif
     evtimer_add(&context->ev_expiration_cron, &tv);
 }
 
@@ -514,7 +529,7 @@ int http_server(void)
                        flush_log_db, &http_handler_context);
         struct timeval tv = {
             .tv_sec = app_context.db_log.fsync_period,
-            .tv_usec = 0
+            .tv_usec = 0L
         };
         evtimer_add(&http_handler_context.ev_flush_log_db, &tv);
     }
@@ -525,8 +540,8 @@ int http_server(void)
     evtimer_assign(&http_handler_context.ev_expiration_cron, event_base,
                    expiration_cron, &http_handler_context);
     struct timeval tv = {
-        .tv_sec = 0,
-        .tv_usec = 0
+        .tv_sec = 0L,
+        .tv_usec = 0L
     };
     evtimer_add(&http_handler_context.ev_expiration_cron, &tv);
     
