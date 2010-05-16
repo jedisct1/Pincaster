@@ -252,7 +252,8 @@ static int process_request(HttpHandlerContext *context,
         return- 1;
     }
     if (fake_req == 0 && write_to_log != 0) {
-        add_to_db_log(req->type, uri, evhttp_request_get_input_buffer(req));
+        add_to_db_log(context->now, req->type, uri,
+                      evhttp_request_get_input_buffer(req));
     }
     return 0;
 }

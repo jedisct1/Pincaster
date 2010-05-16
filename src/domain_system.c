@@ -116,6 +116,7 @@ char *get_tmp_log_file_name(void)
 typedef struct RebuildJournalLayerCBContext_ {
     HttpHandlerContext *context;
     int tmp_log_fd;
+    _Bool ts_written;
 } RebuildJournalLayerCBContext;
 
 static int flush_log_buffer(struct evbuffer *log_buffer, const int log_fd)
@@ -274,6 +275,13 @@ static int rebuild_journal_layer_cb(void *context_, void *entry,
     if ((log_buffer = evbuffer_new()) == NULL) {
         return -1;
     }
+    if (context->ts_written == 0) {
+        const time_t ts = time(NULL);
+        if (ts != (time_t) -1 &&
+            add_ts_to_ev_log_buffer(log_buffer, ts) == 0) {
+            context->ts_written = 1;
+        }
+    }
     evbuffer_add(log_buffer, DB_LOG_RECORD_COOKIE_HEAD,
                  sizeof DB_LOG_RECORD_COOKIE_HEAD - (size_t) 1U);
     const int verb = EVHTTP_REQ_POST;
@@ -329,7 +337,8 @@ int rebuild_journal(HttpHandlerContext * const context, const int tmp_log_fd)
 {
     RebuildJournalLayerCBContext cb_context = {
         .context = context,
-        .tmp_log_fd = tmp_log_fd
+        .tmp_log_fd = tmp_log_fd,
+        .ts_written = 0
     };
     slab_foreach(&context->layers_slab, rebuild_journal_layer_cb,
                  &cb_context);

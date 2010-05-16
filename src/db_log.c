@@ -8,14 +8,15 @@ int init_db_log(void)
 {
     DBLog * const db_log = &app_context.db_log;
     
-    *db_log = (DBLog) {
+    *db_log = (DBLog) {        
         .db_log_file_name = NULL,
         .db_log_fd = -1,
         .log_buffer = NULL,
         .journal_buffer_size = DEFAULT_JOURNAL_BUFFER_SIZE,
         .fsync_period = DEFAULT_FSYNC_PERIOD,
         .journal_rewrite_process = (pid_t) -1,
-        .offset_before_fork = (off_t) -1
+        .offset_before_fork = (off_t) -1,
+        .last_ts = (time_t) -1
     };
     return 0;
 }
@@ -29,6 +30,7 @@ int open_db_log(void)
         db_log->db_log_fd = -1;
         return 1;
     }
+    db_log->last_ts = (time_t) -1;
     int flags = O_RDWR | O_CREAT | O_APPEND;
 #ifdef O_EXLOCK
     flags |= O_EXLOCK;
@@ -88,7 +90,22 @@ int close_db_log(void)
     return 0;
 }
 
-int add_to_db_log(const int verb,
+int add_ts_to_ev_log_buffer(struct evbuffer * const log_buffer,
+                            const time_t ts)
+{
+    evbuffer_add(log_buffer, DB_LOG_RECORD_COOKIE_HEAD
+                 DB_LOG_RECORD_COOKIE_MARK_CHAR,
+                 sizeof DB_LOG_RECORD_COOKIE_HEAD
+                 DB_LOG_RECORD_COOKIE_MARK_CHAR - (size_t) 1U);
+    evbuffer_add_printf(log_buffer, "%lx", (unsigned long) ts);
+    evbuffer_add(log_buffer, " " DB_LOG_RECORD_COOKIE_TIMESTAMP_CHAR
+                 DB_LOG_RECORD_COOKIE_TAIL,
+                 sizeof " " DB_LOG_RECORD_COOKIE_TIMESTAMP_CHAR
+                 DB_LOG_RECORD_COOKIE_TAIL - (size_t) 1U);
+    return 0;    
+}
+
+int add_to_db_log(time_t ts, const int verb,
                   const char *uri, struct evbuffer * const input_buffer)
 {
     DBLog * const db_log = &app_context.db_log;
@@ -101,8 +118,13 @@ int add_to_db_log(const int verb,
         return -1;
     }
     struct evbuffer * const log_buffer = db_log->log_buffer;
-    const char *body = NULL;
-    
+
+    ts -= ts % DB_LOG_TIMESTAMP_GRANULARITY;
+    if (ts > db_log->last_ts) {
+        db_log->last_ts = ts;
+        add_ts_to_ev_log_buffer(log_buffer, ts);
+    }
+    const char *body = NULL;    
     if (body_len > (size_t) 0U) {
         body = (const char *) evbuffer_pullup(input_buffer, -1);        
         if (body != NULL && *(body + body_len - (size_t) 1U) == 0) {
@@ -203,14 +225,14 @@ int replay_log_record(HttpHandlerContext * const context,
             return -1;
         }
     }
-    if (*buf_number == DB_LOG_RECORD_COOKIE_MARK_CHAR) {
+    if (*buf_number == *DB_LOG_RECORD_COOKIE_MARK_CHAR) {
         time_t ts = (time_t) strtol(buf_number + 1U, &endptr, 16);
         if (endptr == NULL || endptr == buf_number + 1U || ts <= (time_t) 0) {
             return -1;
         }
         char t;
         if (buffered_read(brc, &t, (size_t) 1U) != (size_t) 1U ||
-            t != DB_LOG_RECORD_COOKIE_TIMESTAMP_CHAR) {
+            t != *DB_LOG_RECORD_COOKIE_TIMESTAMP_CHAR) {
             return -1;
         }
         readnb = buffered_read(brc, buf_cookie_tail, sizeof buf_cookie_tail);
