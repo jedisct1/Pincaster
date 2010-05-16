@@ -457,8 +457,8 @@ int handle_op_records_put(RecordsPutOp * const put_op,
                          &cb_context);
         free_slip_map(&put_op->properties);
     }
-    Expirable *expirable = key_node->expirable;    
-    if (put_op->expires_at != (time_t) 0) {        
+    Expirable *expirable = key_node->expirable;
+    if (put_op->expires_at != (time_t) 0) {
         if (expirable == NULL) {
             Expirable new_expirable = {
                 .ts = put_op->expires_at,

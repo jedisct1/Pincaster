@@ -6,6 +6,7 @@
 #include "domain_records.h"
 #include "domain_search.h"
 #include "handle_consumer_ops.h"
+#include "expirables.h"
 #include "db_log.h"
 
 static struct event_base *event_base;
@@ -85,7 +86,7 @@ stab:
         } else if (op.bare_op.type == OP_TYPE_LAYERS_CREATE) {
             pthread_rwlock_wrlock(&context->rwlock_layers);
             ret = handle_op_layers_create(&op.layers_create_op, context);
-                pthread_rwlock_unlock(&context->rwlock_layers);
+            pthread_rwlock_unlock(&context->rwlock_layers);
         } else if (op.bare_op.type == OP_TYPE_LAYERS_DELETE) {
             pthread_rwlock_wrlock(&context->rwlock_layers);
             ret = handle_op_layers_delete(&op.layers_delete_op, context);
@@ -427,6 +428,24 @@ static void flush_log_db(evutil_socket_t fd, short event,
     evtimer_add(&context->ev_flush_log_db, &tv);
 }
 
+static void expiration_cron(evutil_socket_t fd, short event,
+                            void * const context_)
+{
+    HttpHandlerContext * const context = context_;
+    
+    (void) event;
+    (void) fd;
+    if (time(&context->now) == (time_t) -1) {
+        return;
+    }
+    purge_expired_keys(context);
+    struct timeval tv = {
+        .tv_sec = 1,
+        .tv_usec = 0
+    };
+    evtimer_add(&context->ev_expiration_cron, &tv);
+}
+
 int http_server(void)
 {
     HttpHandlerContext http_handler_context = {
@@ -439,6 +458,9 @@ int http_server(void)
         .publisher_bev = NULL,
         .consumer_bev = NULL
     };
+    if (time(&http_handler_context.now) == (time_t) -1) {
+        return -1;
+    }
     struct evhttp *event_http;
     struct bufferevent *bev_pair[2];
     set_signals();
@@ -498,12 +520,22 @@ int http_server(void)
     replay_log(&http_handler_context);
     if (start_workers(&http_handler_context) != 0) {
         goto bye;
-    }    
+    }
+    evtimer_assign(&http_handler_context.ev_expiration_cron, event_base,
+                   expiration_cron, &http_handler_context);
+    struct timeval tv = {
+        .tv_sec = 0,
+        .tv_usec = 0
+    };
+    evtimer_add(&http_handler_context.ev_expiration_cron, &tv);
+    
     event_base_dispatch(event_base);
+    
     stop_workers(&http_handler_context);
     if (app_context.db_log.fsync_period > 0) {
         evtimer_del(&http_handler_context.ev_flush_log_db);
     }
+    evtimer_del(&http_handler_context.ev_expiration_cron);
 bye:
     bufferevent_free(http_handler_context.publisher_bev);
     bufferevent_free(http_handler_context.consumer_bev);

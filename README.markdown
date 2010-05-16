@@ -69,6 +69,9 @@ downgrading its type to *void* or *point*,
   * `_add_int:(property name)=(value)` atomically adds (value) to the
 property named (property name), creating it if necessary,
   * `_loc:(latitude),(longitude)` adds or updates a geographic position associated with the record.
+  * `_expires_at=(unix timestamp)` have the record automatically expire at
+this date. If you later want to remove the expiration of a record, just use
+`_expires_at=` (empty value) or `_expires_at=0`.
 
     A single request can create/change/delete any number of properties.
 

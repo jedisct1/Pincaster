@@ -5,7 +5,6 @@
 #define INT_PROPERTY_COMMON_PREFIX     '_'
 #define INT_PROPERTY_TYPE              "_type"
 #define INT_PROPERTY_EXPIRES_AT        "_expires_at"
-#define INT_PROPERTY_TTL               "_ttl"
 #define INT_PROPERTY_POSITION          "_loc"
 #define INT_PROPERTY_DELETE_PREFIX     "_delete:"
 #define INT_PROPERTY_DELETE_ALL_PREFIX "_delete_all"

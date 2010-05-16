@@ -275,7 +275,9 @@ typedef struct HttpHandlerContext_ {
     struct bufferevent *consumer_bev;
     Slab layers_slab;
     struct event ev_flush_log_db;
+    struct event ev_expiration_cron;
     Slab expirables_slab;
+    time_t now;
 } HttpHandlerContext;
 
 typedef int (*DomainHandler)(struct evhttp_request * const req,
