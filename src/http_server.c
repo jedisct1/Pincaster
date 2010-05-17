@@ -166,13 +166,14 @@ stab:
 static void *worker_thread(void *context_)
 {
     HttpHandlerContext * const context = context_;
-    logfile(context, LOG_INFO, "Starting worker thread: [%p]",
-            (void *) pthread_self());
+    unsigned int thr_id;
+    
+    evutil_secure_rng_get_bytes(&thr_id, sizeof thr_id);
+    logfile(context, LOG_INFO, "Starting worker thread: [%lu]", thr_id);
     
     while (worker_do_work(context) == 0);
     
-    logfile(context, LOG_INFO, "Exited worker thread: [%p]",
-            (void *) pthread_self());
+    logfile(context, LOG_INFO, "Exited worker thread: [%lu]", thr_id);
     
     return NULL;
 }
