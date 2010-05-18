@@ -407,9 +407,21 @@ int handle_op_records_put(RecordsPutOp * const put_op,
     }
     assert(status >= 0);
     if (status == 0 && put_op->position_set != 0 && key_node->slot != NULL) {
-        remove_entry_from_key_node(pan_db, key_node, 0);
-        assert(key_node->slot != NULL);
-        key_node->slot = NULL;
+#if PROJECTION
+        const Position2D * const previous_position =
+            &key_node->slot->real_position;
+#else
+        const Position2D * const previous_position =
+            &key_node->slot->position;
+#endif
+        if (previous_position->latitude == put_op->position.latitude &&
+            previous_position->longitude == put_op->position.longitude) {
+            put_op->position_set = 0;
+        } else {
+            remove_entry_from_key_node(pan_db, key_node, 0);
+            assert(key_node->slot != NULL);
+            key_node->slot = NULL;
+        }
     }
     if (put_op->position_set != 0) {
         Slot slot;
