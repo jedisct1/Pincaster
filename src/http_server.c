@@ -166,7 +166,7 @@ stab:
 static void *worker_thread(void *context_)
 {
     HttpHandlerContext * const context = context_;
-    unsigned int thr_id;
+    unsigned long thr_id;
     
     evutil_secure_rng_get_bytes(&thr_id, sizeof thr_id);
     logfile(context, LOG_INFO, "Starting worker thread: [%lu]", thr_id);
