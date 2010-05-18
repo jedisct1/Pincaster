@@ -49,6 +49,8 @@ int parse_config(const char * const file)
         _exit(1);
     }
     if (generic_parser(file, config_keywords) != 0) {
+        logfile(NULL, LOG_ERR,
+                "Error while reading the [%s] configuration file.", file);
         return -1;
     }
     char *endptr;
