@@ -166,14 +166,15 @@ stab:
 static void *worker_thread(void *context_)
 {
     HttpHandlerContext * const context = context_;
-    unsigned long thr_id;
+    uint32_t thr_id;
     
     evutil_secure_rng_get_bytes(&thr_id, sizeof thr_id);
-    logfile(context, LOG_INFO, "Starting worker thread: [%lu]", thr_id);
+    logfile(context, LOG_INFO,
+            "Starting worker thread: [%" PRIu32 "]", thr_id);
     
     while (worker_do_work(context) == 0);
     
-    logfile(context, LOG_INFO, "Exited worker thread: [%lu]", thr_id);
+    logfile(context, LOG_INFO, "Exited worker thread: [%" PRIu32 "]", thr_id);
     
     return NULL;
 }
