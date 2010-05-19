@@ -10,7 +10,7 @@
 #endif
 
 #ifdef DEBUG
-# define XDEBUG(X) do { X } while(0)
+# define XDEBUG(X) do { X; } while(0)
 #else
 # define XDEBUG(X)
 #endif
