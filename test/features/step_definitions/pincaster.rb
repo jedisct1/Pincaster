@@ -2,7 +2,6 @@ require 'rest_client'
 require 'json'
 
 Before do
-  `rm -f /tmp/pincaster.db`
   @pid = fork { exec('../src/pincaster pincaster.conf') }
 end
 
