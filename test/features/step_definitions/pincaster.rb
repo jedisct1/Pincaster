@@ -10,7 +10,6 @@ Given /^that Pincaster is started$/ do
 end
 
 After do |scenario|
-  puts @pid
   Process.kill("HUP", @pid)
   sleep 1
 end
