@@ -15,21 +15,37 @@ After do |scenario|
 end
 
 When /^Client GET (.*)$/ do |path|
-  @result = JSON.parse(RestClient.get 'localhost:4269'+path)
-  @result.delete('tid')
+  begin
+    @result = JSON.parse(RestClient.get 'localhost:4269'+path)
+    @result.delete('tid')
+  rescue Exception=>e
+    @result = e.class
+  end
 end
 
 When /^Client POST (.*) (.*)$/ do |path, content|
-  @result = JSON.parse(RestClient.post 'localhost:4269'+path, content)
-  @result.delete('tid')
+  begin
+    @result = JSON.parse(RestClient.post 'localhost:4269'+path, content)
+    @result.delete('tid')
+  rescue Exception=>e
+    @result = e.class
+  end
 end
 
 When /^Client DELETE (.*)$/ do |path|
-  @result = JSON.parse(RestClient.delete 'localhost:4269'+path)
-  @result.delete('tid')
+  begin
+    @result = JSON.parse(RestClient.delete 'localhost:4269'+path)
+    @result.delete('tid')
+  rescue Exception=>e
+    @result = e.class
+  end
 end
 
 Then /^Pincaster returns:$/ do |string|
   expected = JSON.parse(string)
   @result.should == expected
+end
+
+Then /^Pincaster is dead$/ do
+  @result.should == RestClient::ServerBrokeConnection
 end

@@ -9,3 +9,7 @@ Feature: System API
              "pong": "pong"
      }
      """
+ Scenario: shutdown
+   Given that Pincaster is started
+   When Client POST /api/1.0/system/shutdown.json ''
+   Then Pincaster is dead
