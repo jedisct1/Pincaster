@@ -40,3 +40,5 @@ layers and rectangles.
 - rewriteaof should compress the journal. New operations would happen
 on a second, uncompressed journal.
 
+- Support for reverse geocoding (find what convex polygon a point is in).
+
