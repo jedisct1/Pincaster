@@ -3,8 +3,6 @@
 would fit below a query-defined scale; return the number of children
 instead).
 
-- Output error messages.
-
 - Write tests.
 
 - Replace pointers + size and stringz with binvals.
@@ -13,11 +11,7 @@ instead).
 
 - Drop pthread rwlocks for fcfs rwlocks.
 
-- Handle expiration.
-
 - Add configuration to the journal at startup time.
-
-- Add time to journal entries for point-in-time recovery.
 
 - Authentication.
 
