@@ -4,46 +4,46 @@ Feature: Layer API
     Given Pincaster is started
     When Client POST /api/1.0/layers/tlay.json ''
     Then Pincaster returns:
-      """
-      {
-              "status": "created"
-      }
-      """
+    """
+    {
+            "status": "created"
+    }
+    """
     When Client GET /api/1.0/layers/index.json
     Then Pincaster returns:
-      """
-      {
-              "layers": [
-                      {
-                              "name": "tlay",
-                              "records": 0,
-                              "geo_records": 0,
-                              "type": "geoidal",
-                              "distance_accuracy": "fast",
-                              "latitude_accuracy": 0.0001,
-                              "longitude_accuracy": 0.0001,
-                              "bounds": [
-                                      -180,
-                                      -180,
-                                      180,
-                                      180
-                              ]
-                      }
-              ]
-      }    
-      """
+    """
+    {
+            "layers": [
+                    {
+                            "name": "tlay",
+                            "records": 0,
+                            "geo_records": 0,
+                            "type": "geoidal",
+                            "distance_accuracy": "fast",
+                            "latitude_accuracy": 0.0001,
+                            "longitude_accuracy": 0.0001,
+                            "bounds": [
+                                    -180,
+                                    -180,
+                                    180,
+                                    180
+                            ]
+                    }
+            ]
+    }    
+    """
     When Client DELETE /api/1.0/layers/tlay.json
     Then Pincaster returns:
-      """
-      {
-              "status": "deleted"
-      }
-      """
+    """
+    {
+            "status": "deleted"
+    }
+    """
     When Client GET /api/1.0/layers/index.json
     Then Pincaster returns:
-      """
-      {
-              "layers": [
-              ]
-      }    
-      """
+    """
+    {
+            "layers": [
+            ]
+    }    
+    """

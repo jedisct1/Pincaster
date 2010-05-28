@@ -12,16 +12,16 @@ Feature: Record API
       """
     When Client GET /api/1.0/records/tlay/home.json
     Then Pincaster returns:
-      """
-      {
-	      "key": "home",
-	      "type": "hash",
-	      "properties": {
-		      "description": "Maison",
-		      "who": "Robert"
-	      }
-      }
-      """
+    """
+    {
+            "key": "home",
+            "type": "hash",
+            "properties": {
+                    "description": "Maison",
+                    "who": "Robert"
+            }
+    }
+    """
     When Client DELETE /api/1.0/records/tlay/home.json
     Then Pincaster returns:
       """

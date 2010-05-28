@@ -4,11 +4,11 @@ Feature: System API
    Given Pincaster is started
    When Client GET /api/1.0/system/ping.json
    Then Pincaster returns:
-     """
-     {
-             "pong": "pong"
-     }
-     """
+   """
+   {
+           "pong": "pong"
+   }
+   """
  Scenario: shutdown
    Given Pincaster is started
    When Client POST /api/1.0/system/shutdown.json ''
