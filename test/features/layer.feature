@@ -39,3 +39,11 @@ Feature: Layer API
               "status": "deleted"
       }
       """
+    When Client GET /api/1.0/layers/index.json
+    Then Pincaster returns:
+      """
+      {
+              "layers": [
+              ]
+      }    
+      """
