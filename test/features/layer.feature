@@ -1,7 +1,7 @@
 Feature: Layer API
   Client should be able to edit Pincaster layers throught its HTTP API
   Scenario: create/get/delete
-    Given that Pincaster is started
+    Given Pincaster is started
     When Client POST /api/1.0/layers/tlay.json ''
     Then Pincaster returns:
       """

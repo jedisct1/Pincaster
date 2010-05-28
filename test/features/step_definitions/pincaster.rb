@@ -10,11 +10,11 @@ After do |scenario|
   sleep 1
 end
 
-Given /^that Pincaster is started$/ do
+Given /^Pincaster is started$/ do
   sleep 1
 end
 
-Given /^that a layer named '(.*)' is created$/ do |layer|
+Given /^Layer '(.*)' is created$/ do |layer|
   RestClient.post 'localhost:4269/api/1.0/layers/'+layer+'.json', ''
 end
 
