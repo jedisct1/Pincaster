@@ -18,40 +18,30 @@ Given /^that a layer named '(.*)' is created$/ do |layer|
   RestClient.post 'localhost:4269/api/1.0/layers/'+layer+'.json', ''
 end
 
-When /^Client GET (.*)$/ do |path|
+def capture_api_result
   begin
-    @result = JSON.parse(RestClient.get 'localhost:4269'+path)
-    @result.delete('tid')
+    result = JSON.parse(yield)
+    result.delete('tid')
   rescue Exception=>e
-    @result = e.class
+    result = e.class
   end
+  return result
+end
+
+When /^Client GET (.*)$/ do |path|
+  @result = capture_api_result { RestClient.get 'localhost:4269'+path }
 end
 
 When /^Client POST (.*) '(.*)'$/ do |path, content|
-  begin
-    @result = JSON.parse(RestClient.post 'localhost:4269'+path, content)
-    @result.delete('tid')
-  rescue Exception=>e
-    @result = e.class
-  end
+  @result = capture_api_result { RestClient.post 'localhost:4269'+path, content }
 end
 
 When /^Client DELETE (.*)$/ do |path|
-  begin
-    @result = JSON.parse(RestClient.delete 'localhost:4269'+path)
-    @result.delete('tid')
-  rescue Exception=>e
-    @result = e.class
-  end
+  @result = capture_api_result { RestClient.delete 'localhost:4269'+path }
 end
 
 When /^Client PUT (.*) '(.*)'$/ do |path, content|
-  begin
-    @result = JSON.parse(RestClient.put 'localhost:4269'+path, content)
-    @result.delete('tid')
-  rescue Exception=>e
-    @result = e.class
-  end
+  @result = capture_api_result { RestClient.put 'localhost:4269'+path, content }
 end
 
 Then /^Pincaster returns:$/ do |string|
