@@ -18,6 +18,10 @@ Given /^Layer '(.*)' is created$/ do |layer|
   RestClient.post 'localhost:4269/api/1.0/layers/'+layer+'.json', ''
 end
 
+Given /^Record '(.*)' is created in layer '(.*)' with location '(.*)' and properties '(.*)'$/ do |record, layer, location, properties|
+  RestClient.put 'localhost:4269/api/1.0/records/'+layer+'/'+record+'.json', location+'&'+properties
+end
+
 def capture_api_result
   begin
     result = JSON.parse(yield)
