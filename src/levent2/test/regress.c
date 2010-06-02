@@ -297,54 +297,14 @@ combined_write_cb(evutil_socket_t fd, short event, void *arg)
 		exit(1);
 }
 
-/* Test infrastructure */
-
-static int
-setup_test(const char *name)
-{
-	if (in_legacy_test_wrapper)
-		return 0;
-
-	fprintf(stdout, "%s", name);
-
-	if (evutil_socketpair(AF_UNIX, SOCK_STREAM, 0, pair) == -1) {
-		fprintf(stderr, "%s: socketpair\n", __func__);
-		exit(1);
-	}
-
-	if (evutil_make_socket_nonblocking(pair[0]) == -1)
-		fprintf(stderr, "fcntl(O_NONBLOCK)");
-
-	if (evutil_make_socket_nonblocking(pair[1]) == -1)
-		fprintf(stderr, "fcntl(O_NONBLOCK)");
-
-	test_ok = 0;
-	called = 0;
-	return (0);
-}
-
-static int
-cleanup_test(void)
-{
-	if (in_legacy_test_wrapper)
-		return 0;
-
-#ifndef WIN32
-	close(pair[0]);
-	close(pair[1]);
-#else
-	CloseHandle((HANDLE)pair[0]);
-	CloseHandle((HANDLE)pair[1]);
-#endif
-	if (test_ok)
-		fprintf(stdout, "OK\n");
-	else {
-		fprintf(stdout, "FAILED\n");
-		exit(1);
-	}
-	test_ok = 0;
-	return (0);
-}
+/* These macros used to replicate the work of the legacy test wrapper code */
+#define setup_test(x) do {						\
+	if (!in_legacy_test_wrapper) {					\
+		TT_FAIL(("Legacy test %s not wrapped properly", x));	\
+		return;							\
+	}								\
+	} while (0)
+#define cleanup_test() setup_test("cleanup")
 
 static void
 test_simpleread(void)
@@ -876,7 +836,6 @@ test_immediatesignal(void)
 	struct event ev;
 
 	test_ok = 0;
-	printf("Immediate signal: ");
 	evsignal_set(&ev, SIGUSR1, signal_cb, &ev);
 	evsignal_add(&ev, NULL);
 	raise(SIGUSR1);
@@ -891,7 +850,6 @@ test_signal_dealloc(void)
 	/* make sure that evsignal_event is event_del'ed and pipe closed */
 	struct event ev;
 	struct event_base *base = event_init();
-	printf("Signal dealloc: ");
 	evsignal_set(&ev, SIGUSR1, signal_cb, &ev);
 	evsignal_add(&ev, NULL);
 	evsignal_del(&ev);
@@ -908,7 +866,6 @@ test_signal_pipeloss(void)
 	struct event_base *base1, *base2;
 	int pipe1;
 	test_ok = 0;
-	printf("Signal pipeloss: ");
 	base1 = event_init();
 	pipe1 = base1->sig.ev_signal_pair[0];
 	base2 = event_init();
@@ -936,7 +893,6 @@ test_signal_switchbase(void)
 	struct event_base *base1, *base2;
 	int is_kqueue;
 	test_ok = 0;
-	printf("Signal switchbase: ");
 	base1 = event_init();
 	base2 = event_init();
 	is_kqueue = !strcmp(event_get_method(),"kqueue");
@@ -988,7 +944,6 @@ test_signal_assert(void)
 	struct event ev;
 	struct event_base *base = event_init();
 	test_ok = 0;
-	printf("Signal handler assert: ");
 	/* use SIGCONT so we don't kill ourselves when we signal to nowhere */
 	evsignal_set(&ev, SIGCONT, signal_cb, &ev);
 	evsignal_add(&ev, NULL);
@@ -1023,7 +978,6 @@ test_signal_restore(void)
 #endif
 
 	test_ok = 0;
-	printf("Signal handler restore: ");
 #ifdef _EVENT_HAVE_SIGACTION
 	sa.sa_handler = signal_cb_sa;
 	sa.sa_flags = 0x0;
