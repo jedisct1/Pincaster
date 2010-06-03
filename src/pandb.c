@@ -739,7 +739,7 @@ int find_near(const PanDB * const db,
         matching_rects[0] = rect;        
         nb_zones = 1U;
     } else {
-        nb_zones = find_zones(db, &rect , matching_rects);
+        nb_zones = find_zones(db, &rect, matching_rects);
     }
     assert(nb_zones >= 1U);
     assert(nb_zones <= 4U);
@@ -748,6 +748,7 @@ int find_near(const PanDB * const db,
     if (stack_inspect == NULL) {
         return -1;
     }
+    assert(matching_rect == &matching_rects[0]);    
     int ret;
     do {
         ret = find_near_in_zone(matching_rect,
@@ -758,6 +759,7 @@ int find_near(const PanDB * const db,
                                 position,
                                 distance,
                                 limit);
+        matching_rect++;
     } while (ret == 0 && --nb_zones > 0U);
     free_pnt_stack(stack_inspect);
     
