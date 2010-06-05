@@ -18,9 +18,6 @@ children of the quad node.
 
 - Multiget.
 
-- Retrieve keys whose name matches a prefix (since keys are indexed using a
-rbtree, this should be fast).
-
 - Symbolic links to other records, a la Riak.
 
 - Get rid of the remaining fixed-size malloc() calls and use slab allocation.
