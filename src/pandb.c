@@ -902,16 +902,6 @@ int find_in_rect(const PanDB * const db,
     };
     for (;;) {
         assert(scanned_node->type == NODE_TYPE_QUAD_NODE);
-        if (cluster != 0 &&
-            scanned_node->sub_slots > max_nb_slots_without_clustering &&
-            fabsf(scanned_qbounds.edge1.latitude -
-                  scanned_qbounds.edge0.latitude) < epsilon &&
-            fabsf(scanned_qbounds.edge1.longitude -
-                  scanned_qbounds.edge0.longitude) < epsilon) {
-            context.rect = &scanned_qbounds;
-            find_in_rect_cluster_context_cb(&context, (void *) scanned_node, sizeof *scanned_node);
-            goto bypass;
-        }
         get_qrects_from_qbounds(scanned_children_qbounds, &scanned_qbounds);        
         t = 0U;
         do {
@@ -919,6 +909,23 @@ int find_in_rect(const PanDB * const db,
             scanned_child_qbound = &scanned_children_qbounds[t];
             if (rectangle2d_intersect(scanned_child_qbound,
                                       matching_rect) == 0) {
+                continue;
+            }
+            if (scanned_node_child->bare_node.type == NODE_TYPE_QUAD_NODE &&
+                cluster != 0 &&
+                scanned_node_child->quad_node.sub_slots >
+                max_nb_slots_without_clustering &&
+                fabsf(scanned_child_qbound->edge1.latitude -
+                      scanned_child_qbound->edge0.latitude) < epsilon &&
+                fabsf(scanned_child_qbound->edge1.longitude -
+                      scanned_child_qbound->edge0.longitude) < epsilon) {
+                context.rect = scanned_child_qbound;
+                const int ret = find_in_rect_cluster_context_cb
+                    (&context,
+                        (void *) scanned_node_child, sizeof *scanned_node_child);
+                if (ret != 0) {
+                    return ret;
+                }
                 continue;
             }
             if (scanned_node_child->bare_node.type == NODE_TYPE_BUCKET_NODE) {
@@ -936,7 +943,6 @@ int find_in_rect(const PanDB * const db,
             qnb.qrect = *scanned_child_qbound;
             push_pnt_stack(stack_inspect, &qnb);
         } while (t++ < 3U);
-bypass:
         sqnb = pop_pnt_stack(stack_inspect);
         if (sqnb == NULL) {
             break;
