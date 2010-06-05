@@ -595,7 +595,8 @@ int handle_op_search_in_keys(SearchInKeysOp * const in_keys_op,
              memcmp(found_key->val, c_pattern, pattern_len) != 0)) {
             break;
         }
-        if (found_key->len > (size_t) 1U) {
+        if (found_key->len > (size_t) 1U &&
+            (wildcard != 0 || found_key->len == pattern_len) {
             if (in_keys_op->with_content == 0) {
                 yajl_gen_string(json_gen,
                                 (const unsigned char *) found_key->val,
