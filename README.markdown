@@ -19,6 +19,8 @@ Schema overview
   4. A set of key/value pairs and a geographic location (*point+hash* type).
 
   A layer can store records of arbitrary sizes and types.
+  
+  Records can automatically expire.
 
 Installation
 ------------
@@ -113,6 +115,9 @@ Geographic search
   
   * `limit=(max number of results)`
   * `properties=(0 or 1)` in order to include properties or not in the reply.
+  * `epsilon=(value)` finds records within a rectangle, but below a certain scale,
+return the number of items + the hot spot and a radius instead of the
+records themselves ("cluster" type).
 
 Misc
 ----
