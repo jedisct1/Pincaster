@@ -12,6 +12,7 @@ typedef struct SearchOptParseCBContext_ {
     SubSlots limit;
     Dimension epsilon;
     _Bool with_properties;
+    _Bool with_content;    
 } SearchOptParseCBContext;
 
 static int search_opt_parse_cb(void * const context_,
@@ -64,6 +65,19 @@ static int search_opt_parse_cb(void * const context_,
         }
         return 0;
     }
+    if (BINVAL_IS_EQUAL_TO_CONST_STRING(key, "content")) {
+        char *endptr;
+        unsigned long v = strtoul(svalue, &endptr, 10);
+        if (endptr == NULL || endptr == svalue) {
+            return -1;
+        }
+        if (v != 0) {
+            context->with_content = 1;
+        } else {
+            context->with_content = 0;
+        }
+        return 0;
+    }
     return 0;
 }
 
@@ -109,7 +123,8 @@ int handle_domain_search(struct evhttp_request * const req,
         .radius = (Dimension) 0.0,
         .limit = DEFAULT_SEARCH_LIMIT,
         .epsilon = (Dimension) -1.0,
-        .with_properties = 1
+        .with_properties = 1,
+        .with_content = 1
     };
     if (opts != NULL &&
         query_parse(opts, search_opt_parse_cb, &cb_context) != 0) {
@@ -262,6 +277,40 @@ int handle_domain_search(struct evhttp_request * const req,
         if (push_cqueue(context->cqueue, in_rect_op) != 0) {
             pthread_mutex_unlock(&context->mtx_cqueue);
             release_key(layer_name);
+            
+            return HTTP_SERVUNAVAIL;
+        }
+        pthread_mutex_unlock(&context->mtx_cqueue);
+        pthread_cond_signal(&context->cond_cqueue);
+        return 0;
+    }
+    
+    if (strcasecmp(search_type, "keys") == 0) {
+        SearchInKeysOp * const in_keys_op = &op.search_in_keys_op;
+
+        if (*query == 0) {
+            release_key(layer_name);
+            return HTTP_BADREQUEST;
+        }
+        *in_keys_op = (SearchInKeysOp) {
+            .type = OP_TYPE_SEARCH_IN_KEYS,
+            .req = req,
+            .fake_req = fake_req,
+            .op_tid = ++context->op_tid,
+            .layer_name = layer_name,
+            .pattern = NULL,
+            .limit = cb_context.limit,
+            .with_properties = cb_context.with_properties,
+            .with_content = cb_context.with_content
+        };
+        if ((in_keys_op->pattern = new_key_from_c_string(query)) == NULL) {
+            return HTTP_SERVUNAVAIL;
+        }
+        pthread_mutex_lock(&context->mtx_cqueue);
+        if (push_cqueue(context->cqueue, in_keys_op) != 0) {
+            pthread_mutex_unlock(&context->mtx_cqueue);
+            release_key(layer_name);
+            release_key(in_keys_op->pattern);            
             
             return HTTP_SERVUNAVAIL;
         }
@@ -464,4 +513,119 @@ int handle_op_search_in_rect(SearchInRectOp * const in_rect_op,
     send_op_reply(context, op_reply);
     
     return 0;
+}
+
+int handle_op_search_in_keys(SearchInKeysOp * const in_keys_op,
+                             HttpHandlerContext * const context)
+{
+    yajl_gen json_gen;
+    PanDB *pan_db;
+    Key * const pattern = in_keys_op->pattern;
+        
+    assert(pattern != NULL);
+    if (get_pan_db_by_layer_name(context, in_keys_op->layer_name->val,
+                                 AUTOMATICALLY_CREATE_LAYERS, &pan_db) < 0) {
+        assert(pan_db == NULL);        
+        release_key(in_keys_op->layer_name);
+        release_key(pattern);
+        
+        return HTTP_NOTFOUND;
+    }
+    release_key(in_keys_op->layer_name);
+    if (in_keys_op->fake_req != 0) {
+        release_key(pattern);
+        return 0;
+    }
+    OpReply *op_reply = malloc(sizeof *op_reply);
+    if (op_reply == NULL) {
+        release_key(pattern);        
+        return HTTP_SERVUNAVAIL;
+    }
+    SearchInKeysOpReply * const in_keys_op_reply =
+        &op_reply->search_in_keys_op_reply;
+    
+    *in_keys_op_reply = (SearchInKeysOpReply) {
+        .type = OP_TYPE_SEARCH_IN_KEYS,
+        .req = in_keys_op->req,
+        .op_tid = in_keys_op->op_tid,
+        .json_gen = NULL
+    };
+    if ((json_gen = new_json_gen(op_reply)) == NULL) {
+        free(op_reply);
+        release_key(pattern);
+        return HTTP_SERVUNAVAIL;
+    }
+    in_keys_op_reply->json_gen = json_gen;
+    yajl_gen_string(json_gen,
+                    (const unsigned char *) "matches",
+                    (unsigned int) sizeof "matches" - (size_t) 1U);
+    yajl_gen_array_open(json_gen);
+    char * const c_pattern = pattern->val;
+    size_t pattern_len = pattern->len;
+    _Bool wildcard = 0;
+    if (pattern_len <= (size_t) 0U) {
+        goto emptyresult;
+    }
+    if (*(c_pattern + pattern_len - (size_t) 1U) == 0) {
+        pattern_len--;
+        if (pattern_len <= (size_t) 0U) {
+            goto emptyresult;
+        }
+    }
+    if (*(c_pattern + pattern_len - (size_t) 1U) == '*') {
+        wildcard = 1;
+        pattern_len--;        
+    }
+    KeyNode *found_key_node;
+    KeyNode scanned_key_node = { .key = pattern };
+    if (pattern_len == (size_t) 0U) {
+        found_key_node = RB_MIN(KeyNodes_, &pan_db->key_nodes);        
+    } else if (pattern_len == (size_t) 0U) {
+        found_key_node = RB_FIND(KeyNodes_,
+                                 &pan_db->key_nodes, &scanned_key_node);
+    } else {
+        found_key_node = RB_NFIND(KeyNodes_,
+                                  &pan_db->key_nodes, &scanned_key_node);
+    }
+    while (found_key_node != NULL) {
+        const Key *found_key = found_key_node->key;
+        
+        if (pattern_len > (size_t) 0U &&
+            (found_key->len < pattern_len ||
+             memcmp(found_key->val, c_pattern, pattern_len) != 0)) {
+            break;
+        }
+        if (found_key->len > (size_t) 1U) {
+            if (in_keys_op->with_content == 0) {
+                yajl_gen_string(json_gen,
+                                (const unsigned char *) found_key->val,
+                                (unsigned int) found_key->len - (size_t) 1U);
+            } else {
+#ifdef DEBUG
+                KeyNode *key_node = NULL;
+                if (get_key_node_from_key(pan_db, (Key *) found_key,
+                                          0, &key_node) < 0) {
+                    assert(0);
+                }
+                assert(key_node == found_key_node);
+#endif
+                yajl_gen_map_open(json_gen);
+                key_node_to_json(found_key_node, json_gen,
+                                 in_keys_op->with_properties);
+                yajl_gen_map_close(json_gen);
+            }
+        }
+        if (wildcard == 0 || --in_keys_op->limit <= (SubSlots) 0U) {
+            break;
+        }
+        found_key_node = RB_NEXT(KeyNodes_,
+                                 &pan_db->key_nodes, found_key_node);
+    }
+emptyresult:
+    release_key(pattern);
+    yajl_gen_array_close(json_gen);
+    
+    send_op_reply(context, op_reply);
+    
+    return 0;    
 }

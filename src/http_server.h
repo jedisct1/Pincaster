@@ -37,7 +37,8 @@ typedef enum OpType_ {
     OP_TYPE_RECORDS_DELETE,        
         
     OP_TYPE_SEARCH_NEARBY,
-    OP_TYPE_SEARCH_IN_RECT,        
+    OP_TYPE_SEARCH_IN_RECT,
+    OP_TYPE_SEARCH_IN_KEYS,
 } OpType;
 
 typedef uint_fast64_t OpTID;
@@ -144,6 +145,18 @@ typedef struct SearchInRectOp_ {
     _Bool with_properties;
 } SearchInRectOp;
 
+typedef struct SearchInKeysOp_ {
+    OpType type;
+    struct evhttp_request *req;
+    _Bool fake_req;    
+    OpTID op_tid;
+    Key *layer_name;
+    Key *pattern;
+    SubSlots limit;
+    _Bool with_properties;
+    _Bool with_content;
+} SearchInKeysOp;
+
 typedef union Op_ {
     BareOp          bare_op;
     SystemPingOp    system_ping_op;
@@ -155,7 +168,8 @@ typedef union Op_ {
     RecordsGetOp    records_get_op;
     RecordsDeleteOp records_delete_op;    
     SearchNearbyOp  search_nearby_op;
-    SearchInRectOp  search_in_rect_op;    
+    SearchInRectOp  search_in_rect_op;
+    SearchInKeysOp  search_in_keys_op;
 } Op;
 
 typedef struct BareOpReply_ {
@@ -242,6 +256,13 @@ typedef struct SearchInRectOpReply_ {
     yajl_gen json_gen;
 } SearchInRectOpReply;
 
+typedef struct SearchInKeysOpReply_ {
+    OpType type;
+    struct evhttp_request *req;
+    OpTID op_tid;
+    yajl_gen json_gen;
+} SearchInKeysOpReply;
+
 typedef union OpReply_ {
     BareOpReply          bare_op_reply;
     ErrorOpReply         error_op_reply;    
@@ -255,6 +276,7 @@ typedef union OpReply_ {
     RecordsDeleteOpReply records_delete_op_reply;    
     SearchNearbyOpReply  search_nearby_op_reply;
     SearchInRectOpReply  search_in_rect_op_reply;
+    SearchInKeysOpReply  search_in_keys_op_reply;    
 } OpReply;
 
 typedef struct Layer_ {

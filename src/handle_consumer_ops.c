@@ -118,6 +118,15 @@ static int handle_consumer_op_search_in_rect(OpReply * const op_reply)
     return send_json_gen(json_gen, op_reply);
 }
 
+static int handle_consumer_op_search_in_keys(OpReply * const op_reply)
+{
+    SearchInKeysOpReply * const search_in_keys_op_reply =
+        &op_reply->search_in_keys_op_reply;
+    yajl_gen json_gen = search_in_keys_op_reply->json_gen;
+    
+    return send_json_gen(json_gen, op_reply);
+}
+
 void consumer_cb(struct bufferevent * const bev, void *context_)
 {
     OpReply *op_reply;
@@ -160,6 +169,9 @@ void consumer_cb(struct bufferevent * const bev, void *context_)
             break;
         case OP_TYPE_SEARCH_IN_RECT:
             ret = handle_consumer_op_search_in_rect(op_reply);
+            break;
+        case OP_TYPE_SEARCH_IN_KEYS:
+            ret = handle_consumer_op_search_in_keys(op_reply);
             break;
         default:
             ret = -1;

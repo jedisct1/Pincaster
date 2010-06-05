@@ -127,6 +127,14 @@ stab:
 #endif
             ret = handle_op_search_in_rect(&op.search_in_rect_op, context);
             pthread_rwlock_unlock(&context->rwlock_layers);
+        } else if (op.bare_op.type == OP_TYPE_SEARCH_IN_KEYS) {
+#if AUTOMATICALLY_CREATE_LAYERS
+            pthread_rwlock_wrlock(&context->rwlock_layers);
+#else
+            pthread_rwlock_rdlock(&context->rwlock_layers);
+#endif
+            ret = handle_op_search_in_keys(&op.search_in_keys_op, context);
+            pthread_rwlock_unlock(&context->rwlock_layers);
         } else {
             assert(0);
         }

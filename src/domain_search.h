@@ -13,4 +13,7 @@ int handle_op_search_nearby(SearchNearbyOp * const nearby_op,
 int handle_op_search_in_rect(SearchInRectOp * const in_rect_op,
                              HttpHandlerContext * const context);
 
+int handle_op_search_in_keys(SearchInKeysOp * const in_keys_op,
+                             HttpHandlerContext * const context);
+
 #endif
