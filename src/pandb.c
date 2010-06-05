@@ -864,12 +864,8 @@ int find_in_rect(const PanDB * const db,
     if (limit <= (SubSlots) 0) {
         return 0;
     }
-    _Bool cluster = 0;
+    const _Bool cluster = (epsilon > (Dimension) 0.0);
     SubSlots max_nb_slots_without_clustering = (SubSlots) 0U;
-    if (epsilon > (Dimension) 0.0) {
-        cluster = 1;
-        max_nb_slots_without_clustering = limit / (SubSlots) 4U;
-    }
     const Position2D rect_center = {
         .latitude =
         (rect->edge1.latitude + rect->edge0.latitude) / (Dimension) 2.0,
@@ -902,7 +898,10 @@ int find_in_rect(const PanDB * const db,
     };
     for (;;) {
         assert(scanned_node->type == NODE_TYPE_QUAD_NODE);
-        get_qrects_from_qbounds(scanned_children_qbounds, &scanned_qbounds);        
+        get_qrects_from_qbounds(scanned_children_qbounds, &scanned_qbounds);
+        if (cluster != 0) {
+            max_nb_slots_without_clustering = context.limit / (SubSlots) 4U;
+        }
         t = 0U;
         do {
             scanned_node_child = scanned_node->nodes[t];
