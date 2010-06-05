@@ -200,14 +200,14 @@ static int process_request(HttpHandlerContext *context,
     char *pnt;
     
     uri = evhttp_request_get_uri(req);
-    if (strncmp(uri, context->encoded_base_uri,
-                context->encoded_base_uri_len) != 0) {
+    if (strncmp(uri, context->encoded_api_base_uri,
+                context->encoded_api_base_uri_len) != 0) {
         if (fake_req == 0) {
             evhttp_send_error(req, HTTP_NOTFOUND, "Not Found");
         }
         return -1;
     }
-    decoded_uri = evhttp_decode_uri(uri + context->encoded_base_uri_len);
+    decoded_uri = evhttp_decode_uri(uri + context->encoded_api_base_uri_len);
     char * opts;
     if ((opts = strchr(decoded_uri, '?')) != NULL) {
         *opts = 0;
@@ -516,7 +516,7 @@ int http_server(void)
         .thr_workers = NULL,
         .event_base = NULL,
         .op_tid = (OpTID) 0U,
-        .encoded_base_uri = NULL,
+        .encoded_api_base_uri = NULL,
         .cqueue = NULL,
         .publisher_bev = NULL,
         .consumer_bev = NULL,
@@ -553,9 +553,9 @@ int http_server(void)
     pthread_mutex_init(&http_handler_context.mtx_cqueue, NULL);
     pthread_cond_init(&http_handler_context.cond_cqueue, NULL);
     pthread_rwlock_init(&http_handler_context.rwlock_layers, NULL);
-    http_handler_context.encoded_base_uri = ENCODED_BASE_URI;
-    http_handler_context.encoded_base_uri_len =
-        strlen(http_handler_context.encoded_base_uri);
+    http_handler_context.encoded_api_base_uri = ENCODED_API_BASE_URI;
+    http_handler_context.encoded_api_base_uri_len =
+        strlen(http_handler_context.encoded_api_base_uri);
     evthread_use_pthreads();
     event_base = event_base_new();
     http_handler_context.event_base = event_base;

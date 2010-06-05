@@ -207,13 +207,13 @@ static int rebuild_journal_record_cb(void *context_, KeyNode * const key_node)
     const int verb = EVHTTP_REQ_PUT;
     const Key * const key = key_node->key;
     const size_t uri_len =
-        context->http_handler_context->encoded_base_uri_len +
+        context->http_handler_context->encoded_api_base_uri_len +
         sizeof "records/" - (size_t) 1U + context->encoded_layer_name->size +
         sizeof "/" - (size_t) 1U + key->len - (size_t) 1U +
         sizeof ".json" - (size_t) 1U;
     evbuffer_add_printf(log_buffer, "%x %zx:%srecords/%s/%s.json ",
                         verb, uri_len,
-                        context->http_handler_context->encoded_base_uri,
+                        context->http_handler_context->encoded_api_base_uri,
                         context->encoded_layer_name->val, key->val);
 
     struct evbuffer * const body_buffer = evbuffer_new();
@@ -298,11 +298,11 @@ static int rebuild_journal_layer_cb(void *context_, void *entry,
         evbuffer_free(log_buffer);
         return -1;
     }
-    const size_t uri_len = context->context->encoded_base_uri_len +
+    const size_t uri_len = context->context->encoded_api_base_uri_len +
         sizeof "layers/" - (size_t) 1U + encoded_layer_name.size +
         sizeof ".json" - (size_t) 1U;
     evbuffer_add_printf(log_buffer, "%x %zx:%slayers/%s.json %zx:",
-                        verb, uri_len, context->context->encoded_base_uri,
+                        verb, uri_len, context->context->encoded_api_base_uri,
                         encoded_layer_name.val, (size_t) 0U);
     evbuffer_add(log_buffer, DB_LOG_RECORD_COOKIE_TAIL,
                  sizeof DB_LOG_RECORD_COOKIE_TAIL - (size_t) 1U);

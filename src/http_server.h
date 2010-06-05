@@ -4,8 +4,8 @@
 
 #include <evhttp.h>
 
-#ifndef ENCODED_BASE_URI
-# define ENCODED_BASE_URI "/api/1.0/"
+#ifndef ENCODED_API_BASE_URI
+# define ENCODED_API_BASE_URI "/api/1.0/"
 #endif
 #ifndef SERVER_NAME 
 # define SERVER_NAME PACKAGE_STRING
@@ -289,8 +289,8 @@ typedef struct HttpHandlerContext_ {
     pthread_t *thr_workers;
     struct event_base *event_base;
     OpTID op_tid;
-    const char *encoded_base_uri;
-    size_t encoded_base_uri_len;
+    const char *encoded_api_base_uri;
+    size_t encoded_api_base_uri_len;
     CQueue *cqueue;
     pthread_mutex_t mtx_cqueue;
     pthread_cond_t cond_cqueue;
