@@ -119,6 +119,32 @@ Geographic search
 return the number of items + the hot spot and a radius instead of the
 records themselves ("cluster" type).
 
+Range queries
+-------------
+
+Keys are indexed with a RB-tree, and they are always pre-sorted in lexical order.
+
+Hence, retrieving keys matching a prefix is a very fast operation.
+
+* **Finding keys matching a prefix:**
+
+    Method: `GET`
+
+    URI: `http://$HOST:4269/api/1.0/search/(layer name)/keys/(prefix)*.json`
+
+  This retrieves every key starting with (prefix). If the final * character
+is omitted, an exact matching is performed instead of a prefix matching.
+
+  Additional arguments can be added to this query:
+  
+  * `limit=(max number of results)` - please note that the default
+limit is 250 in order to avoid returning kazillions objects in case of
+an erroneous query. If you need to retrieve more, don't forget to
+explicitly set this argument.
+  * `content=(0 or 1)` in order to retrieve only a list of keys, or
+full objects.
+  * `properties=(0 or 1)` in order to include properties or not in the reply.
+
 Misc
 ----
 
