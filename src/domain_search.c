@@ -556,9 +556,15 @@ int handle_op_search_in_keys(SearchInKeysOp * const in_keys_op,
         return HTTP_SERVUNAVAIL;
     }
     in_keys_op_reply->json_gen = json_gen;
-    yajl_gen_string(json_gen,
-                    (const unsigned char *) "matches",
-                    (unsigned int) sizeof "matches" - (size_t) 1U);
+    if (in_keys_op->with_content == 0) {    
+        yajl_gen_string(json_gen,
+                        (const unsigned char *) "keys",
+                        (unsigned int) sizeof "keys" - (size_t) 1U);
+    } else {
+        yajl_gen_string(json_gen,
+                        (const unsigned char *) "matches",
+                        (unsigned int) sizeof "matches" - (size_t) 1U);
+    }
     yajl_gen_array_open(json_gen);
     char * const c_pattern = pattern->val;
     size_t pattern_len = pattern->len;
