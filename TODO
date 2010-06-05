@@ -1,7 +1,8 @@
 
-- Handle clusterized geographic searches (don't traverse child nodes if it
-would fit below a query-defined scale; return the number of children
-instead).
+- Handle clusterized geographic results for point+radius search.
+
+- Ajust the coordinates of cluster results according to the number of
+children of the quad node.
 
 - Write tests.
 
