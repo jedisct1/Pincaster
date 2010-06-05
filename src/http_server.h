@@ -128,6 +128,7 @@ typedef struct SearchNearbyOp_ {
     Position2D position;
     Dimension radius;
     SubSlots limit;
+    Dimension epsilon;
     _Bool with_properties;
 } SearchNearbyOp;
 
@@ -139,6 +140,7 @@ typedef struct SearchInRectOp_ {
     Key *layer_name;
     Rectangle2D rect;
     SubSlots limit;
+    Dimension epsilon;
     _Bool with_properties;
 } SearchInRectOp;
 

@@ -126,6 +126,11 @@ typedef int (*FindNearCB)(void * const context,
 typedef int (*FindInRectCB)(void * const context,
                             Slot * const slot, Meters distance);
 
+typedef int (*FindInRectClusterCB)(void * const context,
+                                   const Position2D * const position,
+                                   const Meters radius,
+                                   const NbSlots children);
+
 void dump(Node *scanned_node);
 
 int init_pan_db(PanDB * const db,
@@ -148,8 +153,10 @@ int find_near(const PanDB * const db,
               const SubSlots limit);
 
 int find_in_rect(const PanDB * const db,
-                 FindNearCB cb, void * const cb_context,
-                 const Rectangle2D * const rect, const SubSlots limit);
+                 FindInRectCB cb, FindInRectClusterCB cluster_cb,
+                 void * const cb_context,
+                 const Rectangle2D * const rect,
+                 const SubSlots limit, const Dimension epsilon);
 
 #ifdef DEBUG
 void print_rect(const Rectangle2D * const rect);

@@ -772,6 +772,7 @@ typedef struct FindInRectIntCBContext_ {
     const Rectangle2D *rect;
     SubSlots limit;
     FindInRectCB cb;
+    FindInRectClusterCB cluster_cb;
     void *context_cb;
 } FindInRectIntCBContext;
 
@@ -807,20 +808,67 @@ static int find_in_rect_context_cb(void *context_, void *entry,
             }
         }
     } else {
-        printf("=== [NULL KEY] => %.3f/%.3f (%.2f)\n",
-               scanned_slot->position.latitude,
-               scanned_slot->position.longitude,
-               cd);
+        fprintf(stderr, "=== [NULL KEY] => %.3f/%.3f (%.2f)\n",
+                scanned_slot->position.latitude,
+                scanned_slot->position.longitude,
+                cd);
+    }
+    return 0;
+}
+
+static int find_in_rect_cluster_context_cb(void *context_, void *entry,
+                                           const size_t sizeof_entry)
+{
+    FindInRectIntCBContext *context = context_;
+    if (context->cluster_cb == NULL) {
+        goto skip;
+    }
+    QuadNode *scanned_node = entry;    
+    const Rectangle2D * const rect = context->rect;
+    const Position2D center = {
+        .latitude = (rect->edge1.latitude + rect->edge0.latitude) / 2.0,
+        .longitude = (rect->edge1.longitude + rect->edge0.longitude) / 2.0
+    };
+    const Dimension distance =
+        (fabsf(center.latitude - rect->edge0.latitude) +
+            fabsf(center.longitude - rect->edge0.longitude)) / 2.0;
+    Meters radius;
+    if (context->db->layer_type == LAYER_TYPE_SPHERICAL ||
+        context->db->layer_type == LAYER_TYPE_GEOIDAL) {
+        radius = geoidal_distance_to_meters(distance);
+    } else {
+        radius = (Meters) distance;
+    }
+    assert(scanned_node->type == NODE_TYPE_QUAD_NODE);
+    const NbSlots children = scanned_node->sub_slots;
+    (void) sizeof_entry;
+    
+    const int ret =
+        context->cluster_cb(context->context_cb, &center, radius, children);
+    if (ret != 0) {
+        return ret;
+    }
+skip:
+    if (context->limit-- <= (SubSlots) 1U) {
+        return 1;
     }
     return 0;
 }
 
 int find_in_rect(const PanDB * const db,
-                 FindInRectCB cb, void * const context_cb,
-                 const Rectangle2D * const rect, const SubSlots limit)
+                 FindInRectCB cb, FindInRectClusterCB cluster_cb,
+                 void * const context_cb,
+                 const Rectangle2D * const rect,
+                 const SubSlots limit, const Dimension epsilon)
 {
     if (limit <= (SubSlots) 0) {
         return 0;
+    }
+    _Bool cluster = 0;
+    SubSlots max_nb_slots_without_clustering = (SubSlots) 0U;
+    if (epsilon > (Dimension) 0.0) {
+        cluster = 1;
+        max_nb_slots_without_clustering = limit / (SubSlots) 4U;
     }
     const Position2D rect_center = {
         .latitude =
@@ -847,13 +895,24 @@ int find_in_rect(const PanDB * const db,
     FindInRectIntCBContext context = {
         .db = db,
         .cb = cb,
+        .cluster_cb = cluster_cb,
         .context_cb = context_cb,
         .position = &rect_center,
         .limit = limit
     };
     for (;;) {
         assert(scanned_node->type == NODE_TYPE_QUAD_NODE);
-        get_qrects_from_qbounds(scanned_children_qbounds, &scanned_qbounds);
+        if (cluster != 0 &&
+            scanned_node->sub_slots > max_nb_slots_without_clustering &&
+            fabsf(scanned_qbounds.edge1.latitude -
+                  scanned_qbounds.edge0.latitude) < epsilon &&
+            fabsf(scanned_qbounds.edge1.longitude -
+                  scanned_qbounds.edge0.longitude) < epsilon) {
+            context.rect = &scanned_qbounds;
+            find_in_rect_cluster_context_cb(&context, (void *) scanned_node, sizeof *scanned_node);
+            goto bypass;
+        }
+        get_qrects_from_qbounds(scanned_children_qbounds, &scanned_qbounds);        
         t = 0U;
         do {
             scanned_node_child = scanned_node->nodes[t];
@@ -877,6 +936,7 @@ int find_in_rect(const PanDB * const db,
             qnb.qrect = *scanned_child_qbound;
             push_pnt_stack(stack_inspect, &qnb);
         } while (t++ < 3U);
+bypass:
         sqnb = pop_pnt_stack(stack_inspect);
         if (sqnb == NULL) {
             break;

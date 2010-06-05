@@ -10,6 +10,7 @@
 typedef struct SearchOptParseCBContext_ {
     Dimension radius;
     SubSlots limit;
+    Dimension epsilon;
     _Bool with_properties;
 } SearchOptParseCBContext;
 
@@ -39,6 +40,15 @@ static int search_opt_parse_cb(void * const context_,
             return -1;
         }
         context->limit = limit;
+        return 0;
+    }
+    if (BINVAL_IS_EQUAL_TO_CONST_STRING(key, "epsilon")) {
+        char *endptr;
+        Dimension epsilon = (Dimension) strtod(svalue, &endptr);
+        if (endptr == NULL || endptr == svalue || epsilon <= (Dimension) 0.0) {
+            return -1;
+        }
+        context->epsilon = epsilon;
         return 0;
     }
     if (BINVAL_IS_EQUAL_TO_CONST_STRING(key, "properties")) {
@@ -98,6 +108,7 @@ int handle_domain_search(struct evhttp_request * const req,
     SearchOptParseCBContext cb_context = {
         .radius = (Dimension) 0.0,
         .limit = DEFAULT_SEARCH_LIMIT,
+        .epsilon = (Dimension) -1.0,
         .with_properties = 1
     };
     if (opts != NULL &&
@@ -122,6 +133,7 @@ int handle_domain_search(struct evhttp_request * const req,
             },
             .radius = cb_context.radius,
             .limit = cb_context.limit,
+            .epsilon = cb_context.epsilon,
             .with_properties = cb_context.with_properties
         };
         if (*query == 0 || (sep = strchr(query, ',')) == NULL) {
@@ -171,6 +183,7 @@ int handle_domain_search(struct evhttp_request * const req,
             .layer_name = layer_name,
             .rect = { { 0, 0 }, { 0, 0 } },
             .limit = cb_context.limit,
+            .epsilon = cb_context.epsilon,
             .with_properties = cb_context.with_properties
          };
         
@@ -284,6 +297,56 @@ static int find_near_cb(void * const context_,
     return 0;
 }
 
+static int find_in_rect_cb(void * const context_,
+                           Slot * const slot, const Meters distance)
+{
+    return find_near_cb(context_, slot, distance);
+}
+
+static int find_near_cluster_cb(void * const context_,
+                                const Position2D * const position,
+                                const Meters radius,
+                                const NbSlots children)
+{
+    FindNearCBContext * const context = context_;
+    yajl_gen json_gen = context->json_gen;
+
+    yajl_gen_map_open(json_gen);
+    yajl_gen_string(json_gen,
+                    (const unsigned char *) "type",
+                    (unsigned int) sizeof "type" - (size_t) 1U);
+    yajl_gen_string(json_gen,
+                    (const unsigned char *) "cluster",
+                    (unsigned int) sizeof "cluster" - (size_t) 1U);
+    yajl_gen_string(json_gen,
+                    (const unsigned char *) "children",
+                    (unsigned int) sizeof "children" - (size_t) 1U);
+    yajl_gen_integer(json_gen, (long) children);
+    yajl_gen_string(json_gen,
+                    (const unsigned char *) "latitude",
+                    (unsigned int) sizeof "latitude" - (size_t) 1U);
+    yajl_gen_double(json_gen, (double) position->latitude);
+    yajl_gen_string(json_gen,
+                    (const unsigned char *) "longitude",
+                    (unsigned int) sizeof "longitude" - (size_t) 1U);
+    yajl_gen_double(json_gen, (double) position->longitude);
+    yajl_gen_string(json_gen,
+                    (const unsigned char *) "radius",
+                    (unsigned int) sizeof "radius" - (size_t) 1U);
+    yajl_gen_double(json_gen, (double) radius);
+    yajl_gen_map_close(json_gen);
+    
+    return 0;
+}
+
+static int find_in_rect_cluster_cb(void * const context_,
+                                   const Position2D * const position,
+                                   const Meters radius,
+                                   const NbSlots children)
+{
+    return find_near_cluster_cb(context_, position, radius, children);
+}
+
 int handle_op_search_nearby(SearchNearbyOp * const nearby_op,
                             HttpHandlerContext * const context)
 {
@@ -340,6 +403,12 @@ int handle_op_search_nearby(SearchNearbyOp * const nearby_op,
     return 0;
 }
 
+typedef struct FindInRectCBContext_ {
+    PanDB *pan_db;
+    yajl_gen json_gen;
+    _Bool with_properties;
+} FindInRectCBContext;
+
 int handle_op_search_in_rect(SearchInRectOp * const in_rect_op,
                              HttpHandlerContext * const context)
 {
@@ -381,13 +450,14 @@ int handle_op_search_in_rect(SearchInRectOp * const in_rect_op,
                     (unsigned int) sizeof "matches" - (size_t) 1U);
     yajl_gen_array_open(json_gen);
     
-    FindNearCBContext cb_context = {
+    FindInRectCBContext cb_context = {
         .pan_db = pan_db,
         .json_gen = json_gen,
         .with_properties = in_rect_op->with_properties
     };
-    find_in_rect(pan_db, find_near_cb, &cb_context, &in_rect_op->rect,
-                 in_rect_op->limit);
+    find_in_rect(pan_db, find_in_rect_cb, find_in_rect_cluster_cb,
+                 &cb_context, &in_rect_op->rect,
+                 in_rect_op->limit, in_rect_op->epsilon);
 
     yajl_gen_array_close(json_gen);
     
