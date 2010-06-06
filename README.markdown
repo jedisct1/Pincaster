@@ -163,7 +163,7 @@ Public data from layer (layer name) and key (key) is reachable at:
   
     Method: `GET`
 
-    URI: `http://$HOST:4269/public/(layer name)/(key)
+    URI: `http://$HOST:4269/public/(layer name)/(key)`
 
 Having a HTTP proxy between Pincaster and untrusted users is highly
 recommended in order to serve public data.  
