@@ -348,6 +348,16 @@ And what's in a rectangle, without properties?
 		]
 	}
 
+What about adding a HTML document to the abcd record?
+
+    $ curl -XPUT -d'$content=<html><body><h1>Hello world</h1></body></html>&$content_type=text/html' http://diz:4269/api/1.0/records/restaurants/abcd.json
+    
+Now point your web browser to:
+
+    http://diz:4269/public/restaurants/abcd
+    
+And enjoy the web page!    
+
 Let's delete the record:
 
 	$ curl -XDELETE http://diz:4269/api/1.0/records/restaurants/abcd.json
