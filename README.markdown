@@ -159,7 +159,7 @@ be served
   
 The default Content-Type currently is `text/plain`.
   
-Public data from layer (layer name) and key (key) is reachable at:
+* **Public data from layer (layer name) and key (key) is reachable at:**
   
     Method: `GET`
 
