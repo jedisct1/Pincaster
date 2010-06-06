@@ -115,11 +115,13 @@ unlock_and_bailout:
         evhttp_send_error(req, HTTP_SERVUNAVAIL, "Out of memory (evbuffer)");
         return -1;
     }
-    if (cb_context.content_type_len > (size_t) 0U) {
-        evhttp_add_header(req->output_headers,
-                          "Content-Type", cb_context.content_type);
+    if (cb_context.content_type_len <= (size_t) 0U) {
+        cb_context.content_type = DEFAULT_CONTENT_TYPE_FOR_PUBLIC_DATA;
     }
+    evhttp_add_header(req->output_headers,
+                      "Content-Type", cb_context.content_type);
     evbuffer_add(evb, cb_context.content, cb_context.content_len);
+    pthread_rwlock_unlock(&context->rwlock_layers);
     evhttp_send_reply(req, HTTP_OK, "OK", evb);
     evbuffer_free(evb);
     
