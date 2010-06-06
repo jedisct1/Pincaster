@@ -9,6 +9,8 @@
 #define INT_PROPERTY_DELETE_PREFIX     "_delete:"
 #define INT_PROPERTY_DELETE_ALL_PREFIX "_delete_all"
 #define INT_PROPERTY_ADD_INT_PREFIX    "_add_int:"
+#define INT_PROPERTY_CONTENT           "_content"
+#define INT_PROPERTY_CONTENT_TYPE      "_content_type"
 
 int handle_domain_records(struct evhttp_request * const req,
                           HttpHandlerContext * const context,

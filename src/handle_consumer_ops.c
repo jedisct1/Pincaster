@@ -11,7 +11,10 @@ static int send_json_gen(yajl_gen json_gen, const OpReply * const op_reply)
     
     yajl_gen_map_close(json_gen);        
     yajl_gen_get_buf(json_gen, &json_out_buf, &json_out_len);
-    evb = evbuffer_new();
+    if ((evb = evbuffer_new()) == NULL) {
+        yajl_gen_free(json_gen);
+        return -1;
+    }
     evbuffer_add(evb, json_out_buf, json_out_len);
     evhttp_send_reply(op_reply->bare_op_reply.req, HTTP_OK, "OK", evb);
     evbuffer_free(evb);
