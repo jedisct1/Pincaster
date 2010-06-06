@@ -187,6 +187,19 @@ static void *worker_thread(void *context_)
     return NULL;
 }
 
+static char *extract_opts(char * const decoded_uri)
+{
+    char * opts;
+    
+    if ((opts = strchr(decoded_uri, '?')) != NULL) {
+        *opts = 0;
+        if (*++opts == 0) {
+            opts = NULL;
+        }
+    }
+    return opts;
+}
+
 static int process_api_request(HttpHandlerContext *context,
                                const char * const uri,
                                struct evhttp_request * const req,
@@ -200,13 +213,7 @@ static int process_api_request(HttpHandlerContext *context,
     char *pnt;
     
     decoded_uri = evhttp_decode_uri(uri + context->encoded_api_base_uri_len);
-    char * opts;
-    if ((opts = strchr(decoded_uri, '?')) != NULL) {
-        *opts = 0;
-        if (*++opts == 0) {
-            opts = NULL;
-        }
-    }
+    char * const opts = extract_opts(decoded_uri);
     decoded_uri_len = strlen(decoded_uri);
     if (decoded_uri_len <= ext_len || decoded_uri_len > MAX_URI_LEN ||
         strcasecmp(decoded_uri + decoded_uri_len - ext_len, ext) != 0) {
@@ -262,6 +269,24 @@ static int process_api_request(HttpHandlerContext *context,
     return 0;    
 }
 
+static int process_public_request(HttpHandlerContext *context,
+                                  const char * const uri,
+                                  struct evhttp_request * const req)
+{
+    char *decoded_uri;
+    size_t decoded_uri_len;
+    decoded_uri = evhttp_decode_uri(uri + context->encoded_api_base_uri_len);
+    char * const opts = extract_opts(decoded_uri);
+    decoded_uri_len = strlen(decoded_uri);
+    
+    (void) decoded_uri;
+    (void) decoded_uri_len;
+    (void) opts;
+    evhttp_send_error(req, HTTP_NOTFOUND, "Not Found");
+    
+    return -1;
+}
+
 static int process_request(HttpHandlerContext *context,
                            struct evhttp_request * const req,
                            const _Bool fake_req)
@@ -270,6 +295,11 @@ static int process_request(HttpHandlerContext *context,
     if (strncmp(uri, context->encoded_api_base_uri,
                 context->encoded_api_base_uri_len) == 0) {
         return process_api_request(context, uri, req, fake_req);
+    }
+    if (strncmp(uri, context->encoded_public_base_uri,
+                context->encoded_public_base_uri_len) == 0) {
+        assert(fake_req == 0);
+        return process_public_request(context, uri, req);
     }
     if (fake_req == 0) {
         evhttp_send_error(req, HTTP_NOTFOUND, "Not Found");
@@ -524,6 +554,7 @@ int http_server(void)
         .event_base = NULL,
         .op_tid = (OpTID) 0U,
         .encoded_api_base_uri = NULL,
+        .encoded_public_base_uri = NULL,
         .cqueue = NULL,
         .publisher_bev = NULL,
         .consumer_bev = NULL,
@@ -563,6 +594,9 @@ int http_server(void)
     http_handler_context.encoded_api_base_uri = ENCODED_API_BASE_URI;
     http_handler_context.encoded_api_base_uri_len =
         strlen(http_handler_context.encoded_api_base_uri);
+    http_handler_context.encoded_public_base_uri = ENCODED_PUBLIC_BASE_URI;
+    http_handler_context.encoded_public_base_uri_len =
+        strlen(http_handler_context.encoded_public_base_uri);
     evthread_use_pthreads();
     event_base = event_base_new();
     http_handler_context.event_base = event_base;

@@ -7,6 +7,9 @@
 #ifndef ENCODED_API_BASE_URI
 # define ENCODED_API_BASE_URI "/api/1.0/"
 #endif
+#ifndef ENCODED_PUBLIC_BASE_URI
+# define ENCODED_PUBLIC_BASE_URI "/public/"
+#endif
 #ifndef SERVER_NAME 
 # define SERVER_NAME PACKAGE_STRING
 #endif
@@ -291,6 +294,8 @@ typedef struct HttpHandlerContext_ {
     OpTID op_tid;
     const char *encoded_api_base_uri;
     size_t encoded_api_base_uri_len;
+    const char *encoded_public_base_uri;
+    size_t encoded_public_base_uri_len;
     CQueue *cqueue;
     pthread_mutex_t mtx_cqueue;
     pthread_cond_t cond_cqueue;
