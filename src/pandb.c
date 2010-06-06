@@ -821,7 +821,7 @@ static int find_in_rect_cluster_context_cb(void *context_, void *entry,
 {
     FindInRectIntCBContext *context = context_;
     if (context->cluster_cb == NULL) {
-        goto skip;
+        return 0;
     }
     QuadNode *scanned_node = entry;    
     const Rectangle2D * const rect = context->rect;
@@ -829,6 +829,9 @@ static int find_in_rect_cluster_context_cb(void *context_, void *entry,
         .latitude = (rect->edge1.latitude + rect->edge0.latitude) / 2.0,
         .longitude = (rect->edge1.longitude + rect->edge0.longitude) / 2.0
     };
+    if (position_is_in_rect(&center, context->rect) == 0) {
+        return 0;
+    }    
     const Dimension distance =
         (fabsf(center.latitude - rect->edge0.latitude) +
             fabsf(center.longitude - rect->edge0.longitude)) / 2.0;
@@ -848,7 +851,6 @@ static int find_in_rect_cluster_context_cb(void *context_, void *entry,
     if (ret != 0) {
         return ret;
     }
-skip:
     if (context->limit-- <= (SubSlots) 1U) {
         return 1;
     }
