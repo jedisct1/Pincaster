@@ -212,7 +212,11 @@ static int process_api_request(HttpHandlerContext * const context,
     const size_t ext_len = strlen(ext);
     char *domain;
     char *pnt;
-    
+
+    if (fake_req == 0) {
+        evhttp_add_header(req->output_headers, "Content-Type",
+                          "application/json; charset=UTF-8");    
+    }
     decoded_uri = evhttp_decode_uri(uri + context->encoded_api_base_uri_len);
     char * const opts = extract_opts(decoded_uri);
     decoded_uri_len = strlen(decoded_uri);
@@ -309,8 +313,6 @@ static void http_dispatcher_cb(struct evhttp_request * const req,
     evhttp_connection_set_closecb(evhttp_request_get_connection(req),
                                   http_close_cb, req);
     evhttp_add_header(req->output_headers, "X-Server", SERVER_NAME);
-    evhttp_add_header(req->output_headers, "Content-Type",
-                      "application/json; charset=UTF-8");
 #ifdef NO_KEEPALIVE
     evhttp_add_header(req->output_headers, "Connection", "close");
 #endif

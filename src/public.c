@@ -109,17 +109,29 @@ unlock_and_bailout:
         evhttp_send_error(req, HTTP_NOTFOUND, "Not Found");
         return -1;
     }
+    if (cb_context.content_type_len > MAX_CONTENT_TYPE_LENGTH) {
+        pthread_rwlock_unlock(&context->rwlock_layers);
+        evhttp_send_error(req, HTTP_BADREQUEST, "Content-Type too long");
+        return -1;        
+    }
     struct evbuffer *evb;
     if ((evb = evbuffer_new()) == NULL) {
         pthread_rwlock_unlock(&context->rwlock_layers);
         evhttp_send_error(req, HTTP_SERVUNAVAIL, "Out of memory (evbuffer)");
         return -1;
     }
+    const char *content_type;
+    char content_type_buf[MAX_CONTENT_TYPE_LENGTH + (size_t) 1U];
     if (cb_context.content_type_len <= (size_t) 0U) {
-        cb_context.content_type = DEFAULT_CONTENT_TYPE_FOR_PUBLIC_DATA;
+        content_type = DEFAULT_CONTENT_TYPE_FOR_PUBLIC_DATA;
+    } else {
+        assert(cb_context.content_type_len <= MAX_CONTENT_TYPE_LENGTH);
+        memcpy(content_type_buf, cb_context.content_type,
+               cb_context.content_type_len);
+        *(content_type_buf + cb_context.content_type_len) = 0;
+        content_type = content_type_buf;
     }
-    evhttp_add_header(req->output_headers,
-                      "Content-Type", cb_context.content_type);
+    evhttp_add_header(req->output_headers, "Content-Type", content_type);
     evbuffer_add(evb, cb_context.content, cb_context.content_len);
     pthread_rwlock_unlock(&context->rwlock_layers);
     evhttp_send_reply(req, HTTP_OK, "OK", evb);
