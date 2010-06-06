@@ -106,6 +106,7 @@ int handle_domain_records(struct evhttp_request * const req,
         }
         *sep = 0;
         if ((layer_name = new_key_from_c_string(uri)) == NULL) {
+            *sep = '/';
             return HTTP_SERVUNAVAIL;
         }
         *sep++ = '/';
@@ -114,8 +115,7 @@ int handle_domain_records(struct evhttp_request * const req,
             return HTTP_NOTFOUND;
         }
         if ((key = new_key_from_c_string(sep)) == NULL) {
-            release_key(layer_name);
-            
+            release_key(layer_name);            
             return HTTP_SERVUNAVAIL;
         }
         *get_op = (RecordsGetOp) {
@@ -158,8 +158,7 @@ int handle_domain_records(struct evhttp_request * const req,
             return HTTP_NOTFOUND;
         }
         if ((key = new_key_from_c_string(sep)) == NULL) {
-            release_key(layer_name);
-            
+            release_key(layer_name);            
             return HTTP_SERVUNAVAIL;
         }
         evbuffer_add(evhttp_request_get_input_buffer(req), "", (size_t) 1U);
@@ -226,8 +225,7 @@ int handle_domain_records(struct evhttp_request * const req,
             return HTTP_NOTFOUND;
         }
         if ((key = new_key_from_c_string(sep)) == NULL) {
-            release_key(layer_name);
-            
+            release_key(layer_name);            
             return HTTP_SERVUNAVAIL;
         }
         *delete_op = (RecordsDeleteOp) {

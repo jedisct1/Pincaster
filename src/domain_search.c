@@ -104,6 +104,7 @@ int handle_domain_search(struct evhttp_request * const req,
     }
     *sep = 0;
     if (*uri == 0 || (layer_name = new_key_from_c_string(uri)) == NULL) {
+        *sep = '/';
         return HTTP_SERVUNAVAIL;
     }
     *sep = '/';

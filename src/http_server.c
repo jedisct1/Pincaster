@@ -275,7 +275,7 @@ static int process_public_request(HttpHandlerContext * const context,
                                   struct evhttp_request * const req)
 {
     char *decoded_uri;
-    decoded_uri = evhttp_decode_uri(uri + context->encoded_api_base_uri_len);
+    decoded_uri = evhttp_decode_uri(uri + context->encoded_public_base_uri_len);
     char * const opts = extract_opts(decoded_uri);
     
     return handle_public_request(context, decoded_uri, opts, req);
