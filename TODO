@@ -1,4 +1,6 @@
 
+- Tuneable HTTP cache control.
+
 - Handle clusterized geographic results for point+radius search.
 
 - Ajust the coordinates of cluster results according to the number of
