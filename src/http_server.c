@@ -5,6 +5,7 @@
 #include "domain_layers.h"
 #include "domain_records.h"
 #include "domain_search.h"
+#include "public.h"
 #include "handle_consumer_ops.h"
 #include "expirables.h"
 #include "db_log.h"
@@ -200,7 +201,7 @@ static char *extract_opts(char * const decoded_uri)
     return opts;
 }
 
-static int process_api_request(HttpHandlerContext *context,
+static int process_api_request(HttpHandlerContext * const context,
                                const char * const uri,
                                struct evhttp_request * const req,
                                const _Bool fake_req)
@@ -260,7 +261,7 @@ static int process_api_request(HttpHandlerContext *context,
         if (fake_req == 0) {        
             evhttp_send_error(req, ret, "Error");
         }
-        return- 1;
+        return -1;
     }
     if (fake_req == 0 && write_to_log != 0) {
         add_to_db_log(context->now, req->type, uri,
@@ -269,25 +270,18 @@ static int process_api_request(HttpHandlerContext *context,
     return 0;    
 }
 
-static int process_public_request(HttpHandlerContext *context,
+static int process_public_request(HttpHandlerContext * const context,
                                   const char * const uri,
                                   struct evhttp_request * const req)
 {
     char *decoded_uri;
-    size_t decoded_uri_len;
     decoded_uri = evhttp_decode_uri(uri + context->encoded_api_base_uri_len);
     char * const opts = extract_opts(decoded_uri);
-    decoded_uri_len = strlen(decoded_uri);
     
-    (void) decoded_uri;
-    (void) decoded_uri_len;
-    (void) opts;
-    evhttp_send_error(req, HTTP_NOTFOUND, "Not Found");
-    
-    return -1;
+    return handle_public_request(context, decoded_uri, opts, req);
 }
 
-static int process_request(HttpHandlerContext *context,
+static int process_request(HttpHandlerContext * const context,
                            struct evhttp_request * const req,
                            const _Bool fake_req)
 {

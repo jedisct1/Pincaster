@@ -53,7 +53,9 @@ pincaster_SOURCES = \
         domain_search.c \
         domain_search.h \
         handle_consumer_ops.c \
-        handle_consumer_ops.h
+        handle_consumer_ops.h \
+        public.c \
+        public.h
 
 pincaster_DEPENDS = \
         yajl/libyajl.a
