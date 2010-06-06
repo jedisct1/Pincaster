@@ -187,11 +187,11 @@ static void *worker_thread(void *context_)
     return NULL;
 }
 
-static int process_request(HttpHandlerContext *context,
-                           struct evhttp_request * const req,
-                           const _Bool fake_req)
+static int process_api_request(HttpHandlerContext *context,
+                               const char * const uri,
+                               struct evhttp_request * const req,
+                               const _Bool fake_req)
 {
-    const char *uri;    
     char *decoded_uri;
     size_t decoded_uri_len;
     const char *ext = ".json";
@@ -199,14 +199,6 @@ static int process_request(HttpHandlerContext *context,
     char *domain;
     char *pnt;
     
-    uri = evhttp_request_get_uri(req);
-    if (strncmp(uri, context->encoded_api_base_uri,
-                context->encoded_api_base_uri_len) != 0) {
-        if (fake_req == 0) {
-            evhttp_send_error(req, HTTP_NOTFOUND, "Not Found");
-        }
-        return -1;
-    }
     decoded_uri = evhttp_decode_uri(uri + context->encoded_api_base_uri_len);
     char * opts;
     if ((opts = strchr(decoded_uri, '?')) != NULL) {
@@ -267,7 +259,22 @@ static int process_request(HttpHandlerContext *context,
         add_to_db_log(context->now, req->type, uri,
                       evhttp_request_get_input_buffer(req));
     }
-    return 0;
+    return 0;    
+}
+
+static int process_request(HttpHandlerContext *context,
+                           struct evhttp_request * const req,
+                           const _Bool fake_req)
+{
+    const char * const uri = evhttp_request_get_uri(req);
+    if (strncmp(uri, context->encoded_api_base_uri,
+                context->encoded_api_base_uri_len) == 0) {
+        return process_api_request(context, uri, req, fake_req);
+    }
+    if (fake_req == 0) {
+        evhttp_send_error(req, HTTP_NOTFOUND, "Not Found");
+    }
+    return -1;
 }
 
 static void http_dispatcher_cb(struct evhttp_request * const req,
