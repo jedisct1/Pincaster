@@ -438,3 +438,68 @@ ssize_t buffered_read(BufferedReadContext * const context,
     }
     return (ssize_t) length;
 }
+
+static unsigned int open_max(void)
+{
+    long z;
+    
+    if ((z = (long) sysconf(_SC_OPEN_MAX)) < 0L) {
+        logfile_error(NULL, "_SC_OPEN_MAX");
+        return 2U;
+    }
+    return (unsigned int) z;
+}
+
+static int closedesc_all(const int closestdin)
+{
+    int fodder;
+    
+    if (closestdin != 0) {
+        (void) close(0);
+        if ((fodder = open("/dev/null", O_RDONLY)) == -1) {
+            return -1;
+        }
+        (void) dup2(fodder, 0);
+        if (fodder > 0) {
+            (void) close(fodder);
+        }
+    }
+    if ((fodder = open("/dev/null", O_WRONLY)) == -1) {
+        return -1;
+    }
+    (void) dup2(fodder, 1);
+    (void) dup2(1, 2);
+    if (fodder > 2) {
+        (void) close(fodder);
+    }
+    
+    return 0;
+}
+
+int do_daemonize(void)
+{
+    pid_t child;
+    unsigned int i;
+    
+    if ((child = fork()) == (pid_t) -1) {
+        logfile_error(NULL, "Unable to fork() in order to daemonize");
+        return -1;
+    } else if (child != (pid_t) 0) {
+        _exit(0);
+    }
+    if (setsid() == (pid_t) -1) {
+        logfile_error(NULL, "Unable to setsid()");
+    }
+    i = open_max();
+    do {
+        if (isatty((int) i)) {
+            (void) close((int) i);
+        }
+        i--;
+    } while (i > 2U);
+    if (closedesc_all(1) != 0) {
+        logfile_error(NULL, "/dev/null duplication");
+        return -1;
+    }        
+    return 0;
+}

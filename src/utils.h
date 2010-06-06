@@ -79,4 +79,6 @@ void free_buffered_read(BufferedReadContext * const context);
 ssize_t buffered_read(BufferedReadContext * const context,
                       char * const out_buf, const size_t length);
 
+int do_daemonize(void);
+
 #endif

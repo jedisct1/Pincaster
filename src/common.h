@@ -50,6 +50,7 @@
 typedef struct AppContext_ {
     char *server_ip;
     char *server_port;
+    _Bool daemonize;
     char *log_file_name;
     int timeout;
     unsigned int nb_workers;

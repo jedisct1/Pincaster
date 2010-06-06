@@ -7,6 +7,7 @@ int parse_config(const char * const file)
 {
     char *cfg_server_ip = NULL;
     char *cfg_server_port = NULL;
+    char *cfg_daemonize = NULL;    
     char *cfg_log_file_name = NULL;
     char *cfg_timeout_s = NULL;    
     char *cfg_nb_workers_s = NULL;
@@ -22,6 +23,7 @@ int parse_config(const char * const file)
     ConfigKeywords config_keywords[] = {
         { "ServerIP",          &cfg_server_ip },
         { "ServerPort",        &cfg_server_port },
+        { "Daemonize",         &cfg_daemonize },
         { "LogFileName",       &cfg_log_file_name },
         { "Timeout",           &cfg_timeout_s },
         { "Workers",           &cfg_nb_workers_s },
@@ -37,6 +39,7 @@ int parse_config(const char * const file)
     };
     app_context.server_ip = NULL;
     app_context.server_port = strdup(DEFAULT_SERVER_PORT);
+    app_context.daemonize = 0;
     app_context.log_file_name = NULL;    
     app_context.timeout = DEFAULT_CLIENT_TIMEOUT;
     app_context.nb_workers = NB_WORKERS;
@@ -68,6 +71,21 @@ int parse_config(const char * const file)
         } else {
             free(app_context.server_port);            
             app_context.server_port = cfg_server_port;
+        }
+    }
+    if (cfg_daemonize != NULL) {
+        if (*cfg_daemonize == 0) {
+            ret = -1;
+        } else if (strcasecmp(cfg_daemonize, "Yes") == 0 ||
+                   strcasecmp(cfg_daemonize, "True") == 0 ||
+                   strcmp(cfg_daemonize, "1") == 0) {            
+            app_context.daemonize = 1;
+        } else if (strcasecmp(cfg_daemonize, "No") == 0 ||
+                   strcasecmp(cfg_daemonize, "False") == 0 ||
+                   strcmp(cfg_daemonize, "0") == 0) {
+            app_context.daemonize = 0;
+        } else {
+            ret = -1;
         }
     }
     if (cfg_log_file_name != NULL) {
