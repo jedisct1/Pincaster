@@ -145,6 +145,28 @@ explicitly set this argument.
 full objects.
   * `properties=(0 or 1)` in order to include properties or not in the reply.
 
+* **Serving documents:**
+
+  Pincaster can also act like a web server and directly serve documents stored
+in keys.
+
+  In order to be accesible this way, a key:
+  
+  * must have a `$content` property whose value holds the content that has to
+be served
+  * may have a `$content_type` property with the Content-Type.
+  
+  The default Content-Type currently is `text/plain`.
+  
+  Public data from layer (layer name) and key (key) is reachable at:
+  
+    Method: `GET`
+
+    URI: `http://$HOST:4269/public/(layer name)/(key)
+
+  Having a HTTP proxy between Pincaster and untrusted users is highly
+recommended in order to serve public data.  
+
 Misc
 ----
 
