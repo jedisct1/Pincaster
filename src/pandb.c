@@ -544,7 +544,7 @@ static int find_near_context_cb(void *context_, void *entry,
 }
 
 static int find_near_in_zone(Rectangle2D * const matching_rect,
-                             PntStack *stack_inspect,
+                             PntStack *stack_inspect[2],
                              const PanDB * const db,
                              FindNearCB cb,
                              void * const context_cb,
@@ -593,11 +593,14 @@ static int find_near_in_zone(Rectangle2D * const matching_rect,
             assert(scanned_node_child->bare_node.type == NODE_TYPE_QUAD_NODE);
             qnb.quad_node = &scanned_node_child->quad_node;
             qnb.qrect = *scanned_child_qbound;
-            push_pnt_stack(stack_inspect, &qnb);
+            push_pnt_stack(stack_inspect[rand() % 2], &qnb);            
         } while (t++ < 3U);
-        sqnb = pop_pnt_stack(stack_inspect);
+        sqnb = pop_pnt_stack(stack_inspect[0]);
         if (sqnb == NULL) {
-            break;
+            sqnb = pop_pnt_stack(stack_inspect[1]);
+            if (sqnb == NULL) {
+                break;
+            }
         }
         scanned_node = sqnb->quad_node;
         scanned_qbounds = sqnb->qrect;
@@ -724,7 +727,7 @@ int find_near(const PanDB * const db,
     }
     Rectangle2D matching_rects[4];
     Rectangle2D *matching_rect = &matching_rects[0];    
-    PntStack *stack_inspect;
+    PntStack *stack_inspect[2];
 
     const Dimension dlat = distance / DEG_AVG_DISTANCE;
     const Dimension dlon = distance /
@@ -743,9 +746,15 @@ int find_near(const PanDB * const db,
     }
     assert(nb_zones >= 1U);
     assert(nb_zones <= 4U);
-    stack_inspect = new_pnt_stack(DEFAULT_STACK_SIZE_FOR_SEARCHES,
-                                  sizeof(QuadNodeWithBounds));
-    if (stack_inspect == NULL) {
+    stack_inspect[0] = new_pnt_stack(DEFAULT_STACK_SIZE_FOR_SEARCHES,
+                                     sizeof(QuadNodeWithBounds));
+    if (stack_inspect[0] == NULL) {
+        return -1;
+    }
+    stack_inspect[1] = new_pnt_stack(DEFAULT_STACK_SIZE_FOR_SEARCHES,
+                                     sizeof(QuadNodeWithBounds));
+    if (stack_inspect[1] == NULL) {
+        free_pnt_stack(stack_inspect[0]);
         return -1;
     }
     assert(matching_rect == &matching_rects[0]);    
@@ -761,7 +770,8 @@ int find_near(const PanDB * const db,
                                 limit);
         matching_rect++;
     } while (ret == 0 && --nb_zones > 0U);
-    free_pnt_stack(stack_inspect);
+    free_pnt_stack(stack_inspect[0]);
+    free_pnt_stack(stack_inspect[1]);    
     
     return ret;
 }
@@ -877,7 +887,7 @@ int find_in_rect(const PanDB * const db,
     Rectangle2D scanned_qbounds = db->qbounds;
     Rectangle2D matching_rects[1];
     Rectangle2D *matching_rect = &matching_rects[0];    
-    PntStack *stack_inspect;
+    PntStack *stack_inspect[2];
     const QuadNode *scanned_node;
     Rectangle2D scanned_children_qbounds[4];
     Rectangle2D *scanned_child_qbound;
@@ -887,8 +897,17 @@ int find_in_rect(const PanDB * const db,
     unsigned int t;
 
     *matching_rect = *rect;
-    stack_inspect = new_pnt_stack(DEFAULT_STACK_SIZE_FOR_SEARCHES,
-                                  sizeof qnb);
+    stack_inspect[0] = new_pnt_stack(DEFAULT_STACK_SIZE_FOR_SEARCHES,
+                                     sizeof qnb);
+    if (stack_inspect[0] == NULL) {
+        return -1;
+    }    
+    stack_inspect[1] = new_pnt_stack(DEFAULT_STACK_SIZE_FOR_SEARCHES,
+                                     sizeof qnb);
+    if (stack_inspect[1] == NULL) {
+        free_pnt_stack(stack_inspect[0]);
+        return -1;
+    }    
     scanned_node = &db->root;
     FindInRectIntCBContext context = {
         .db = db,
@@ -942,16 +961,20 @@ int find_in_rect(const PanDB * const db,
             assert(scanned_node_child->bare_node.type == NODE_TYPE_QUAD_NODE);
             qnb.quad_node = &scanned_node_child->quad_node;
             qnb.qrect = *scanned_child_qbound;
-            push_pnt_stack(stack_inspect, &qnb);
+            push_pnt_stack(stack_inspect[rand() % 2], &qnb);
         } while (t++ < 3U);
-        sqnb = pop_pnt_stack(stack_inspect);
+        sqnb = pop_pnt_stack(stack_inspect[0]);
         if (sqnb == NULL) {
-            break;
+            sqnb = pop_pnt_stack(stack_inspect[1]);
+            if (sqnb == NULL) {
+                break;
+            }
         }
         scanned_node = sqnb->quad_node;
         scanned_qbounds = sqnb->qrect;
     }
-    free_pnt_stack(stack_inspect);
+    free_pnt_stack(stack_inspect[0]);
+    free_pnt_stack(stack_inspect[1]);
 
     return 0;
 }
