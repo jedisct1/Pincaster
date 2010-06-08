@@ -593,7 +593,7 @@ static int find_near_in_zone(Rectangle2D * const matching_rect,
             assert(scanned_node_child->bare_node.type == NODE_TYPE_QUAD_NODE);
             qnb.quad_node = &scanned_node_child->quad_node;
             qnb.qrect = *scanned_child_qbound;
-            push_pnt_stack(stack_inspect[rand() % 2], &qnb);            
+            push_pnt_stack(stack_inspect[pm_rand() % 2], &qnb);            
         } while (t++ < 3U);
         sqnb = pop_pnt_stack(stack_inspect[0]);
         if (sqnb == NULL) {

@@ -503,3 +503,19 @@ int do_daemonize(void)
     }        
     return 0;
 }
+
+uint32_t pm_rand(void)
+{
+    static uint32_t seed = 42U;
+    
+    uint32_t lo = 16807U * (seed & 0xffff);
+    uint32_t hi = 16807U * (seed >> 16);
+    lo += (hi & 0x7fff) << 16;
+    lo += hi >> 15;
+    if (lo > 0x7fffffff) {
+        lo -= 0x7fffffff;
+    }
+    seed = lo;
+    
+    return seed;
+}

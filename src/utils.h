@@ -81,4 +81,6 @@ ssize_t buffered_read(BufferedReadContext * const context,
 
 int do_daemonize(void);
 
+uint32_t pm_rand(void);
+
 #endif
