@@ -37,9 +37,9 @@ static int position_is_in_rect(const PanDB * const db,
     Dimension edge1_latitude = rect->edge1.latitude;
     Dimension position_latitude = position->latitude;
     if (db->layer_type != LAYER_TYPE_FLAT &&
-        rect->edge0.latitude > rect->edge1.latitude) {
+        edge0_latitude > edge1_latitude) {
         const Dimension translation =
-            db->qbounds.edge0.latitude - rect->edge1.latitude;
+            db->qbounds.edge0.latitude - edge1_latitude;
         edge0_latitude += translation;
         edge1_latitude = (Dimension) 0.0;
         position_latitude += translation;
@@ -52,9 +52,9 @@ static int position_is_in_rect(const PanDB * const db,
     Dimension edge1_longitude = rect->edge1.longitude;
     Dimension position_longitude = position->longitude;
     if (db->layer_type != LAYER_TYPE_FLAT &&
-        rect->edge0.longitude > rect->edge1.longitude) {
+        edge0_longitude > edge1_longitude) {
         const Dimension translation =
-            db->qbounds.edge0.longitude - rect->edge1.longitude;
+            db->qbounds.edge0.longitude - edge1_longitude;
         edge0_longitude += translation;
         edge1_longitude = (Dimension) 0.0;
         position_longitude += translation;
@@ -490,13 +490,53 @@ int remove_entry(PanDB * const db, Key * const key)
     return 0;
 }
 
-static int rectangle2d_intersect(const Rectangle2D * const r1,
+static int rectangle2d_intersect(const PanDB * const db,
+                                 const Rectangle2D * const r1,
                                  const Rectangle2D * const r2)
 {
-    if (!(r1->edge0.longitude > r2->edge1.longitude ||
-          r1->edge1.longitude < r2->edge0.longitude ||
-          r1->edge0.latitude > r2->edge1.latitude ||
-          r1->edge1.latitude < r2->edge0.latitude)) {        
+    Dimension r1_edge0_latitude = r1->edge0.latitude;
+    Dimension r1_edge1_latitude = r1->edge1.latitude;
+    Dimension r2_edge0_latitude = r2->edge0.latitude;
+    Dimension r2_edge1_latitude = r2->edge1.latitude;
+
+    Dimension r1_edge0_longitude = r1->edge0.longitude;
+    Dimension r1_edge1_longitude = r1->edge1.longitude;
+    Dimension r2_edge0_longitude = r2->edge0.longitude;
+    Dimension r2_edge1_longitude = r2->edge1.longitude;    
+    
+    Dimension translation = (Dimension) 0.0;
+    Dimension translation2 = (Dimension) 0.0;
+    
+    if (db->layer_type != LAYER_TYPE_FLAT) {
+        if (r1_edge0_latitude > r1_edge1_latitude) {
+            translation = db->qbounds.edge0.latitude - r1_edge1_latitude;
+        }
+        if (r2_edge0_latitude > r2_edge1_latitude) {
+            translation2 = db->qbounds.edge0.latitude - r2_edge1_latitude;
+        }
+        if (translation2 < translation) {
+            translation = translation2;
+        }
+        r1_edge0_latitude += translation;
+        r1_edge1_latitude += translation;
+    
+        if (r1_edge0_longitude > r1_edge1_longitude) {
+            translation = db->qbounds.edge0.longitude - r1_edge1_longitude;
+        }
+        if (r2_edge0_longitude > r2_edge1_longitude) {
+            translation2 = db->qbounds.edge0.longitude - r2_edge1_longitude;
+        }
+        if (translation2 < translation) {
+            translation = translation2;
+        }
+        r1_edge0_longitude += translation;
+        r1_edge1_longitude += translation;
+    }
+        
+    if (!(r1_edge0_latitude > r2_edge1_latitude ||
+          r1_edge1_latitude < r2_edge0_latitude ||
+          r1_edge0_longitude > r2_edge1_longitude ||
+          r1_edge1_longitude < r2_edge0_longitude)) {
         return 1;
     }
     return 0;
@@ -604,7 +644,7 @@ static int find_near_in_zone(Rectangle2D * const matching_rect,
         do {
             scanned_node_child = scanned_node->nodes[t];
             scanned_child_qbound = &scanned_children_qbounds[t];
-            if (rectangle2d_intersect(scanned_child_qbound,
+            if (rectangle2d_intersect(db, scanned_child_qbound,
                                       matching_rect) == 0) {
                 continue;
             }
@@ -955,7 +995,7 @@ int find_in_rect(const PanDB * const db,
         do {
             scanned_node_child = scanned_node->nodes[t];
             scanned_child_qbound = &scanned_children_qbounds[t];
-            if (rectangle2d_intersect(scanned_child_qbound,
+            if (rectangle2d_intersect(db, scanned_child_qbound,
                                       matching_rect) == 0) {
                 continue;
             }
