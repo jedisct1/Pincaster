@@ -29,19 +29,45 @@ static void get_qrects_from_qbounds(Rectangle2D qrects[4],
     qrects[3].edge1.longitude = median_longitude;    
 }
 
-static int position_is_in_rect(const Position2D * const position,
+static int position_is_in_rect(const PanDB * const db,
+                               const Position2D * const position,
                                const Rectangle2D * const rect)
-{
-    if (position->latitude >= rect->edge0.latitude &&
-        position->longitude >= rect->edge0.longitude &&
-        position->latitude < rect->edge1.latitude &&
-        position->longitude < rect->edge1.longitude) {
-        return 1;
+{    
+    Dimension edge0_latitude = rect->edge0.latitude;
+    Dimension edge1_latitude = rect->edge1.latitude;
+    Dimension position_latitude = position->latitude;
+    if (db->layer_type != LAYER_TYPE_FLAT &&
+        rect->edge0.latitude > rect->edge1.latitude) {
+        const Dimension translation =
+            db->qbounds.edge0.latitude - rect->edge1.latitude;
+        edge0_latitude += translation;
+        edge1_latitude = (Dimension) 0.0;
+        position_latitude += translation;
     }
-    return 0;
+    if (position_latitude < edge0_latitude ||
+        position_latitude >= edge1_latitude) {
+        return 0;
+    }
+    Dimension edge0_longitude = rect->edge0.longitude;
+    Dimension edge1_longitude = rect->edge1.longitude;
+    Dimension position_longitude = position->longitude;
+    if (db->layer_type != LAYER_TYPE_FLAT &&
+        rect->edge0.longitude > rect->edge1.longitude) {
+        const Dimension translation =
+            db->qbounds.edge0.longitude - rect->edge1.longitude;
+        edge0_longitude += translation;
+        edge1_longitude = (Dimension) 0.0;
+        position_longitude += translation;
+    }
+    if (position_longitude < edge0_longitude ||
+        position_longitude >= edge1_longitude) {
+        return 0;
+    }
+    return 1;
 }
 
-static Node *find_node_for_position(const QuadNode * const quad_node,
+static Node *find_node_for_position(const PanDB * const db,
+                                    const QuadNode * const quad_node,
                                     const Rectangle2D * const qrects,
                                     const Position2D * const position,
                                     Rectangle2D * const rect_pnt,
@@ -52,7 +78,7 @@ static Node *find_node_for_position(const QuadNode * const quad_node,
     assert(quad_node->type == NODE_TYPE_QUAD_NODE);
     do {
         t--;
-        if (position_is_in_rect(position, &qrects[t])) {
+        if (position_is_in_rect(db, position, &qrects[t])) {
             if (rect_pnt != NULL) {
                 *rect_pnt = qrects[t];
             }
@@ -249,7 +275,7 @@ static int rebalance_bucket_cb(void *context_, void *entry,
     
     (void) sizeof_entry;
     target_node = find_node_for_position
-        (context->quad_node_, context->qrects_,
+        (context->db, context->quad_node_, context->qrects_,
          &scanned_slot->position, NULL, NULL);
     target_bucket = &target_node->bucket_node;    
     add_slot_to_bucket(context->db, target_bucket, scanned_slot, 2, &new_slot);
@@ -276,7 +302,8 @@ int add_slot(PanDB * const db, const Slot * const slot,
     
     rescan:
     get_qrects_from_qbounds(qrects, &qbounds);        
-    scanned_node_child = find_node_for_position(scanned_node, qrects,
+    scanned_node_child = find_node_for_position(db,
+                                                scanned_node, qrects,
                                                 &slot->position,
                                                 &qrect, &part_id);    
     assert(((BareNode *) scanned_node_child)->parent == scanned_node);
@@ -315,7 +342,7 @@ int add_slot(PanDB * const db, const Slot * const slot,
             scanned_node->nodes[part_id] = (Node *) quad_node_;
 
             target_node = find_node_for_position
-                (quad_node_, qrects_, &slot->position, &qrect, &part_id);
+                (db, quad_node_, qrects_, &slot->position, &qrect, &part_id);
             target_bucket = &target_node->bucket_node;
             add_slot_to_bucket(db, target_bucket, slot, 1, new_slot);
             key_node->slot = *new_slot;
@@ -794,7 +821,8 @@ static int find_in_rect_context_cb(void *context_, void *entry,
     Meters cd;
     
     (void) sizeof_entry;
-    if (position_is_in_rect(&scanned_slot->position, context->rect) == 0) {
+    if (position_is_in_rect(context->db,
+                            &scanned_slot->position, context->rect) == 0) {
         return 0;
     }
     if (context->db->layer_type == LAYER_TYPE_SPHERICAL ||
@@ -839,9 +867,9 @@ static int find_in_rect_cluster_context_cb(void *context_, void *entry,
         .latitude = (rect->edge1.latitude + rect->edge0.latitude) / 2.0,
         .longitude = (rect->edge1.longitude + rect->edge0.longitude) / 2.0
     };
-    if (position_is_in_rect(&center, context->rect) == 0) {
+    if (position_is_in_rect(context->db, &center, context->rect) == 0) {
         return 0;
-    }    
+    }
     const Dimension distance =
         (fabsf(center.latitude - rect->edge0.latitude) +
             fabsf(center.longitude - rect->edge0.longitude)) / 2.0;
