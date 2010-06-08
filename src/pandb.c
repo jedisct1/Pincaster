@@ -44,6 +44,10 @@ static int position_is_in_rect(const PanDB * const db,
         edge0_latitude += translation;
         edge1_latitude = db->qbounds.edge1.latitude;
         position_latitude += translation;
+        if (position_latitude < db->qbounds.edge0.latitude) {
+            position_latitude = position_latitude -
+                db->qbounds.edge0.latitude + db->qbounds.edge1.latitude;
+        }
     }
     if (position_latitude < edge0_latitude ||
         position_latitude >= edge1_latitude) {
@@ -59,6 +63,10 @@ static int position_is_in_rect(const PanDB * const db,
         edge0_longitude += translation;
         edge1_longitude = db->qbounds.edge1.longitude;
         position_longitude += translation;
+        if (position_longitude < db->qbounds.edge0.longitude) {
+            position_longitude = position_longitude -
+                db->qbounds.edge0.longitude + db->qbounds.edge1.longitude;
+        }        
     }
     if (position_longitude < edge0_longitude ||
         position_longitude >= edge1_longitude) {
