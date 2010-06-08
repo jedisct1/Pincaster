@@ -757,7 +757,7 @@ int find_near(const PanDB * const db,
         free_pnt_stack(stack_inspect[0]);
         return -1;
     }
-    assert(matching_rect == &matching_rects[0]);    
+    assert(matching_rect == &matching_rects[0]);
     int ret;
     do {
         ret = find_near_in_zone(matching_rect,
@@ -833,7 +833,7 @@ static int find_in_rect_cluster_context_cb(void *context_, void *entry,
     if (context->cluster_cb == NULL) {
         return 0;
     }
-    QuadNode *scanned_node = entry;    
+    QuadNode *scanned_node = entry;
     const Rectangle2D * const rect = context->rect;
     const Position2D center = {
         .latitude = (rect->edge1.latitude + rect->edge0.latitude) / 2.0,
@@ -867,27 +867,24 @@ static int find_in_rect_cluster_context_cb(void *context_, void *entry,
     return 0;
 }
 
-int find_in_rect(const PanDB * const db,
-                 FindInRectCB cb, FindInRectClusterCB cluster_cb,
-                 void * const context_cb,
-                 const Rectangle2D * const rect,
-                 const SubSlots limit, const Dimension epsilon)
+static int find_in_rect_in_zone(Rectangle2D * const matching_rect,
+                                PntStack *stack_inspect[2],
+                                const PanDB * const db,
+                                FindInRectCB cb,
+                                FindInRectClusterCB cluster_cb,
+                                void * const context_cb,
+                                const Rectangle2D * const rect,
+                                const SubSlots limit, const Dimension epsilon)
 {
-    if (limit <= (SubSlots) 0) {
-        return 0;
-    }
-    const _Bool cluster = (epsilon > (Dimension) 0.0);
-    SubSlots max_nb_slots_without_clustering = (SubSlots) 0U;
     const Position2D rect_center = {
         .latitude =
         (rect->edge1.latitude + rect->edge0.latitude) / (Dimension) 2.0,
         .longitude =
         (rect->edge1.longitude + rect->edge0.longitude) / (Dimension) 2.0
     };
+    const _Bool cluster = (epsilon > (Dimension) 0.0);
+    SubSlots max_nb_slots_without_clustering = (SubSlots) 0U;
     Rectangle2D scanned_qbounds = db->qbounds;
-    Rectangle2D matching_rects[1];
-    Rectangle2D *matching_rect = &matching_rects[0];    
-    PntStack *stack_inspect[2];
     const QuadNode *scanned_node;
     Rectangle2D scanned_children_qbounds[4];
     Rectangle2D *scanned_child_qbound;
@@ -895,19 +892,7 @@ int find_in_rect(const PanDB * const db,
     QuadNodeWithBounds *sqnb;
     Node *scanned_node_child;
     unsigned int t;
-
-    *matching_rect = *rect;
-    stack_inspect[0] = new_pnt_stack(DEFAULT_STACK_SIZE_FOR_SEARCHES,
-                                     sizeof qnb);
-    if (stack_inspect[0] == NULL) {
-        return -1;
-    }    
-    stack_inspect[1] = new_pnt_stack(DEFAULT_STACK_SIZE_FOR_SEARCHES,
-                                     sizeof qnb);
-    if (stack_inspect[1] == NULL) {
-        free_pnt_stack(stack_inspect[0]);
-        return -1;
-    }    
+    
     scanned_node = &db->root;
     FindInRectIntCBContext context = {
         .db = db,
@@ -973,10 +958,70 @@ int find_in_rect(const PanDB * const db,
         scanned_node = sqnb->quad_node;
         scanned_qbounds = sqnb->qrect;
     }
+    return 0;
+}
+
+int find_in_rect(const PanDB * const db,
+                 FindInRectCB cb, FindInRectClusterCB cluster_cb,
+                 void * const context_cb,
+                 const Rectangle2D * const rect,
+                 const SubSlots limit, const Dimension epsilon)
+{
+    if (limit <= (SubSlots) 0) {
+        return 0;
+    }
+    Rectangle2D matching_rects[4];
+    Rectangle2D *matching_rect = &matching_rects[0];
+    PntStack *stack_inspect[2];    
+    unsigned int nb_zones;
+    
+    if (db->layer_type == LAYER_TYPE_FLAT) {
+        matching_rects[0] = *rect;
+        nb_zones = 1U;
+    } else {
+        Rectangle2D orect = *rect;
+        if (orect.edge0.latitude > orect.edge1.latitude) {
+            orect.edge1.latitude +=
+                db->qbounds.edge1.latitude - db->qbounds.edge0.latitude;
+        }
+        if (orect.edge0.longitude > orect.edge1.longitude) {
+            orect.edge1.longitude +=
+                db->qbounds.edge1.longitude - db->qbounds.edge0.longitude;
+        }        
+        nb_zones = find_zones(db, &orect, matching_rects);
+    }
+    assert(nb_zones >= 1U);
+    assert(nb_zones <= 4U);
+    
+    stack_inspect[0] = new_pnt_stack(DEFAULT_STACK_SIZE_FOR_SEARCHES,
+                                     sizeof(QuadNodeWithBounds));
+    if (stack_inspect[0] == NULL) {
+        return -1;
+    }    
+    stack_inspect[1] = new_pnt_stack(DEFAULT_STACK_SIZE_FOR_SEARCHES,
+                                     sizeof(QuadNodeWithBounds));
+    if (stack_inspect[1] == NULL) {
+        free_pnt_stack(stack_inspect[0]);
+        return -1;
+    }
+    assert(matching_rect == &matching_rects[0]);
+    int ret;
+    do {
+        ret = find_in_rect_in_zone(matching_rect,
+                                   stack_inspect,
+                                   db,
+                                   cb,
+                                   cluster_cb,
+                                   context_cb,
+                                   matching_rect,
+                                   limit,
+                                   epsilon);
+        matching_rect++;
+    } while (ret == 0 && --nb_zones > 0U);    
     free_pnt_stack(stack_inspect[0]);
     free_pnt_stack(stack_inspect[1]);
 
-    return 0;
+    return ret;
 }
 
 int init_pan_db(PanDB * const db,
