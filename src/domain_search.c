@@ -273,6 +273,7 @@ int handle_domain_search(struct evhttp_request * const req,
             release_key(layer_name);            
             return HTTP_BADREQUEST;
         }
+        untangle_rect(&in_rect_op->rect);
         pthread_mutex_lock(&context->mtx_cqueue);
         if (push_cqueue(context->cqueue, in_rect_op) != 0) {
             pthread_mutex_unlock(&context->mtx_cqueue);

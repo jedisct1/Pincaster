@@ -56,6 +56,8 @@ Meters fast_distance_between_geoidal_positions(const Position2D * const p1,
 Meters romboid_distance_between_geoidal_positions(const Position2D * const p1,
                                                   const Position2D * const p2);
 
+void untangle_rect(Rectangle2D * const rect);
+
 int safe_write(const int fd, const void * const buf_, size_t count,
                const int timeout);
 ssize_t safe_read(const int fd, void * const buf_, size_t maxlen);
