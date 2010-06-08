@@ -36,12 +36,13 @@ static int position_is_in_rect(const PanDB * const db,
     Dimension edge0_latitude = rect->edge0.latitude;
     Dimension edge1_latitude = rect->edge1.latitude;
     Dimension position_latitude = position->latitude;
+
     if (db->layer_type != LAYER_TYPE_FLAT &&
         edge0_latitude > edge1_latitude) {
         const Dimension translation =
             db->qbounds.edge0.latitude - edge1_latitude;
         edge0_latitude += translation;
-        edge1_latitude = (Dimension) 0.0;
+        edge1_latitude = db->qbounds.edge1.latitude;
         position_latitude += translation;
     }
     if (position_latitude < edge0_latitude ||
@@ -56,7 +57,7 @@ static int position_is_in_rect(const PanDB * const db,
         const Dimension translation =
             db->qbounds.edge0.longitude - edge1_longitude;
         edge0_longitude += translation;
-        edge1_longitude = (Dimension) 0.0;
+        edge1_longitude = db->qbounds.edge1.longitude;
         position_longitude += translation;
     }
     if (position_longitude < edge0_longitude ||
@@ -494,49 +495,49 @@ static int rectangle2d_intersect(const PanDB * const db,
                                  const Rectangle2D * const r1,
                                  const Rectangle2D * const r2)
 {
-    Dimension r1_edge0_latitude = r1->edge0.latitude;
-    Dimension r1_edge1_latitude = r1->edge1.latitude;
-    Dimension r2_edge0_latitude = r2->edge0.latitude;
-    Dimension r2_edge1_latitude = r2->edge1.latitude;
+    Rectangle2D r1_ = *r1;
+    Rectangle2D r2_ = *r2;
 
-    Dimension r1_edge0_longitude = r1->edge0.longitude;
-    Dimension r1_edge1_longitude = r1->edge1.longitude;
-    Dimension r2_edge0_longitude = r2->edge0.longitude;
-    Dimension r2_edge1_longitude = r2->edge1.longitude;    
+    _Bool r1w_set = 0;
+    _Bool r2w_set = 0;
+    Rectangle2D r1w = *r1;
+    Rectangle2D r2w = *r2;    
     
-    Dimension translation = (Dimension) 0.0;
-    Dimension translation2 = (Dimension) 0.0;
-    
-    if (db->layer_type != LAYER_TYPE_FLAT) {
-        if (r1_edge0_latitude > r1_edge1_latitude) {
-            translation = db->qbounds.edge0.latitude - r1_edge1_latitude;
-        }
-        if (r2_edge0_latitude > r2_edge1_latitude) {
-            translation2 = db->qbounds.edge0.latitude - r2_edge1_latitude;
-        }
-        if (translation2 < translation) {
-            translation = translation2;
-        }
-        r1_edge0_latitude += translation;
-        r1_edge1_latitude += translation;
-    
-        if (r1_edge0_longitude > r1_edge1_longitude) {
-            translation = db->qbounds.edge0.longitude - r1_edge1_longitude;
-        }
-        if (r2_edge0_longitude > r2_edge1_longitude) {
-            translation2 = db->qbounds.edge0.longitude - r2_edge1_longitude;
-        }
-        if (translation2 < translation) {
-            translation = translation2;
-        }
-        r1_edge0_longitude += translation;
-        r1_edge1_longitude += translation;
+    if (r1->edge0.latitude > r1->edge1.latitude) {
+        r1_.edge1.latitude = r1_.edge1.latitude -
+            db->qbounds.edge0.latitude + db->qbounds.edge1.latitude;
+        r1w.edge0.latitude = db->qbounds.edge0.latitude;
+        r1w_set = 1;
     }
-        
-    if (!(r1_edge0_latitude > r2_edge1_latitude ||
-          r1_edge1_latitude < r2_edge0_latitude ||
-          r1_edge0_longitude > r2_edge1_longitude ||
-          r1_edge1_longitude < r2_edge0_longitude)) {
+    if (r1->edge0.longitude > r1->edge1.longitude) {
+        r1_.edge1.longitude = r1_.edge1.longitude -
+            db->qbounds.edge0.longitude + db->qbounds.edge1.longitude;
+        r1w.edge0.longitude = db->qbounds.edge0.longitude;
+        r1w_set = 1;
+    }
+    if (r2->edge0.latitude > r2->edge1.latitude) {
+        r2_.edge1.latitude = r2_.edge1.latitude -
+            db->qbounds.edge0.latitude + db->qbounds.edge1.latitude;
+        r2w.edge0.latitude = db->qbounds.edge0.latitude;
+        r2w_set = 1;
+    }
+    if (r2->edge0.longitude > r2->edge1.longitude) {
+        r2_.edge1.longitude = r2_.edge1.longitude -
+            db->qbounds.edge0.longitude + db->qbounds.edge1.longitude;
+        r2w.edge0.longitude = db->qbounds.edge0.longitude;
+        r2w_set = 1;
+    }
+    if (!(r1_.edge0.latitude > r2_.edge1.latitude ||
+          r1_.edge1.latitude < r2_.edge0.latitude ||
+          r1_.edge0.longitude > r2_.edge1.longitude ||
+          r1_.edge1.longitude < r2_.edge0.longitude)) {
+        return 1;
+    }
+    if ((r1w_set || r2w_set) &&
+        !(r1w.edge0.latitude > r2w.edge1.latitude ||
+          r1w.edge1.latitude < r2w.edge0.latitude ||
+          r1w.edge0.longitude > r2w.edge1.longitude ||
+          r1w.edge1.longitude < r2w.edge0.longitude)) {
         return 1;
     }
     return 0;
@@ -859,7 +860,7 @@ static int find_in_rect_context_cb(void *context_, void *entry,
     FindInRectIntCBContext *context = context_;
     Slot *scanned_slot = entry;
     Meters cd;
-    
+
     (void) sizeof_entry;
     if (position_is_in_rect(context->db,
                             &scanned_slot->position, context->rect) == 0) {
@@ -923,7 +924,7 @@ static int find_in_rect_cluster_context_cb(void *context_, void *entry,
     assert(scanned_node->type == NODE_TYPE_QUAD_NODE);
     const NbSlots children = scanned_node->sub_slots;
     (void) sizeof_entry;
-    
+
     const int ret =
         context->cluster_cb(context->context_cb, &center, radius, children);
     if (ret != 0) {
