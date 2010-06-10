@@ -505,11 +505,29 @@ int handle_op_search_in_rect(SearchInRectOp * const in_rect_op,
         .json_gen = json_gen,
         .with_properties = in_rect_op->with_properties
     };
-    find_in_rect(pan_db, find_in_rect_cb, find_in_rect_cluster_cb,
-                 &cb_context, &in_rect_op->rect,
-                 in_rect_op->limit, in_rect_op->epsilon);
+    int ret = find_in_rect(pan_db, find_in_rect_cb, find_in_rect_cluster_cb,
+                           &cb_context, &in_rect_op->rect,
+                           in_rect_op->limit, in_rect_op->epsilon);
 
     yajl_gen_array_close(json_gen);
+    
+    if (ret != 0) {
+        yajl_gen_free(json_gen);
+        if ((json_gen = new_json_gen(op_reply)) == NULL) {
+            free(op_reply);
+            return HTTP_SERVUNAVAIL;
+        }        
+        in_rect_op_reply->json_gen = json_gen;        
+        yajl_gen_string(json_gen,
+                        (const unsigned char *) "overflow",
+                        (unsigned int) sizeof "overflow" - (size_t) 1U);
+        yajl_gen_bool(json_gen, 1);
+        yajl_gen_string(json_gen,
+                        (const unsigned char *) "matches",
+                        (unsigned int) sizeof "matches" - (size_t) 1U);
+        yajl_gen_array_open(json_gen);
+        yajl_gen_array_close(json_gen);        
+    }
     
     send_op_reply(context, op_reply);
     

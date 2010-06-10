@@ -807,14 +807,15 @@ static int find_in_rect_context_cb(void *context_, void *entry,
                                              &scanned_slot->position);
     }
     if (scanned_slot->key_node != NULL) {
+        if (context->limit <= (SubSlots) 0U) {
+            return 1;
+        }
+        context->limit--;
         if (context->cb != NULL) {
             const int ret =
                 context->cb(context->context_cb, scanned_slot, cd);
             if (ret != 0) {
                 return ret;
-            }
-            if (context->limit-- <= (SubSlots) 1U) {
-                return 1;
             }
         }
     } else {
