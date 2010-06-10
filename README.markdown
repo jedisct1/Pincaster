@@ -115,9 +115,6 @@ Geographic search
   
   * `limit=(max number of results)`
   * `properties=(0 or 1)` in order to include properties or not in the reply.
-  * `epsilon=(value)` finds records within a rectangle, but below a certain scale,
-return the number of items + the hot spot and a radius instead of the
-records themselves ("cluster" type).
 
 Range queries
 -------------
