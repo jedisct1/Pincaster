@@ -147,22 +147,15 @@ Dimension2 compute_square_distance(const PanDB * const pan_db,
         return (Dimension2) 0.0;
     }
     if (pan_db->layer_type != LAYER_TYPE_FLAT) {
-        if (pan_db->layer_type == LAYER_TYPE_FLATWRAP) {
-            if (d_latitude > pan_db->qbounds.edge1.latitude) {
-                d_latitude = d_latitude - pan_db->qbounds.edge1.latitude +
-                    pan_db->qbounds.edge0.latitude;
-            }
-            if (d_longitude > pan_db->qbounds.edge1.longitude) {
-                d_longitude = d_longitude - pan_db->qbounds.edge1.longitude +
+        assert(pan_db->layer_type == LAYER_TYPE_FLATWRAP);
+        
+        if (d_latitude > pan_db->qbounds.edge1.latitude) {
+            d_latitude = d_latitude - pan_db->qbounds.edge1.latitude +
+                pan_db->qbounds.edge0.latitude;
+        }
+        if (d_longitude > pan_db->qbounds.edge1.longitude) {
+            d_longitude = d_longitude - pan_db->qbounds.edge1.longitude +
                     pan_db->qbounds.edge0.longitude;
-            }
-        } else {
-            if (d_latitude > (Dimension) 180.0) {
-                d_latitude = (Dimension) 360.0 - d_latitude;
-            }
-            if (d_longitude > (Dimension) 180.0) {
-                d_longitude = (Dimension) 360.0 - d_longitude;
-            }
         }
     }
     return d_latitude * d_latitude + d_longitude * d_longitude;
@@ -172,6 +165,9 @@ Meters distance_between_flat_positions(const PanDB * const pan_db,
                                        const Position2D * const p1,
                                        const Position2D * const p2)
 {
+    assert(pan_db->layer_type == LAYER_TYPE_FLAT ||
+           pan_db->layer_type == LAYER_TYPE_FLATWRAP);
+    
     return (Meters) sqrtf(compute_square_distance(pan_db, p1, p2));
 }
 
@@ -184,12 +180,12 @@ Meters hs_distance_between_geoidal_positions(const Position2D * const p1,
     const float lon2 = (float) DEG_TO_RAD(p2->longitude);
     const float dlat = lat2 - lat1;
     const float dlon = lon2 - lon1;
-    const float sin_dlath = sinf(dlat / 2.0);
+    const float sin_dlath = sinf(dlat / 2.0F);
     const float sin_dlat2 = sin_dlath * sin_dlath;    
-    const float sin_dlonh = sinf(dlon / 2.0);
+    const float sin_dlonh = sinf(dlon / 2.0F);
     const float sin_dlon2 = sin_dlonh * sin_dlonh;
     const float a = sin_dlat2 + cosf(lat1) * cosf(lat2) * sin_dlon2;
-    const float c = 2.0 * atan2f(sqrtf(a), sqrtf(1.0 - a));
+    const float c = 2.0F * atan2f(sqrtf(a), sqrtf(1.0F - a));
     const float d = EARTH_RADIUS * c;
     
     return (Meters) d;
@@ -204,15 +200,15 @@ Meters gc_distance_between_geoidal_positions(const Position2D * const p1,
     const float y = (float) DEG_TO_RAD(- p2->longitude);
     const float cosa = sinf(a) * sinf(b) + cosf(a) * cosf(b) * cosf(x - y);
     float d = 0.0F;
-    if (cosa >= 1.0F) {
+    if (cosa > 1.0) {
         return 0.0F;
     }
-    if (cosa < 0.999999999999999F) {
-        d = acos(cosa);
+    if (cosa < (1.0F - FLT_EPSILON)) {
+        d = acosf(cosa);
     }
     d *= EARTH_RADIUS;
     if (d < 10.0F) {
-        d = distance_between_flat_positions(NULL, p1, p2);
+        d = fast_distance_between_geoidal_positions(p1, p2);
     }
     return d;
 }
