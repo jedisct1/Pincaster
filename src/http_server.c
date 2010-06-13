@@ -281,8 +281,10 @@ static int process_public_request(HttpHandlerContext * const context,
     char *decoded_uri;
     decoded_uri = evhttp_decode_uri(uri + context->encoded_public_base_uri_len);
     char * const opts = extract_opts(decoded_uri);
+    const int ret = handle_public_request(context, decoded_uri, opts, req);
+    free(decoded_uri);
     
-    return handle_public_request(context, decoded_uri, opts, req);
+    return ret;
 }
 
 static int process_request(HttpHandlerContext * const context,
