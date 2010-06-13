@@ -315,7 +315,7 @@ Now let's look for records whose location is near N 48.510 E 2.240, within a 7 k
 		"tid": 10,
 		"matches": [
 			{
-				"distance": 2199.7,
+				"distance": 313.502,
 				"key": "abcd",
 				"type": "point+hash",
 				"latitude": 48.512,

@@ -10,7 +10,7 @@ Feature: Search API
       {
               "matches": [
                       {
-                              "distance": 2199.7,
+                              "distance": 313.502,
                               "key": "abcd",
                               "type": "point+hash",
                               "latitude": 48.512,
