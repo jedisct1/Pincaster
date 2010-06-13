@@ -32,8 +32,15 @@ def capture_api_result
   return result
 end
 
-When /^Client GET (.*)$/ do |path|
+When /^Client GET (\/api\/.*)$/ do |path|
   @result = capture_api_result { RestClient.get 'localhost:4269'+path }
+end
+
+When /^Client GET (\/public\/.*)$/ do |path|
+  @result = RestClient.get 'localhost:4269'+path do |response, request|
+    @content_type = response.headers[:content_type]
+    response.return!
+  end
 end
 
 When /^Client POST (.*) '(.*)'$/ do |path, content|
@@ -51,6 +58,11 @@ end
 Then /^Pincaster returns:$/ do |string|
   expected = JSON.parse(string)
   @result.should == expected
+end
+
+Then /^Pincaster returns (.*):$/ do |expected_content_type, expected_result|
+  @content_type.should == expected_content_type
+  @result.should == expected_result
 end
 
 Then /^Pincaster is dead$/ do
