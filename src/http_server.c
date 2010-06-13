@@ -163,7 +163,8 @@ stab:
                             (unsigned int) sizeof "error" - (size_t) 1U);
             yajl_gen_string(json_gen, (const unsigned char *) "error",
                             (unsigned int) sizeof "error" - (size_t) 1U);
-            send_op_reply(context, op_reply);                
+            send_op_reply(context, op_reply);
+            yajl_gen_free(json_gen);
         }
     } else {
         pthread_cond_wait(&context->cond_cqueue, &context->mtx_cqueue);
