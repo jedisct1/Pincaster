@@ -305,6 +305,7 @@ int handle_domain_search(struct evhttp_request * const req,
             .with_content = cb_context.with_content
         };
         if ((in_keys_op->pattern = new_key_from_c_string(query)) == NULL) {
+            release_key(layer_name);            
             return HTTP_SERVUNAVAIL;
         }
         pthread_mutex_lock(&context->mtx_cqueue);
