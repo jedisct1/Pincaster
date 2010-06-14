@@ -7,6 +7,7 @@ Pincaster is an in-memory, persistent data store for geographic data and key/val
 * [Download snapshots tarballs](http://download.pureftpd.org/pincaster/snapshots/)
 * [Download alpha releases tarballs](http://download.pureftpd.org/pincaster/releases/)
 
+
 Schema overview
 ---------------
 
@@ -22,6 +23,7 @@ Schema overview
   
   Records can automatically expire.
 
+
 Installation
 ------------
     ./configure
@@ -30,6 +32,7 @@ Installation
 Review the `pincaster.conf` configuration file and run:
 
     pincaster /path/to/pincaster.conf
+
 
 Layers
 ------
@@ -51,6 +54,7 @@ Layers
     Method: `GET`
 
     URI: `http://$HOST:4269/api/1.0/layers/index.json`
+
 
 Records
 -------
@@ -89,6 +93,7 @@ this date. If you later want to remove the expiration of a record, just use
 
     URI: `http://$HOST:4269/api/1.0/records/(layer name)/(record name).json`
 
+
 Geographic search
 -----------------
 
@@ -116,6 +121,7 @@ Geographic search
   * `limit=(max number of results)`
   * `properties=(0 or 1)` in order to include properties or not in the reply.
 
+
 Range queries
 -------------
 
@@ -142,6 +148,7 @@ explicitly set this argument.
 full objects.
   * `properties=(0 or 1)` in order to include properties or not in the reply.
 
+
 Serving documents
 -----------------
 
@@ -165,6 +172,7 @@ The default Content-Type currently is `text/plain`.
 Having a HTTP proxy between Pincaster and untrusted users is highly
 recommended in order to serve public data.  
 
+
 Misc
 ----
 
@@ -184,8 +192,8 @@ Misc
 
 * **Compacting the journal:**
 
-    The on-disk journal is an append-only file that logs every
-transaction that creates or changes data.
+    The on-disk journal is an append-only file that logs every transaction that
+creates or changes data.
 
     In order to save disk space and to speed up the server start up, a
 new and optimized journal can be written by a background process. Once
@@ -197,6 +205,7 @@ previous file.
     Method: `POST`
 
     URI: `http://$HOST:4269/api/1.0/system/rewrite.json`
+
 
 Example
 -------
