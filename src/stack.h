@@ -32,4 +32,11 @@ int push_pnt_stack(PntStack * const pnt_stack, const void * const pnt);
 
 void * pop_pnt_stack(PntStack * const pnt_stack);
 
+typedef int (*PntStackForeachCB)(void *context, void *pnt);
+
+int pnt_stack_foreach(PntStack * const pnt_stack, PntStackForeachCB cb,
+                      void * const context);
+
+_Bool pnt_stack_exists(PntStack * const pnt_stack, const void * const pnt);
+
 #endif

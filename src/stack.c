@@ -109,3 +109,30 @@ void *pop_pnt_stack(PntStack * const pnt_stack)
     return pnt_stack->stack + pnt_stack->depth;
 }
 
+int pnt_stack_foreach(PntStack * const pnt_stack, PntStackForeachCB cb,
+                      void * const context)
+{
+    size_t depth = (size_t) 0U;
+    
+    while (depth < pnt_stack->depth) {
+        if (cb(context, pnt_stack->stack + depth) != 0) {
+            break;
+        }
+        depth += pnt_stack->element_size;
+    }
+    return 0;
+}
+
+_Bool pnt_stack_exists(PntStack * const pnt_stack, const void * const pnt)
+{
+    size_t depth = (size_t) 0U;
+    const size_t element_size = pnt_stack->element_size;
+    
+    while (depth < pnt_stack->depth) {
+        if (memcmp(pnt, pnt_stack->stack + depth, element_size) == 0) {
+            return 1;
+        }
+        depth += pnt_stack->element_size;
+    }
+    return 0;
+}
