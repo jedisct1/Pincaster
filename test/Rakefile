@@ -1,5 +1,18 @@
 require 'rubygems'
 require 'cucumber'
 require 'cucumber/rake/task'
+require 'rake/clean'
 
 Cucumber::Rake::Task.new
+
+CLEAN.include('test_utils')
+
+file 'test_utils' => ["test_utils.c", "../src/utils.c"] do
+  sh "cc -o test_utils test_utils.c ../src/utils.c ../src/slipmap.c ../src/log.c -I../src -I.. -I../src/levent2/include -I../src/levent2 ../src/levent2/.libs/libevent.a ../src/levent2/.libs/libevent_pthreads.a ../src/yajl/libyajl.a -lm -lrt"
+end
+
+task :unittest => [:test_utils] do
+  sh "./test_utils"
+end
+
+task :default => [:unittest, :cucumber]
