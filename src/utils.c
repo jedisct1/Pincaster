@@ -12,7 +12,8 @@ void skip_spaces(const char * * const str)
 }
 
 typedef struct RecordsGetPropertiesCBContext_ {
-    yajl_gen json_gen;    
+    yajl_gen json_gen;
+    PntStack * const traversal_stack;
 } RecordsGetPropertiesCBContext;
 
 static int records_get_properties_cb(void * const context_,
@@ -31,8 +32,11 @@ static int records_get_properties_cb(void * const context_,
 }
 
 int key_node_to_json(KeyNode * const key_node, yajl_gen json_gen,
-                     const _Bool with_properties)
+                     const _Bool with_properties,
+                     PntStack * const traversal_stack)
 {
+    (void) traversal_stack;
+    
     yajl_gen_string(json_gen, (const unsigned char *) "key",
                     (unsigned int) sizeof "key" - (size_t) 1U);
     yajl_gen_string(json_gen, (const unsigned char *) key_node->key->val,
@@ -91,7 +95,8 @@ int key_node_to_json(KeyNode * const key_node, yajl_gen json_gen,
         yajl_gen_integer(json_gen, (long) key_node->expirable->ts);
     }
     RecordsGetPropertiesCBContext cb_context = {
-        .json_gen = json_gen
+        .json_gen = json_gen,
+        .traversal_stack = traversal_stack
     };
     if (key_node->properties != NULL) {
         yajl_gen_string(json_gen, (const unsigned char *) "properties",

@@ -29,7 +29,8 @@ typedef struct BufferedReadContext_ {
 void skip_spaces(const char * * const str);
 
 int key_node_to_json(KeyNode * const key_node, yajl_gen json_gen,
-                     const _Bool with_properties);
+                     const _Bool with_properties,
+                     PntStack * const traversal_stack);
 
 Position2D sin_projection(const Position2D * const position);
 Position2D flat_projection(const Position2D * const position);

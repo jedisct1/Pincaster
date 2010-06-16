@@ -564,7 +564,7 @@ int handle_op_records_get(RecordsGetOp * const get_op,
         return HTTP_SERVUNAVAIL;
     }
     get_op_reply->json_gen = json_gen;
-    key_node_to_json(key_node, json_gen, 1);
+    key_node_to_json(key_node, json_gen, 1, NULL);
     
     send_op_reply(context, op_reply);
     

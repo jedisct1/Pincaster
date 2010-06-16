@@ -98,7 +98,7 @@ int push_pnt_stack(PntStack * const pnt_stack, const void * const pnt)
     return 0;
 }
 
-void * pop_pnt_stack(PntStack * const pnt_stack)
+void *pop_pnt_stack(PntStack * const pnt_stack)
 {
     if (pnt_stack->depth <= (size_t) 0U) {
         return NULL;

@@ -1,5 +1,5 @@
 AC_PREREQ([2.65])
-AC_INIT([pincaster], [0.4], [bugs at puretpd dot org])
+AC_INIT([pincaster], [0.5], [bugs at puretpd dot org])
 AC_CONFIG_SRCDIR([src/app.c])
 AC_CONFIG_HEADERS([config.h])
 AM_INIT_AUTOMAKE([1.9 dist-bzip2])
