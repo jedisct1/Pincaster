@@ -60,6 +60,7 @@ libevent.pc
 /install-sh
 /libtool
 /ltmain.sh
+/missing
 /stamp-h1
 
 /sample/dns-example
