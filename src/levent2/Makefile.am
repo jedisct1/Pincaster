@@ -134,7 +134,7 @@ NO_UNDEFINED = -no-undefined
 MAYBE_CORE = libevent_core.la
 else
 NO_UNDEFINED =
-MAYBE_CORE = libevent_core.la
+MAYBE_CORE =
 endif
 
 libevent_la_SOURCES = $(CORE_SRC) $(EXTRA_SRC)
