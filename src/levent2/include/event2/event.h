@@ -605,9 +605,14 @@ void event_get_assignment(const struct event *event, struct event_base **base_ou
    Return the size of struct event that the Libevent library was compiled
    with.
 
-   This will be the same as sizeof(struct event) if you're running with the
-   same version of Libevent that your application was built with, but
+   This will be NO GREATER than sizeof(struct event) if you're running with
+   the same version of Libevent that your application was built with, but
    otherwise might not.
+
+   Note that it might be SMALLER than sizeof(struct event) if some future
+   version of Libevent adds extra padding to the end of struct event.
+   We might do this to help ensure ABI-compatibility between different
+   versions of Libevent.
  */
 size_t event_get_struct_event_size(void);
 
