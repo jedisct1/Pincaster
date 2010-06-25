@@ -33,6 +33,7 @@ typedef struct BufferedReadContext_ {
 void skip_spaces(const char * * const str);
 
 int key_node_to_json(KeyNode * const key_node, yajl_gen json_gen,
+                     PanDB * const pan_db,                     
                      const _Bool with_properties,
                      const _Bool with_links);
 

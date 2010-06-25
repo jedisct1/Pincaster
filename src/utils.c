@@ -13,7 +13,7 @@ void skip_spaces(const char * * const str)
 
 typedef struct RecordsGetPropertiesCBContext_ {
     yajl_gen json_gen;
-    KeyNode * const key_node;
+    PanDB * const pan_db;
     PntStack * const traversal_stack;
 } RecordsGetPropertiesCBContext;
 
@@ -36,24 +36,13 @@ static int records_get_properties_cb(void * const context_,
                         (unsigned int) value_len);
         return 0;
     }
-    const void *link = NULL;
-    size_t link_len;
-    if (find_in_slip_map
-        (&context->key_node->properties,
-            (void *) ((const unsigned char *) key +
-                      (sizeof INT_PROPERTY_LINK - (size_t) 1U)),
-            key_len - (sizeof INT_PROPERTY_LINK - (size_t) 1U),
-            &link, &link_len) == 0) {
-        yajl_gen_null(context->json_gen);
-        
-        return 0;
-    }
-    yajl_gen_bool(context->json_gen, 1);
+    yajl_gen_null(context->json_gen);
     
     return 0;
 }
 
 static int key_node_to_json_(KeyNode * const key_node, yajl_gen json_gen,
+                             PanDB * const pan_db,                             
                              const _Bool with_properties,
                              PntStack * const traversal_stack)
 {
@@ -118,7 +107,7 @@ static int key_node_to_json_(KeyNode * const key_node, yajl_gen json_gen,
     }
     RecordsGetPropertiesCBContext cb_context = {
         .json_gen = json_gen,
-        .key_node = key_node,
+        .pan_db = pan_db,
         .traversal_stack = traversal_stack
     };
     if (key_node->properties != NULL) {
@@ -133,11 +122,13 @@ static int key_node_to_json_(KeyNode * const key_node, yajl_gen json_gen,
 }
 
 int key_node_to_json(KeyNode * const key_node, yajl_gen json_gen,
+                     PanDB * const pan_db,
                      const _Bool with_properties,
                      const _Bool with_links)
 {
     if (with_links == 0) {    
-        return key_node_to_json_(key_node, json_gen, with_properties, NULL);
+        return key_node_to_json_(key_node, json_gen, pan_db,
+                                 with_properties, NULL);
     }    
 
     PntStack traversal_stack;
@@ -145,7 +136,7 @@ int key_node_to_json(KeyNode * const key_node, yajl_gen json_gen,
                        sizeof(KeyNode *)) != 0) {
         return -1;
     }
-    const int ret = key_node_to_json_(key_node, json_gen,
+    const int ret = key_node_to_json_(key_node, json_gen, pan_db,
                                       with_properties, &traversal_stack);
     free_pnt_stack(&traversal_stack);
     

@@ -342,7 +342,8 @@ static int find_near_cb(void * const context_,
                     (const unsigned char *) "distance",
                     (unsigned int) sizeof "distance" - (size_t) 1U);
     yajl_gen_double(json_gen, distance);
-    key_node_to_json(key_node, json_gen, context->with_properties, 0);
+    key_node_to_json(key_node, json_gen, context->pan_db,
+                     context->with_properties, 0);
     yajl_gen_map_close(json_gen);
     
     return 0;
@@ -657,7 +658,7 @@ int handle_op_search_in_keys(SearchInKeysOp * const in_keys_op,
                 assert(key_node == found_key_node);
 #endif
                 yajl_gen_map_open(json_gen);
-                key_node_to_json(found_key_node, json_gen,
+                key_node_to_json(found_key_node, json_gen, pan_db,
                                  in_keys_op->with_properties, 0);
                 yajl_gen_map_close(json_gen);
             }
