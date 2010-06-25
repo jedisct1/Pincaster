@@ -6,6 +6,10 @@
 # define DEFAULT_BUFFERED_READ_BUFFER_SIZE ((size_t) 65536U)
 #endif
 
+#ifndef INITIAL_TRAVERSAL_STACK_SIZE 
+# define INITIAL_TRAVERSAL_STACK_SIZE ((size_t) 100U)
+#endif
+
 #define BINVAL_IS_EQUAL_TO_CONST_STRING(BV, S) \
     ((BV)->size == sizeof (S) - (size_t) 1U && \
         strncasecmp((BV)->val, (S), sizeof (S) - (size_t) 1U) == 0)

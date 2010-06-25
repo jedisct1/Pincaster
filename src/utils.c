@@ -13,6 +13,7 @@ void skip_spaces(const char * * const str)
 
 typedef struct RecordsGetPropertiesCBContext_ {
     yajl_gen json_gen;
+    KeyNode * const key_node;
     PntStack * const traversal_stack;
 } RecordsGetPropertiesCBContext;
 
@@ -23,11 +24,32 @@ static int records_get_properties_cb(void * const context_,
                                      const size_t value_len)
 {
     RecordsGetPropertiesCBContext * const context = context_;
-    
+
     yajl_gen_string(context->json_gen, (const unsigned char *) key,
                     (unsigned int) key_len);
-    yajl_gen_string(context->json_gen, (const unsigned char *) value,
-                    (unsigned int) value_len);    
+    
+    if (context->traversal_stack == NULL ||
+        key_len <= sizeof INT_PROPERTY_LINK - (size_t) 1U ||
+        memcmp(key, INT_PROPERTY_LINK,
+               sizeof INT_PROPERTY_LINK - (size_t) 1U) != 0) {
+        yajl_gen_string(context->json_gen, (const unsigned char *) value,
+                        (unsigned int) value_len);
+        return 0;
+    }
+    const void *link = NULL;
+    size_t link_len;
+    if (find_in_slip_map
+        (&context->key_node->properties,
+            (void *) ((const unsigned char *) key +
+                      (sizeof INT_PROPERTY_LINK - (size_t) 1U)),
+            key_len - (sizeof INT_PROPERTY_LINK - (size_t) 1U),
+            &link, &link_len) == 0) {
+        yajl_gen_null(context->json_gen);
+        
+        return 0;
+    }
+    yajl_gen_bool(context->json_gen, 1);
+    
     return 0;
 }
 
@@ -96,6 +118,7 @@ static int key_node_to_json_(KeyNode * const key_node, yajl_gen json_gen,
     }
     RecordsGetPropertiesCBContext cb_context = {
         .json_gen = json_gen,
+        .key_node = key_node,
         .traversal_stack = traversal_stack
     };
     if (key_node->properties != NULL) {
@@ -113,11 +136,21 @@ int key_node_to_json(KeyNode * const key_node, yajl_gen json_gen,
                      const _Bool with_properties,
                      const _Bool with_links)
 {
-    assert(with_links == 0);
-    
-    return key_node_to_json(key_node, json_gen, with_properties, NULL);
-}
+    if (with_links == 0) {    
+        return key_node_to_json_(key_node, json_gen, with_properties, NULL);
+    }    
 
+    PntStack traversal_stack;
+    if (init_pnt_stack(&traversal_stack, INITIAL_TRAVERSAL_STACK_SIZE,
+                       sizeof(KeyNode *)) != 0) {
+        return -1;
+    }
+    const int ret = key_node_to_json_(key_node, json_gen,
+                                      with_properties, &traversal_stack);
+    free_pnt_stack(&traversal_stack);
+    
+    return ret;
+}
 
 // Thanks to the CompeGPS team for their help!
 
