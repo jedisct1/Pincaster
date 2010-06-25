@@ -87,6 +87,33 @@ static int records_put_opt_parse_cb(void * const context_,
     return 0;
 }
 
+typedef struct RecordsOptParseCBContext_ {
+    _Bool with_links;
+} RecordsOptParseCBContext;
+
+static int records_opt_parse_cb(void * const context_,
+                                const BinVal *key, const BinVal *value)
+{
+    RecordsOptParseCBContext * context = context_;
+    char *svalue = value->val;    
+    
+    skip_spaces((const char * *) &svalue);
+    if (*svalue == 0) {
+        return 0;
+    }
+    if (BINVAL_IS_EQUAL_TO_CONST_STRING(key, "links")) {
+        char *endptr;
+        _Bool with_links = (strtol(svalue, &endptr, 10) > 0);
+        if (endptr == NULL || endptr == svalue) {
+            return -1;
+        }
+        context->with_links = with_links;
+                
+        return 0;
+    }
+    return 0;
+}
+
 int handle_domain_records(struct evhttp_request * const req,
                           HttpHandlerContext * const context,
                           char *uri, char *opts, _Bool * const write_to_log,
@@ -115,8 +142,16 @@ int handle_domain_records(struct evhttp_request * const req,
             return HTTP_NOTFOUND;
         }
         if ((key = new_key_from_c_string(sep)) == NULL) {
-            release_key(layer_name);            
+            release_key(layer_name);
             return HTTP_SERVUNAVAIL;
+        }
+        RecordsOptParseCBContext cb_context = {
+            .with_links = 0
+        };
+        if (opts != NULL &&
+            query_parse(opts, records_opt_parse_cb, &cb_context) != 0) {
+            release_key(layer_name);
+            return HTTP_BADREQUEST;
         }
         *get_op = (RecordsGetOp) {
             .type = OP_TYPE_RECORDS_GET,
@@ -124,8 +159,9 @@ int handle_domain_records(struct evhttp_request * const req,
             .fake_req = fake_req,
             .op_tid = ++context->op_tid,
             .layer_name = layer_name,
-            .key = key
-        };
+            .key = key,
+            .with_links = cb_context.with_links
+        };        
         pthread_mutex_lock(&context->mtx_cqueue);
         if (push_cqueue(context->cqueue, get_op) != 0) {
             pthread_mutex_unlock(&context->mtx_cqueue);            
@@ -564,7 +600,7 @@ int handle_op_records_get(RecordsGetOp * const get_op,
         return HTTP_SERVUNAVAIL;
     }
     get_op_reply->json_gen = json_gen;
-    key_node_to_json(key_node, json_gen, 1, NULL);
+    key_node_to_json(key_node, json_gen, 1, 0);
     
     send_op_reply(context, op_reply);
     

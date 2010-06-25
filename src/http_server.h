@@ -110,8 +110,9 @@ typedef struct RecordsGetOp_ {
     struct evhttp_request *req;
     _Bool fake_req;    
     OpTID op_tid;
-    Key *layer_name;    
-    Key *key;    
+    Key *layer_name;
+    Key *key;
+    _Bool with_links;
 } RecordsGetOp;
 
 typedef struct RecordsDeleteOp_ {

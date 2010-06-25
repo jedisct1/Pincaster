@@ -11,6 +11,7 @@
 #define INT_PROPERTY_ADD_INT_PREFIX    "_add_int:"
 #define INT_PROPERTY_CONTENT           "$content"
 #define INT_PROPERTY_CONTENT_TYPE      "$content_type"
+#define INT_PROPERTY_LINK              "$link:"
 
 int handle_domain_records(struct evhttp_request * const req,
                           HttpHandlerContext * const context,

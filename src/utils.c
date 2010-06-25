@@ -31,9 +31,9 @@ static int records_get_properties_cb(void * const context_,
     return 0;
 }
 
-int key_node_to_json(KeyNode * const key_node, yajl_gen json_gen,
-                     const _Bool with_properties,
-                     PntStack * const traversal_stack)
+static int key_node_to_json_(KeyNode * const key_node, yajl_gen json_gen,
+                             const _Bool with_properties,
+                             PntStack * const traversal_stack)
 {
     (void) traversal_stack;
     
@@ -108,6 +108,16 @@ int key_node_to_json(KeyNode * const key_node, yajl_gen json_gen,
     }    
     return 0;
 }
+
+int key_node_to_json(KeyNode * const key_node, yajl_gen json_gen,
+                     const _Bool with_properties,
+                     const _Bool with_links)
+{
+    assert(with_links == 0);
+    
+    return key_node_to_json(key_node, json_gen, with_properties, NULL);
+}
+
 
 // Thanks to the CompeGPS team for their help!
 
