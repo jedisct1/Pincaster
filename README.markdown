@@ -368,7 +368,9 @@ And what's in a rectangle, without properties?
 
 What about adding a HTML document to the abcd record?
 
-    $ curl -XPUT -d'$content=<html><body><h1>Hello world</h1></body></html>&$content_type=text/html' http://diz:4269/api/1.0/records/restaurants/abcd.json
+    $ curl -XPUT -d'$content=%3Chtml%3E%3Cbody%3E%3Ch1%3EHello+world%3C%2Fh1%3E%3C%2Fbody%3E%3C%2Fhtml%3E&$content_type=text/html' http://diz:4269/api/1.0/records/restaurants/abcd.json
+
+(feel free to replace `$` with `%24` if you feel pedantic. These examples use the unencoded character for the sake of being easily readable).
     
 Now point your web browser to:
 
