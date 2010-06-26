@@ -37,9 +37,13 @@ static int records_get_properties_cb(void * const context_,
                         (unsigned int) value_len);
         return 0;
     }
+    if (value_len <= (size_t) 0U || (* (const char *) value) == 0) {
+        yajl_gen_bool(context->json_gen, 0);
+        return 0;
+    }
     int status;
     KeyNode *linked_key_node;
-    Key * const linked_key = new_key(value, value_len + 1);
+    Key * const linked_key = new_key_from_c_string(value);
     status = get_key_node_from_key(context->pan_db, linked_key, 0,
                                    &linked_key_node);
     release_key(linked_key);
