@@ -149,6 +149,20 @@ full objects.
   * `properties=(0 or 1)` in order to include properties or not in the reply.
 
 
+Relations through symbolic links
+--------------------------------
+
+Relations between records can be stored as properties whose key name starts with `$link:` and whose value is the key of another record.
+
+While retrieving a specific record, and in geographical and range queries, adding `links=1` will automatically traverse links and recursively retrieve every linked record.
+
+The server will take care of avoiding loops and duplicate records.
+
+In linking records, values for symbolic links are `true` for resolved links, and `false` for orphan links.
+
+Results contain an additional property named `$links` containing symlinked records.
+
+
 Serving documents
 -----------------
 
@@ -364,7 +378,54 @@ Now point your web browser to:
     
 And enjoy the web page!    
 
-Let's delete the record:
+Now, what about storing a record about Donald Duck, whose favorite restaurant is this very Mac Donald's:
+
+    curl -XPUT -d'first_name=Donald&last_name=Duck&$link:favorite_restaurant=abcd' http://diz:4269/api/1.0/records/restaurants/donald.json
+
+As expected, Donald's record looks like:
+
+    curl http://diz:4269/api/1.0/records/restaurants/donald.json
+	{
+		"tid": 21,
+		"key": "donald",
+		"type": "hash",
+		"properties": {
+			"first_name": "Donald",
+			"last_name": "Duck",
+			"$link:favorite_restaurant": "abcd"
+		}
+	}
+
+Here's the same query, with a twist: links traversal. Properties starting with $link are resolved, retrieved and send back with the query result as a `$links` property:
+
+    curl http://diz:4269/api/1.0/records/restaurants/donald.json?links=1
+    {
+		"tid": 22,
+		"key": "donald",
+		"type": "hash",
+		"properties": {
+			"first_name": "Donald",
+			"last_name": "Duck",
+			"$link:favorite_restaurant": true
+		},
+		"$links": {
+			"abcd": {
+				"key": "abcd",
+				"type": "point+hash",
+				"latitude": 48.512,
+				"longitude": 2.243,
+				"properties": {
+					"name": "MacDonalds",
+					"address": "blabla",
+					"visits": "100127",
+					"$content": "<html><body><h1>Hello world</h1></body></html>",
+					"$content_type": "text/html"
+				}
+			}
+		}
+	}
+
+Let's delete the Mac Donald's record:
 
 	$ curl -XDELETE http://diz:4269/api/1.0/records/restaurants/abcd.json
 	{
