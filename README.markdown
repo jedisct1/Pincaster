@@ -158,9 +158,7 @@ While retrieving a specific record, and in geographical and range queries, addin
 
 The server will take care of avoiding loops and duplicate records.
 
-In linking records, values for symbolic links are `true` for resolved links, and `false` for orphan links.
-
-Results contain an additional property named `$links` containing symlinked records.
+Results contain an additional property named `$links` containing found symlinked records.
 
 
 Serving documents
@@ -406,7 +404,7 @@ Here's the same query, with a twist: links traversal. Properties starting with `
 		"properties": {
 			"first_name": "Donald",
 			"last_name": "Duck",
-			"$link:favorite_restaurant": true
+			"$link:favorite_restaurant": "abcd"
 		},
 		"$links": {
 			"abcd": {

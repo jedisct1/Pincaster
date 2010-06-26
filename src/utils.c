@@ -53,18 +53,16 @@ static int records_get_properties_cb(void * const context_,
     RecordsGetPropertiesCBContext * const context = context_;
 
     yajl_gen_string(context->json_gen, (const unsigned char *) key,
-                    (unsigned int) key_len);
-    
+                    (unsigned int) key_len);    
+    yajl_gen_string(context->json_gen, (const unsigned char *) value,
+                    (unsigned int) value_len);
     if (context->traversal_stack == NULL ||
         key_len <= sizeof INT_PROPERTY_LINK - (size_t) 1U ||
         memcmp(key, INT_PROPERTY_LINK,
                sizeof INT_PROPERTY_LINK - (size_t) 1U) != 0) {
-        yajl_gen_string(context->json_gen, (const unsigned char *) value,
-                        (unsigned int) value_len);
         return 0;
     }
     if (value_len <= (size_t) 0U || (* (const char *) value) == 0) {
-        yajl_gen_bool(context->json_gen, 0);
         return 0;
     }
     int status;
@@ -78,7 +76,6 @@ static int records_get_properties_cb(void * const context_,
     }
     if (status == 0) {
         release_key(linked_key);        
-        yajl_gen_bool(context->json_gen, 0);
         return 0;
     }
     TraversalStackIsDuplicateCBContext
@@ -92,7 +89,6 @@ static int records_get_properties_cb(void * const context_,
                       &traversal_stack_is_duplicate_cb_context);
     release_key(linked_key);    
     if (traversal_stack_is_duplicate_cb_context.found != 0) {
-        yajl_gen_bool(context->json_gen, 1);
         return 0;
     }
     TraversedKeyNode traversed_key_node = {
@@ -100,11 +96,8 @@ static int records_get_properties_cb(void * const context_,
         .traversed = 0
     };
     if (push_pnt_stack(context->traversal_stack, &traversed_key_node) != 0) {
-        yajl_gen_bool(context->json_gen, 0);
         return -1;
     }
-    yajl_gen_bool(context->json_gen, 1);
-    
     return 0;
 }
 
