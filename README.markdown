@@ -396,7 +396,7 @@ As expected, Donald's record looks like:
 		}
 	}
 
-Here's the same query, with a twist: links traversal. Properties starting with $link are resolved, retrieved and send back with the query result as a `$links` property:
+Here's the same query, with a twist: links traversal. Properties starting with `$link` are resolved, retrieved and send back with the query result as a `$links` property:
 
     curl http://diz:4269/api/1.0/records/restaurants/donald.json?links=1
     {
