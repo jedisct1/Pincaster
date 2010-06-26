@@ -31,7 +31,7 @@ static int traversal_stack_is_duplicate_cb(void * const context_,
     const Key * const traversed_key = traversed_key_node->key_node->key;
     
     if (strcmp(context->linked_key_s, traversed_key->val) == 0) {
-        assert(context->linked_key_s_len == traversed_key->len - (size_t) 1U);
+        assert(context->linked_key_s_len == traversed_key->len);
         context->found = 1;
         return 1;
     }    
@@ -72,23 +72,25 @@ static int records_get_properties_cb(void * const context_,
     Key * const linked_key = new_key_with_leading_zero(value, value_len);
     status = get_key_node_from_key(context->pan_db, linked_key, 0,
                                    &linked_key_node);
-    release_key(linked_key);
     if (status < 0) {
+        release_key(linked_key);        
         return -1;
     }
     if (status == 0) {
+        release_key(linked_key);        
         yajl_gen_bool(context->json_gen, 0);
         return 0;
     }
     TraversalStackIsDuplicateCBContext
         traversal_stack_is_duplicate_cb_context = {
-            .linked_key_s = value,
-            .linked_key_s_len = value_len,
+            .linked_key_s = linked_key->val,
+            .linked_key_s_len = linked_key->len,
             .found = 0
         };
     pnt_stack_foreach(context->traversal_stack,
                       traversal_stack_is_duplicate_cb,
                       &traversal_stack_is_duplicate_cb_context);
+    release_key(linked_key);    
     if (traversal_stack_is_duplicate_cb_context.found != 0) {
         yajl_gen_bool(context->json_gen, 1);
         return 0;
