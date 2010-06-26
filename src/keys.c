@@ -76,3 +76,24 @@ Key *new_key_from_c_string(const char *ckey)
     assert(len > (size_t) 0U);        
     return new_key(ckey, len + (size_t) 1U);
 }
+
+Key *new_key_with_leading_zero(const void * const val, const size_t len)
+{
+    if (len >= SIZE_MAX) {
+        return NULL;
+    }
+    Key *key;    
+    const size_t len1 = len + (size_t) 1U;
+    if (SIZE_MAX - sizeof *key < len1) {
+        return NULL;
+    }    
+    if ((key = malloc(sizeof *key + len1)) == NULL) {
+        return NULL;
+    }
+    init_key(key);
+    key->len = len1;
+    memcpy(key->val, val, len);
+    *((char *) key->val + len) = 0;
+    
+    return key;    
+}
