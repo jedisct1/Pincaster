@@ -69,7 +69,7 @@ static int records_get_properties_cb(void * const context_,
     }
     int status;
     KeyNode *linked_key_node;
-    Key * const linked_key = new_key_from_c_string(value);
+    Key * const linked_key = new_key_with_leading_zero(value, value_len);
     status = get_key_node_from_key(context->pan_db, linked_key, 0,
                                    &linked_key_node);
     release_key(linked_key);
