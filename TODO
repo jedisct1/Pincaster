@@ -20,8 +20,6 @@ children of the quad node.
 
 - Multiget.
 
-- Symbolic links to other records, a la Riak.
-
 - Get rid of the remaining fixed-size malloc() calls and use slab allocation.
 
 - Replication.

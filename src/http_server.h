@@ -135,6 +135,7 @@ typedef struct SearchNearbyOp_ {
     SubSlots limit;
     Dimension epsilon;
     _Bool with_properties;
+    _Bool with_links;    
 } SearchNearbyOp;
 
 typedef struct SearchInRectOp_ {
@@ -147,6 +148,7 @@ typedef struct SearchInRectOp_ {
     SubSlots limit;
     Dimension epsilon;
     _Bool with_properties;
+    _Bool with_links;    
 } SearchInRectOp;
 
 typedef struct SearchInKeysOp_ {
@@ -159,6 +161,7 @@ typedef struct SearchInKeysOp_ {
     SubSlots limit;
     _Bool with_properties;
     _Bool with_content;
+    _Bool with_links;    
 } SearchInKeysOp;
 
 typedef union Op_ {

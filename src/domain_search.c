@@ -12,7 +12,8 @@ typedef struct SearchOptParseCBContext_ {
     SubSlots limit;
     Dimension epsilon;
     _Bool with_properties;
-    _Bool with_content;    
+    _Bool with_content;
+    _Bool with_links;
 } SearchOptParseCBContext;
 
 static int search_opt_parse_cb(void * const context_,
@@ -78,6 +79,16 @@ static int search_opt_parse_cb(void * const context_,
         }
         return 0;
     }
+    if (BINVAL_IS_EQUAL_TO_CONST_STRING(key, "links")) {
+        char *endptr;
+        _Bool with_links = (strtol(svalue, &endptr, 10) > 0);
+        if (endptr == NULL || endptr == svalue) {
+            return -1;
+        }
+        context->with_links = with_links;
+                
+        return 0;
+    }    
     return 0;
 }
 
@@ -125,7 +136,8 @@ int handle_domain_search(struct evhttp_request * const req,
         .limit = DEFAULT_SEARCH_LIMIT,
         .epsilon = (Dimension) -1.0,
         .with_properties = 1,
-        .with_content = 1
+        .with_content = 1,
+        .with_links = 0
     };
     if (opts != NULL &&
         query_parse(opts, search_opt_parse_cb, &cb_context) != 0) {
@@ -150,7 +162,8 @@ int handle_domain_search(struct evhttp_request * const req,
             .radius = cb_context.radius,
             .limit = cb_context.limit,
             .epsilon = cb_context.epsilon,
-            .with_properties = cb_context.with_properties
+            .with_properties = cb_context.with_properties,
+            .with_links = cb_context.with_links
         };
         if (*query == 0 || (sep = strchr(query, ',')) == NULL) {
             release_key(layer_name);
@@ -200,7 +213,8 @@ int handle_domain_search(struct evhttp_request * const req,
             .rect = { { 0, 0 }, { 0, 0 } },
             .limit = cb_context.limit,
             .epsilon = cb_context.epsilon,
-            .with_properties = cb_context.with_properties
+            .with_properties = cb_context.with_properties,
+            .with_links = cb_context.with_links
          };
         
         if (*query == 0 || (sep = strchr(query, ',')) == NULL) {
@@ -302,7 +316,8 @@ int handle_domain_search(struct evhttp_request * const req,
             .pattern = NULL,
             .limit = cb_context.limit,
             .with_properties = cb_context.with_properties,
-            .with_content = cb_context.with_content
+            .with_content = cb_context.with_content,
+            .with_links = cb_context.with_links
         };
         if ((in_keys_op->pattern = new_key_from_c_string(query)) == NULL) {
             release_key(layer_name);            
@@ -327,6 +342,7 @@ typedef struct FindNearCBContext_ {
     PanDB *pan_db;
     yajl_gen json_gen;
     _Bool with_properties;
+    _Bool with_links;
 } FindNearCBContext;
 
 static int find_near_cb(void * const context_,
@@ -343,7 +359,7 @@ static int find_near_cb(void * const context_,
                     (unsigned int) sizeof "distance" - (size_t) 1U);
     yajl_gen_double(json_gen, distance);
     key_node_to_json(key_node, json_gen, context->pan_db,
-                     context->with_properties, 0);
+                     context->with_properties, context->with_links);
     yajl_gen_map_close(json_gen);
     
     return 0;
@@ -443,7 +459,8 @@ int handle_op_search_nearby(SearchNearbyOp * const nearby_op,
     FindNearCBContext cb_context = {
         .pan_db = pan_db,
         .json_gen = json_gen,
-        .with_properties = nearby_op->with_properties
+        .with_properties = nearby_op->with_properties,
+        .with_links = nearby_op->with_links
     };
     const int ret = find_near(pan_db, find_near_cb, &cb_context,
                               &nearby_op->position,
@@ -478,6 +495,7 @@ typedef struct FindInRectCBContext_ {
     PanDB *pan_db;
     yajl_gen json_gen;
     _Bool with_properties;
+    _Bool with_links;
 } FindInRectCBContext;
 
 int handle_op_search_in_rect(SearchInRectOp * const in_rect_op,
@@ -524,7 +542,8 @@ int handle_op_search_in_rect(SearchInRectOp * const in_rect_op,
     FindInRectCBContext cb_context = {
         .pan_db = pan_db,
         .json_gen = json_gen,
-        .with_properties = in_rect_op->with_properties
+        .with_properties = in_rect_op->with_properties,
+        .with_links = in_rect_op->with_links
     };
     const int ret = find_in_rect(pan_db, find_in_rect_cb,
                                  find_in_rect_cluster_cb,
@@ -659,7 +678,8 @@ int handle_op_search_in_keys(SearchInKeysOp * const in_keys_op,
 #endif
                 yajl_gen_map_open(json_gen);
                 key_node_to_json(found_key_node, json_gen, pan_db,
-                                 in_keys_op->with_properties, 0);
+                                 in_keys_op->with_properties, 
+                                 in_keys_op->with_links);
                 yajl_gen_map_close(json_gen);
             }
         }
