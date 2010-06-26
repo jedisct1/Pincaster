@@ -93,7 +93,7 @@ unlock_and_bailout:
     release_key(layer_name);
     status = get_key_node_from_key(pan_db, key, 0, &key_node);
     release_key(key);
-    if (key_node == NULL || status < 0) {
+    if (key_node == NULL || status <= 0) {
         goto unlock_and_bailout;
     }
     PublicPropertiesCBContext cb_context = {

@@ -1,5 +1,6 @@
 
 #include "common.h"
+#include "key_nodes.h"
 #include "utils.h"
 
 void skip_spaces(const char * * const str)
@@ -36,7 +37,24 @@ static int records_get_properties_cb(void * const context_,
                         (unsigned int) value_len);
         return 0;
     }
-    yajl_gen_null(context->json_gen);
+    int status;
+    KeyNode *linked_key_node;
+    Key * const linked_key = new_key(value, value_len + 1);
+    status = get_key_node_from_key(context->pan_db, linked_key, 0,
+                                   &linked_key_node);
+    release_key(linked_key);
+    if (status < 0) {
+        return -1;
+    }
+    if (status == 0) {
+        yajl_gen_bool(context->json_gen, 0);
+        return 0;
+    }
+    if (push_pnt_stack(context->traversal_stack, linked_key_node) != 0) {
+        yajl_gen_bool(context->json_gen, 0);        
+        return -1;
+    }
+    yajl_gen_bool(context->json_gen, 1);
     
     return 0;
 }
@@ -129,16 +147,15 @@ int key_node_to_json(KeyNode * const key_node, yajl_gen json_gen,
     if (with_links == 0) {    
         return key_node_to_json_(key_node, json_gen, pan_db,
                                  with_properties, NULL);
-    }    
-
-    PntStack traversal_stack;
-    if (init_pnt_stack(&traversal_stack, INITIAL_TRAVERSAL_STACK_SIZE,
-                       sizeof(KeyNode *)) != 0) {
+    }
+    PntStack * const traversal_stack =
+        new_pnt_stack(INITIAL_TRAVERSAL_STACK_SIZE, sizeof(KeyNode *));
+    if (traversal_stack == NULL) {
         return -1;
     }
     const int ret = key_node_to_json_(key_node, json_gen, pan_db,
-                                      with_properties, &traversal_stack);
-    free_pnt_stack(&traversal_stack);
+                                      with_properties, traversal_stack);
+    free_pnt_stack(traversal_stack);
     
     return ret;
 }

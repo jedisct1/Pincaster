@@ -652,7 +652,7 @@ int handle_op_search_in_keys(SearchInKeysOp * const in_keys_op,
 #ifdef DEBUG
                 KeyNode *key_node = NULL;
                 if (get_key_node_from_key(pan_db, (Key *) found_key,
-                                          0, &key_node) < 0) {
+                                          0, &key_node) <= 0) {
                     assert(0);
                 }
                 assert(key_node == found_key_node);

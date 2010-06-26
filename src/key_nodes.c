@@ -36,9 +36,9 @@ int get_key_node_from_key(PanDB * const db, Key * const key,
 
     *key_node = NULL;
     found_key_node = RB_FIND(KeyNodes_, &db->key_nodes, &scanned_key_node);
-    if (found_key_node != NULL) {
+    if (found_key_node != NULL) {        
         *key_node = found_key_node;
-        return 0;
+        return 1;
     }
     if (create == 0) {
         return 0;
@@ -60,7 +60,7 @@ int get_key_node_from_key(PanDB * const db, Key * const key,
     }
     *key_node = new_key_node;
     
-    return 1;
+    return 2;
 }
 
 void free_key_node(PanDB * const db, KeyNode * const key_node)

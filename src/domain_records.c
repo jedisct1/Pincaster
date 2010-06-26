@@ -439,8 +439,8 @@ int handle_op_records_put(RecordsPutOp * const put_op,
         free_slip_map(&put_op->special_properties);        
         return HTTP_NOTFOUND;
     }
-    assert(status >= 0);
-    if (status == 0 && put_op->position_set != 0 && key_node->slot != NULL) {
+    assert(status > 0);
+    if (status > 0 && put_op->position_set != 0 && key_node->slot != NULL) {
 #if PROJECTION
         const Position2D * const previous_position =
             &key_node->slot->real_position;
@@ -578,7 +578,7 @@ int handle_op_records_get(RecordsGetOp * const get_op,
         assert(status <= 0);
         return HTTP_NOTFOUND;
     }
-    assert(status >= 0);
+    assert(status > 0);
     if (get_op->fake_req != 0) {
         return 0;
     }
@@ -600,7 +600,7 @@ int handle_op_records_get(RecordsGetOp * const get_op,
         return HTTP_SERVUNAVAIL;
     }
     get_op_reply->json_gen = json_gen;
-    key_node_to_json(key_node, json_gen, pan_db, 1, 0);    
+    key_node_to_json(key_node, json_gen, pan_db, 1, get_op->with_links);
     send_op_reply(context, op_reply);
     
     return 0;
@@ -629,7 +629,7 @@ int handle_op_records_delete(RecordsDeleteOp * const delete_op,
         assert(status <= 0);
         return HTTP_NOTFOUND;
     }
-    assert(status >= 0);
+    assert(status > 0);
     if (key_node->slot != NULL) {
         if (remove_entry_from_key_node(pan_db, key_node, 0) != 0) {
             return HTTP_SERVUNAVAIL;

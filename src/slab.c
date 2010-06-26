@@ -131,7 +131,7 @@ int remove_entry_from_slab(Slab * const slab, void * const entry)
     chunk = slot->slab_chunk;
     assert(chunk != NULL);
     if (chunk == NULL) {
-        return -1; /* better leak than crash */
+        return -1; /* should never happen, but better leak than crash */
     }
     scanned_slot = chunk->unaligned_slots;
     bit = (size_t) 0U;
