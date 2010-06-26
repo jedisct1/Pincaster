@@ -12,6 +12,32 @@ void skip_spaces(const char * * const str)
     *str = s;
 }
 
+typedef struct TraversedKeyNode_ {
+    KeyNode * key_node;
+    _Bool traversed;
+} TraversedKeyNode;
+
+typedef struct TraversalStackIsDuplicateCBContext_ {
+    const void * const linked_key_s;
+    const size_t linked_key_s_len;
+    _Bool found;
+} TraversalStackIsDuplicateCBContext;
+
+static int traversal_stack_is_duplicate_cb(void * const context_,
+                                           void * const traversed_key_node_)
+{
+    TraversalStackIsDuplicateCBContext * const context = context_;
+    const TraversedKeyNode * const traversed_key_node = traversed_key_node_;
+    const Key * const traversed_key = traversed_key_node->key_node->key;
+    
+    if (strcmp(context->linked_key_s, traversed_key->val) == 0) {
+        assert(context->linked_key_s_len == traversed_key->len - (size_t) 1U);
+        context->found = 1;
+        return 1;
+    }    
+    return 0;
+}
+
 typedef struct RecordsGetPropertiesCBContext_ {
     yajl_gen json_gen;
     PanDB * const pan_db;
@@ -54,8 +80,25 @@ static int records_get_properties_cb(void * const context_,
         yajl_gen_bool(context->json_gen, 0);
         return 0;
     }
-    if (push_pnt_stack(context->traversal_stack, linked_key_node) != 0) {
-        yajl_gen_bool(context->json_gen, 0);        
+    TraversalStackIsDuplicateCBContext
+        traversal_stack_is_duplicate_cb_context = {
+            .linked_key_s = value,
+            .linked_key_s_len = value_len,
+            .found = 0
+        };
+    pnt_stack_foreach(context->traversal_stack,
+                      traversal_stack_is_duplicate_cb,
+                      &traversal_stack_is_duplicate_cb_context);
+    if (traversal_stack_is_duplicate_cb_context.found != 0) {
+        yajl_gen_bool(context->json_gen, 1);
+        return 0;
+    }
+    TraversedKeyNode traversed_key_node = {
+        .key_node = linked_key_node,
+        .traversed = 0
+    };
+    if (push_pnt_stack(context->traversal_stack, &traversed_key_node) != 0) {
+        yajl_gen_bool(context->json_gen, 0);
         return -1;
     }
     yajl_gen_bool(context->json_gen, 1);
@@ -143,6 +186,39 @@ static int key_node_to_json_(KeyNode * const key_node, yajl_gen json_gen,
     return 0;
 }
 
+typedef struct TraverseKeysNodesForeachCBContext_ {
+    yajl_gen json_gen;
+    PanDB * const pan_db;
+    _Bool with_properties;
+    PntStack * const traversal_stack;
+    _Bool found_job;
+} TraverseKeysNodesForeachCBContext;
+
+static int traverse_keys_nodes_foreach_cb(void * const context_,
+                                          void * const traversed_key_node_)
+{
+    TraverseKeysNodesForeachCBContext * const context = context_;
+    TraversedKeyNode * const traversed_key_node = traversed_key_node_;
+    
+    if (traversed_key_node->traversed == 1) {
+        return 0;
+    }
+    const Key * const key = traversed_key_node->key_node->key;
+    yajl_gen_string(context->json_gen,
+                    (const unsigned char *) key->val,
+                    (unsigned int) (key->len - (size_t) 1U));
+    yajl_gen_map_open(context->json_gen);
+    const int ret = key_node_to_json_(traversed_key_node->key_node,
+                                      context->json_gen, context->pan_db,
+                                      context->with_properties,
+                                      context->traversal_stack);
+    yajl_gen_map_close(context->json_gen);
+    traversed_key_node->traversed = 1;
+    context->found_job = 1;
+    
+    return ret;
+}
+
 int key_node_to_json(KeyNode * const key_node, yajl_gen json_gen,
                      PanDB * const pan_db,
                      const _Bool with_properties,
@@ -151,17 +227,43 @@ int key_node_to_json(KeyNode * const key_node, yajl_gen json_gen,
     if (with_links == 0) {    
         return key_node_to_json_(key_node, json_gen, pan_db,
                                  with_properties, NULL);
-    }
+    }    
     PntStack * const traversal_stack =
-        new_pnt_stack(INITIAL_TRAVERSAL_STACK_SIZE, sizeof(KeyNode *));
+        new_pnt_stack(INITIAL_TRAVERSAL_STACK_SIZE, sizeof(TraversedKeyNode));
     if (traversal_stack == NULL) {
         return -1;
     }
-    const int ret = key_node_to_json_(key_node, json_gen, pan_db,
-                                      with_properties, traversal_stack);
+    TraversedKeyNode traversed_key_node = {
+        .key_node = key_node,
+        .traversed = 1
+    };    
+    if (push_pnt_stack(traversal_stack, &traversed_key_node) != 0) {
+        free_pnt_stack(traversal_stack);
+        return -1;
+    }
+    if (key_node_to_json_(key_node, json_gen, pan_db, with_properties,
+                          traversal_stack) != 0) {
+        free_pnt_stack(traversal_stack);
+        return -1;
+    }
+    TraverseKeysNodesForeachCBContext context = {
+        .json_gen = json_gen,
+        .pan_db = pan_db,
+        .with_properties = with_properties,
+        .traversal_stack = traversal_stack
+    };
+    yajl_gen_string(json_gen, (const unsigned char *) "$links",
+                    (unsigned int) sizeof "$links" - (size_t) 1U);
+    yajl_gen_map_open(json_gen);
+    do {
+        context.found_job = 0;
+        pnt_stack_foreach(traversal_stack, traverse_keys_nodes_foreach_cb,
+                          &context);
+    } while (context.found_job != 0);
+    yajl_gen_map_close(json_gen);
     free_pnt_stack(traversal_stack);
     
-    return ret;
+    return 0;
 }
 
 // Thanks to the CompeGPS team for their help!
