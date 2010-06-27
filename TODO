@@ -26,8 +26,6 @@ children of the quad node.
 
 - Scripting through TinyScheme, LUA or Spidermonkey.
 
-- Add the ability to serve documents through HTTP.
-
 - Decent documentation.
 
 - Long-polling HTTP notification service for tracking changes in registered
