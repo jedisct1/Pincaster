@@ -360,8 +360,8 @@ int add_layer_name_to_json_gen(void *context_, void *entry,
             accuracy = "great_circle"; break;        
         case ACCURACY_FAST:
             accuracy = "fast"; break;
-        case ACCURACY_ROMBOID:
-            accuracy = "romboid"; break;
+        case ACCURACY_RHOMBOID:
+            accuracy = "rhomboid"; break;
         default:
             accuracy = "unknown";
         }

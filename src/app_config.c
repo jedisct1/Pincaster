@@ -138,8 +138,8 @@ int parse_config(const char * const file)
             app_context.default_accuracy = ACCURACY_GC;
         } else if (strcasecmp(cfg_default_accuracy_s, "fast") == 0) {
             app_context.default_accuracy = ACCURACY_FAST;
-        } else if (strcasecmp(cfg_default_accuracy_s, "romboid") == 0) {
-            app_context.default_accuracy = ACCURACY_ROMBOID;
+        } else if (strcasecmp(cfg_default_accuracy_s, "rhomboid") == 0) {
+            app_context.default_accuracy = ACCURACY_RHOMBOID;
         } else {
             ret = -1;
         }

@@ -507,8 +507,8 @@ static int find_near_context_cb(void *context_, void *entry,
             cd = gc_distance_between_geoidal_positions
                 (context->position, &scanned_slot->position);            
             break;
-        case ACCURACY_ROMBOID:
-            cd = romboid_distance_between_geoidal_positions
+        case ACCURACY_RHOMBOID:
+            cd = rhomboid_distance_between_geoidal_positions
                 (context->position, &scanned_slot->position);
             break;
         default:
@@ -789,7 +789,7 @@ static int find_in_rect_context_cb(void *context_, void *entry,
     }
     if (context->db->layer_type == LAYER_TYPE_SPHERICAL ||
         context->db->layer_type == LAYER_TYPE_GEOIDAL) {
-        cd = romboid_distance_between_geoidal_positions
+        cd = rhomboid_distance_between_geoidal_positions
             (context->position, &scanned_slot->position);
     } else {
         cd = distance_between_flat_positions(context->db,

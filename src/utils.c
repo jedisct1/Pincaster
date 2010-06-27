@@ -381,8 +381,8 @@ Meters fast_distance_between_geoidal_positions(const Position2D * const p1,
     return (Meters) d;
 }
 
-Meters romboid_distance_between_geoidal_positions(const Position2D * const p1,
-                                                  const Position2D * const p2)
+Meters rhomboid_distance_between_geoidal_positions(const Position2D * const p1,
+                                                   const Position2D * const p2)
 {
     const float k = cosf(DEG_TO_RAD(p1->latitude));
     const float dx = k * (p1->longitude - p2->longitude);
