@@ -2,6 +2,7 @@ AC_PREREQ([2.65])
 AC_INIT([pincaster], [0.6], [bugs at pureftpd dot org])
 AC_CONFIG_SRCDIR([src/app.c])
 AC_CONFIG_HEADERS([config.h])
+AC_CONFIG_MACRO_DIR([m4])
 AM_INIT_AUTOMAKE([1.9 dist-bzip2])
 AM_MAINTAINER_MODE
 
@@ -29,6 +30,13 @@ LDFLAGS="$LDFLAGS -pthread"
 # Checks for libraries.
 AC_CHECK_LIB([m], [cosf],, AC_ERROR([libm not found]))
 AC_CHECK_LIB([rt], [clock_gettime])
+
+AC_CHECK_YAJL([
+  LIBS="$YAJL_LIBS $LIBS"
+  CFLAGS="$YAJL_CFLAGS $CFLAGS"
+ ],[
+  AC_MSG_ERROR([YAJL library not found.])
+])
 
 # Checks for header files.
 AC_SYS_LARGEFILE
