@@ -31,12 +31,51 @@ LDFLAGS="$LDFLAGS -pthread"
 AC_CHECK_LIB([m], [cosf],, AC_ERROR([libm not found]))
 AC_CHECK_LIB([rt], [clock_gettime])
 
-AC_CHECK_YAJL([
-  LIBS="$YAJL_LIBS $LIBS"
-  CFLAGS="$YAJL_CFLAGS $CFLAGS"
- ],[
-  AC_MSG_ERROR([YAJL library not found.])
-])
+# Checks for YAJL library
+AC_ARG_WITH([yajl],
+  AS_HELP_STRING([--with-yajl=auto|system|embedded],[Specify the YAJL library
+                  to use. Default is to autodetect system copy and fallback to
+                  embedded one.]),
+  [[yajl=$withval]],
+  [[yajl=auto]]
+)
+AC_MSG_CHECKING([which YAJL library to use])
+AM_CONDITIONAL([ENABLE_EMBEDDED_YAJL], [false])
+case "$yajl" in
+  "auto")
+    AC_MSG_RESULT([auto])
+    AC_CHECK_YAJL(,[
+      AM_CONDITIONAL([ENABLE_EMBEDDED_YAJL], [true])
+      YAJL_LDADD="\$(top_srcdir)/src/yajl/libyajl.a"
+      YAJL_INCLUDE="-I\$(top_srcdir)/src/yajl/api"
+      AC_SUBST(YAJL_LDADD)
+      AC_SUBST(YAJL_INCLUDE)
+    ])
+  ;;
+  "system")
+    AC_MSG_RESULT([system])
+    AC_CHECK_YAJL(,[
+      AC_MSG_ERROR([YAJL library not found.])
+    ])
+  ;;
+  "embedded")
+    AC_MSG_RESULT([embedded])
+    AM_CONDITIONAL([ENABLE_EMBEDDED_YAJL], [true])
+    YAJL_LDADD="\$(top_srcdir)/src/yajl/libyajl.a"
+    YAJL_INCLUDE="-I\$(top_srcdir)/src/yajl/api"
+    AC_SUBST(YAJL_LDADD)
+    AC_SUBST(YAJL_INCLUDE)
+  ;;
+  *)
+    AC_MSG_RESULT()
+    AC_MSG_ERROR([Unknown option "$yajl". Use either "auto", "system" or
+                  "embedded".])
+  ;;
+esac
+LIBS="$YAJL_LIBS $LIBS"
+CFLAGS="$YAJL_CFLAGS $CFLAGS"
+echo "LIBS= $LIBS"
+
 
 # Checks for header files.
 AC_SYS_LARGEFILE
