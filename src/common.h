@@ -32,8 +32,8 @@
 #include <syslog.h>
 #include "ext/queue.h"
 #include "ext/tree.h"
-#include "../src/yajl/api/yajl_parse.h"
-#include "../src/yajl/api/yajl_gen.h"
+#include <yajl_parse.h>
+#include <yajl_gen.h>
 #include <event2/thread.h>
 #include <event.h>
 #include "app_config.h"

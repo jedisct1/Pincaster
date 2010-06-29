@@ -1,5 +1,6 @@
-
+if ENABLE_EMBEDDED_YAJL
 noinst_LIBRARIES = libyajl.a
+endif
 
 libyajl_a_SOURCES = \
   yajl.c \

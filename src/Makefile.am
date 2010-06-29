@@ -2,7 +2,10 @@
 pincaster_LDADD = \
         levent2/.libs/libevent.a \
         levent2/.libs/libevent_pthreads.a \
-        yajl/libyajl.a
+        @YAJL_LDADD@
+
+AM_CFLAGS = \
+        @YAJL_INCLUDE@
 
 bin_PROGRAMS = \
         pincaster
@@ -57,8 +60,8 @@ pincaster_SOURCES = \
         public.c \
         public.h
 
-pincaster_DEPENDS = \
-        yajl/libyajl.a
+#pincaster_DEPENDS = \
+#        yajl/libyajl.a
         
 SUBDIRS = \
         ext levent2 yajl
