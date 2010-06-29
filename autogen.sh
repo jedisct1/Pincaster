@@ -8,10 +8,10 @@ if [ -x /usr/bin/glibtoolize ]; then
 fi
 
 $LIBTOOLIZE -f -i --recursive && \
-aclocal && \
+aclocal -I m4 && \
 autoheader && \
 automake --gnu --add-missing --include-deps && \
-autoconf
+autoconf -I m4
 
 (cd src/levent2 && \
 $LIBTOOLIZE -f -i --subproject && \
