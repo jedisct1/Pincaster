@@ -70,13 +70,13 @@ Records
 
   Property names starting with an underscore are reserved. In particular:
 
-  * `_delete:(property name)=1` removes a property of the record,
-  * `_delete_all=1` removes the whole properties set of the record,
+    * `_delete:(property name)=1` removes a property of the record,
+    * `_delete_all=1` removes the whole properties set of the record,
 downgrading its type to *void* or *point*,
-  * `_add_int:(property name)=(value)` atomically adds (value) to the
+    * `_add_int:(property name)=(value)` atomically adds (value) to the
 property named (property name), creating it if necessary,
-  * `_loc:(latitude),(longitude)` adds or updates a geographic position associated with the record.
-  * `_expires_at=(unix timestamp)` have the record automatically expire at
+    * `_loc:(latitude),(longitude)` adds or updates a geographic position associated with the record.
+    * `_expires_at=(unix timestamp)` have the record automatically expire at
 this date. If you later want to remove the expiration of a record, just use
 `_expires_at=` (empty value) or `_expires_at=0`.
 
