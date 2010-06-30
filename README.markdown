@@ -66,9 +66,9 @@ Records
 
     URI: `http://$HOST:4269/api/1.0/records/(layer name)/(record name).json`
 
-    This `PUT` request can contain application/x-www-form-urlencoded data, in order to create/update arbitrary properties.
+  This `PUT` request can contain application/x-www-form-urlencoded data, in order to create/update arbitrary properties.
 
-    Property names starting with an underscore are reserved. In particular:
+  Property names starting with an underscore are reserved. In particular:
 
   * `_delete:(property name)=1` removes a property of the record,
   * `_delete_all=1` removes the whole properties set of the record,
@@ -80,7 +80,7 @@ property named (property name), creating it if necessary,
 this date. If you later want to remove the expiration of a record, just use
 `_expires_at=` (empty value) or `_expires_at=0`.
 
-    A single request can create/change/delete any number of properties.
+  A single request can create/change/delete any number of properties.
 
 * **Retrieving a record:**
 
