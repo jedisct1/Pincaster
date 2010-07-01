@@ -74,7 +74,6 @@ case "$yajl" in
 esac
 LIBS="$YAJL_LIBS $LIBS"
 CFLAGS="$YAJL_CFLAGS $CFLAGS"
-echo "LIBS= $LIBS"
 
 
 # Checks for header files.
