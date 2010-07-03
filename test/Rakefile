@@ -8,7 +8,7 @@ Cucumber::Rake::Task.new
 CLEAN.include('test_utils')
 
 file 'test_utils' => ["test_utils.c", "../src/utils.c"] do
-  sh "cc -o test_utils test_utils.c ../src/utils.c ../src/slipmap.c ../src/log.c -I../src -I.. -I../src/levent2/include -I../src/levent2 ../src/levent2/.libs/libevent.a ../src/levent2/.libs/libevent_pthreads.a ../src/yajl/libyajl.a -lm -lrt"
+  sh "cc -o test_utils test_utils.c ../src/utils.c ../src/slipmap.c ../src/log.c ../src/keys.c ../src/stack.c ../src/key_nodes.c ../src/expirables.c ../src/slab.c ../src/pandb.c -I../src -I../src/yajl/api -I.. -I../src/levent2/include -I../src/levent2 ../src/levent2/.libs/libevent.a ../src/levent2/.libs/libevent_pthreads.a ../src/yajl/libyajl.a -lm -lrt"
 end
 
 task :unittest => [:test_utils] do
