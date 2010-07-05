@@ -12,7 +12,7 @@ typedef unsigned long SubSlots;
 # define EARTH_CIRCUMFERENCE (40000.0F * 1000.0F)
 #endif
 #ifndef EARTH_RADIUS
-# define EARTH_RADIUS        (6371.0F  * 1000.0F)
+# define EARTH_RADIUS        (6371.0F * 1000.0F)
 #endif
 #ifndef DEG_AVG_DISTANCE
 # define DEG_AVG_DISTANCE    (EARTH_CIRCUMFERENCE / 360.0F)

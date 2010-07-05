@@ -1849,7 +1849,7 @@ evthread_notify_base_default(struct event_base *base)
 #else
 	r = write(base->th_notify_fd[1], buf, 1);
 #endif
-	return (r < 0) ? -1 : 0;
+	return (r < 0 && errno != EAGAIN) ? -1 : 0;
 }
 
 #if defined(_EVENT_HAVE_EVENTFD) && defined(_EVENT_HAVE_SYS_EVENTFD_H)
@@ -2550,7 +2550,7 @@ evthread_notify_drain_eventfd(evutil_socket_t fd, short what, void *arg)
 static void
 evthread_notify_drain_default(evutil_socket_t fd, short what, void *arg)
 {
-	unsigned char buf[128];
+	unsigned char buf[1024];
 #ifdef WIN32
 	while (recv(fd, (char*)buf, sizeof(buf), 0) > 0)
 		;
@@ -2578,16 +2578,15 @@ evthread_make_base_notifiable(struct event_base *base)
 	if (base->th_notify_fd[0] >= 0) {
 		notify = evthread_notify_base_eventfd;
 		cb = evthread_notify_drain_eventfd;
-	} else
+	}
 #endif
 #if defined(_EVENT_HAVE_PIPE)
-	{
+	if (base->th_notify_fd[0] < 0) {
 		if ((base->evsel->features & EV_FEATURE_FDS)) {
 			if (pipe(base->th_notify_fd) < 0)
 				event_warn("%s: pipe", __func__);
 		}
 	}
-	if (base->th_notify_fd[0] < 0)
 #endif
 
 #ifdef WIN32
@@ -2595,7 +2594,7 @@ evthread_make_base_notifiable(struct event_base *base)
 #else
 #define LOCAL_SOCKETPAIR_AF AF_UNIX
 #endif
-	{
+	if (base->th_notify_fd[0] < 0) {
 		if (evutil_socketpair(LOCAL_SOCKETPAIR_AF, SOCK_STREAM, 0,
 			base->th_notify_fd) == -1) {
 			event_sock_warn(-1, "%s: socketpair", __func__);
@@ -2608,10 +2607,15 @@ evthread_make_base_notifiable(struct event_base *base)
 	base->th_notify_fn = notify;
 
 	/*
-	  This can't be right, can it?  We want writes to this socket to
-	  just succeed.
-	  evutil_make_socket_nonblocking(base->th_notify_fd[1]);
+	  Making the second socket nonblocking is a bit subtle, given that we
+	  ignore any EAGAIN returns when writing to it, and you don't usally
+	  do that for a nonblocking socket. But if the kernel gives us EAGAIN,
+	  then there's no need to add any more data to the buffer, since
+	  the main thread is already either about to wake up and drain it,
+	  or woken up and in the process of draining it.
 	*/
+	if (base->th_notify_fd[1] > 0)
+		evutil_make_socket_nonblocking(base->th_notify_fd[1]);
 
 	/* prepare an event that we can use for wakeup */
 	event_assign(&base->th_notify, base, base->th_notify_fd[0],
