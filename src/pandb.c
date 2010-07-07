@@ -495,6 +495,10 @@ static int find_near_context_cb(void *context_, void *entry,
     if (context->db->layer_type == LAYER_TYPE_SPHERICAL ||
         context->db->layer_type == LAYER_TYPE_GEOIDAL) {
         switch (context->db->accuracy) {
+        case ACCURACY_VINCENTY:
+            cd = vincenty_distance_between_geoidal_positions
+                (context->position, &scanned_slot->position);
+            break;
         case ACCURACY_HS:
             cd = hs_distance_between_geoidal_positions
                 (context->position, &scanned_slot->position);
