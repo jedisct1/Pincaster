@@ -144,7 +144,9 @@ int parse_config(const char * const file)
         }
     }
     if (cfg_default_accuracy_s != NULL) {
-        if (strcasecmp(cfg_default_accuracy_s, "haversine") == 0) {
+        if (strcasecmp(cfg_default_accuracy_s, "vincenty") == 0) {
+            app_context.default_accuracy = ACCURACY_VINCENTY;
+        } else if (strcasecmp(cfg_default_accuracy_s, "haversine") == 0) {
             app_context.default_accuracy = ACCURACY_HS;
         } else if (strcasecmp(cfg_default_accuracy_s, "greatcirle") == 0) {
             app_context.default_accuracy = ACCURACY_GC;

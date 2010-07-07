@@ -354,6 +354,8 @@ int add_layer_name_to_json_gen(void *context_, void *entry,
     if (pan_db->layer_type == LAYER_TYPE_SPHERICAL ||
         pan_db->layer_type == LAYER_TYPE_GEOIDAL) {
         switch (pan_db->accuracy) {
+        case ACCURACY_VINCENTY:
+            accuracy = "vincenty"; break;        
         case ACCURACY_HS:
             accuracy = "haversine"; break;        
         case ACCURACY_GC:

@@ -99,7 +99,8 @@ typedef struct KeyNode_ {
 typedef RB_HEAD(KeyNodes_, KeyNode_) KeyNodes;
 
 typedef enum Accuracy_ {
-    ACCURACY_NONE, ACCURACY_HS, ACCURACY_GC, ACCURACY_FAST, ACCURACY_RHOMBOID
+    ACCURACY_NONE, ACCURACY_VINCENTY, ACCURACY_HS, ACCURACY_GC,
+        ACCURACY_FAST, ACCURACY_RHOMBOID
 } Accuracy;
 
 typedef struct PanDB_ {
