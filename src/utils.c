@@ -352,7 +352,8 @@ Meters vincenty_distance_between_geoidal_positions(const Position2D * const p1,
     double sigma = 0.0;
     unsigned int iterLimit = 100U;
     do {
-        const double sinLambda = sin(lambda), cosLambda = cos(lambda);
+        const double sinLambda = sin(lambda);
+        const double cosLambda = cos(lambda);
         sinSigma = sqrt((cosU2 * sinLambda) * (cosU2 * sinLambda) + 
                         (cosU1 * sinU2 - sinU1 * cosU2 * cosLambda) *
                         (cosU1 * sinU2 - sinU1 * cosU2 * cosLambda));
@@ -374,7 +375,7 @@ Meters vincenty_distance_between_geoidal_positions(const Position2D * const p1,
                 (cos2SigmaM + C * cosSigma *
                     (-1.0 + 2.0 * cos2SigmaM * cos2SigmaM))
             );
-    } while (fabs(lambda-lambdaP) > 1E-12 && --iterLimit > 0);
+    } while (fabs(lambda-lambdaP) > 1E-12 && --iterLimit > 0U);
     
     if (iterLimit == 0) {
         return (Meters) 0.0;
@@ -396,9 +397,9 @@ Meters vincenty_distance_between_geoidal_positions(const Position2D * const p1,
                 (-3.0 + 4.0 * cos2SigmaM * cos2SigmaM)
             )
         );
-    const double s = b * A * (sigma - deltaSigma);
+    const double d = b * A * (sigma - deltaSigma);
     
-    return (Meters) s;
+    return (Meters) d;
 }
 
 Meters hs_distance_between_geoidal_positions(const Position2D * const p1,
