@@ -19,22 +19,30 @@ int parse_config(const char * const file)
     char *cfg_db_log_file_name = NULL;
     char *cfg_journal_buffer_size_s = NULL;    
     char *cfg_fsync_period_s = NULL;
+    char *cfg_replication_master_ip = NULL;
+    char *cfg_replication_master_port = NULL;
+    char *cfg_replication_slave_ip = NULL;
+    char *cfg_replication_slave_port = NULL;
     int ret = 0;
     ConfigKeywords config_keywords[] = {
-        { "ServerIP",          &cfg_server_ip },
-        { "ServerPort",        &cfg_server_port },
-        { "Daemonize",         &cfg_daemonize_s },
-        { "LogFileName",       &cfg_log_file_name },
-        { "Timeout",           &cfg_timeout_s },
-        { "Workers",           &cfg_nb_workers_s },
-        { "MaxQueuedReplies",  &cfg_max_queued_replies_s },
-        { "DefaultLayerType",  &cfg_default_layer_type_s },
-        { "Accuracy",          &cfg_default_accuracy_s },
-        { "BucketSize",        &cfg_bucket_size_s },
-        { "DimensionAccuracy", &cfg_dimension_accuracy_s },
-        { "DBFileName",        &cfg_db_log_file_name },
-        { "JournalBufferSize", &cfg_journal_buffer_size_s },
-        { "FsyncPeriod",       &cfg_fsync_period_s },
+        { "ServerIP",             &cfg_server_ip },
+        { "ServerPort",           &cfg_server_port },
+        { "Daemonize",            &cfg_daemonize_s },
+        { "LogFileName",          &cfg_log_file_name },
+        { "Timeout",              &cfg_timeout_s },
+        { "Workers",              &cfg_nb_workers_s },
+        { "MaxQueuedReplies",     &cfg_max_queued_replies_s },
+        { "DefaultLayerType",     &cfg_default_layer_type_s },
+        { "Accuracy",             &cfg_default_accuracy_s },
+        { "BucketSize",           &cfg_bucket_size_s },
+        { "DimensionAccuracy",    &cfg_dimension_accuracy_s },
+        { "DBFileName",           &cfg_db_log_file_name },
+        { "JournalBufferSize",    &cfg_journal_buffer_size_s },
+        { "FsyncPeriod",          &cfg_fsync_period_s },
+        { "ReplicationMasterIp",  &cfg_replication_master_ip },
+        { "ReplicationMasterPort",&cfg_replication_master_port },        
+        { "ReplicationSlaveIp",   &cfg_replication_slave_ip },
+        { "ReplicationSlavePort", &cfg_replication_slave_port },        
         { NULL,                NULL }
     };
     app_context.server_ip = NULL;
@@ -51,6 +59,10 @@ int parse_config(const char * const file)
     if (app_context.server_port == NULL) {
         _exit(1);
     }
+    app_context.replication_master_ip = NULL;
+    app_context.replication_master_port = strdup(DEFAULT_REPLICATION_PORT);
+    app_context.replication_slave_ip = NULL;
+    app_context.replication_slave_port = strdup(DEFAULT_REPLICATION_PORT);
     if (generic_parser(file, config_keywords) != 0) {
         logfile(NULL, LOG_ERR,
                 "Error while reading the [%s] configuration file.", file);
@@ -183,6 +195,38 @@ int parse_config(const char * const file)
             ret = -1;
         }
     }
+    if (cfg_replication_master_ip != NULL) {
+        if (*cfg_replication_master_ip == 0) {
+            ret = -1;
+        } else {
+            free(app_context.replication_master_ip);
+            app_context.replication_master_ip = cfg_replication_master_ip;
+        }
+    }
+    if (cfg_replication_master_port != NULL) {
+        if (*cfg_replication_master_port == 0) {
+            ret = -1;
+        } else {
+            free(app_context.replication_master_port);            
+            app_context.replication_master_port = cfg_replication_master_port;
+        }
+    }
+    if (cfg_replication_slave_ip != NULL) {
+        if (*cfg_replication_slave_ip == 0) {
+            ret = -1;
+        } else {
+            free(app_context.replication_slave_ip);
+            app_context.replication_slave_ip = cfg_replication_slave_ip;
+        }
+    }
+    if (cfg_replication_slave_port != NULL) {
+        if (*cfg_replication_slave_port == 0) {
+            ret = -1;
+        } else {
+            free(app_context.replication_slave_port);
+            app_context.replication_slave_port = cfg_replication_slave_port;
+        }
+    }
     free(cfg_daemonize_s);
     free(cfg_timeout_s);    
     free(cfg_nb_workers_s);
@@ -240,4 +284,12 @@ void free_config(void)
     app_context.log_file_name = NULL;
     free(app_context.db_log.db_log_file_name);    
     app_context.db_log.db_log_file_name = NULL;
+    free(app_context.replication_master_ip);
+    app_context.replication_master_ip = NULL;
+    free(app_context.replication_master_port);
+    app_context.replication_master_port = NULL;
+    free(app_context.replication_slave_ip);
+    app_context.replication_slave_ip = NULL;
+    free(app_context.replication_slave_port);
+    app_context.replication_slave_port = NULL;
 }

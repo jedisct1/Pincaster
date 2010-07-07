@@ -62,6 +62,10 @@
 typedef struct AppContext_ {
     char *server_ip;
     char *server_port;
+    char *replication_master_ip;
+    char *replication_master_port;
+    char *replication_slave_ip;
+    char *replication_slave_port;
     _Bool daemonize;
     char *log_file_name;
     int timeout;
