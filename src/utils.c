@@ -378,7 +378,7 @@ Meters vincenty_distance_between_geoidal_positions(const Position2D * const p1,
     } while (fabs(lambda-lambdaP) > 1E-12 && --iterLimit > 0U);
     
     if (iterLimit == 0) {
-        return (Meters) 0.0;
+        return hs_distance_between_geoidal_positions(p1, p2);
     }
     const double uSq = cosSqAlpha * (a * a - b * b) / (b * b);
     const double A = 1.0 + uSq / 16384.0 *
