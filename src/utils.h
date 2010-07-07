@@ -50,6 +50,9 @@ Meters distance_between_flat_positions(const PanDB * const pan_db,
                                        const Position2D * const p1,
                                        const Position2D * const p2);
 
+Meters vincenty_distance_between_geoidal_positions(const Position2D * const p1,
+                                                   const Position2D * const p2);
+
 Meters hs_distance_between_geoidal_positions(const Position2D * const p1,
                                              const Position2D * const p2);
 

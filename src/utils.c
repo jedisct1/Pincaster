@@ -328,6 +328,79 @@ Meters distance_between_flat_positions(const PanDB * const pan_db,
     return (Meters) sqrtf(compute_square_distance(pan_db, p1, p2));
 }
 
+// Adapted from an implementation by Chris Veness
+
+Meters vincenty_distance_between_geoidal_positions(const Position2D * const p1,
+                                                   const Position2D * const p2)
+{
+    const double a = 6378137.0;
+    const double b = 6356752.3142;
+    const double f = 1.0 / 298.257223563;
+    const double L = DEG_TO_RAD(p2->longitude - p1->longitude);
+    const double U1 = atan((1.0 - f) * tan(DEG_TO_RAD(p1->latitude)));
+    const double U2 = atan((1.0 - f) * tan(DEG_TO_RAD(p2->latitude)));
+    const double sinU1 = sin(U1);
+    const double cosU1 = cos(U1);
+    const double sinU2 = sin(U2);
+    const double cosU2 = cos(U2);    
+    double lambda = L;
+    double lambdaP;
+    double sinSigma;
+    double cosSigma;
+    double cosSqAlpha;
+    double cos2SigmaM;
+    double sigma = 0.0;
+    unsigned int iterLimit = 100U;
+    do {
+        const double sinLambda = sin(lambda), cosLambda = cos(lambda);
+        sinSigma = sqrt((cosU2 * sinLambda) * (cosU2 * sinLambda) + 
+                        (cosU1 * sinU2 - sinU1 * cosU2 * cosLambda) *
+                        (cosU1 * sinU2 - sinU1 * cosU2 * cosLambda));
+        if (sinSigma == 0.0) {
+            return (Meters) 0.0;
+        }
+        cosSigma = sinU1 * sinU2 + cosU1 * cosU2 * cosLambda;
+        sigma = atan2(sinSigma, cosSigma);
+        const double sinAlpha = cosU1 * cosU2 * sinLambda / sinSigma;
+        cosSqAlpha = 1.0 - sinAlpha * sinAlpha;
+        cos2SigmaM = cosSigma - 2.0 * sinU1 * sinU2 / cosSqAlpha;
+        if (isnan(cos2SigmaM)) {
+            cos2SigmaM = 0.0;
+        }
+        const double C = f / 16.0 * cosSqAlpha * (4.0 + f * (4.0 - 3.0 * cosSqAlpha));
+        lambdaP = lambda;
+        lambda = L + (1.0 - C) * f * sinAlpha *
+            (sigma + C * sinSigma *
+                (cos2SigmaM + C * cosSigma *
+                    (-1.0 + 2.0 * cos2SigmaM * cos2SigmaM))
+            );
+    } while (fabs(lambda-lambdaP) > 1E-12 && --iterLimit > 0);
+    
+    if (iterLimit == 0) {
+        return (Meters) 0.0;
+    }
+    const double uSq = cosSqAlpha * (a * a - b * b) / (b * b);
+    const double A = 1.0 + uSq / 16384.0 *
+        (4096.0 + uSq *
+            (-768.0 + uSq * (320.0 - 175.0 * uSq))
+        );
+    const double B = uSq / 1024.0 *
+        (256.0 + uSq *
+            (-128.0 + uSq * (74.0 - 47.0 * uSq))
+        );
+    const double deltaSigma = B * sinSigma *
+        (cos2SigmaM + B / 4.0 *
+            (cosSigma * (-1.0 + 2.0 * cos2SigmaM * cos2SigmaM) -
+                B / 6.0 * cos2SigmaM *
+                (-3.0 + 4.0 * sinSigma * sinSigma) *
+                (-3.0 + 4.0 * cos2SigmaM * cos2SigmaM)
+            )
+        );
+    const double s = b * A * (sigma - deltaSigma);
+    
+    return (Meters) s;
+}
+
 Meters hs_distance_between_geoidal_positions(const Position2D * const p1,
                                              const Position2D * const p2)
 {
