@@ -110,7 +110,7 @@ Geographic search
 
   Additional arguments can be added to this query:
   
-  * `limit=(max number of results)`
+  * `limit=(max number of results that once reached, will return an overflow)`
   * `properties=(0 or 1)` in order to include properties or not in the reply.
 
 * **Finding records whose location is within a rectangle:**
@@ -121,7 +121,7 @@ Geographic search
 
   Additional arguments can be added to this query:
   
-  * `limit=(max number of results)`
+  * `limit=(max number of results that once reached, will return an overflow)`
   * `properties=(0 or 1)` in order to include properties or not in the reply.
 
 
