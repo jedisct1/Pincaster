@@ -640,8 +640,9 @@ int handle_op_search_in_keys(SearchInKeysOp * const in_keys_op,
     }
     if (*(c_pattern + pattern_len - (size_t) 1U) == '*') {
         wildcard = 1;
-        pattern_len--;        
+        pattern_len--;
     }
+    pattern->len = pattern_len;
     KeyNode *found_key_node;
     KeyNode scanned_key_node = { .key = pattern };
     if (pattern_len == (size_t) 0U) {
