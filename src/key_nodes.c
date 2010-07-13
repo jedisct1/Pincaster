@@ -8,19 +8,19 @@ RB_GENERATE(KeyNodes_, KeyNode_, entry, key_node_cmp);
 
 int key_node_cmp(const KeyNode * const kn1, const KeyNode * const kn2)
 {
-    const Key *k1 = kn1->key;
-    const Key *k2 = kn2->key;    
+    const Key * const k1 = kn1->key;
+    const Key * const k2 = kn2->key;
     int ret;
     
-    if (k1->len < k2->len) {
+    if (k1->len == k2->len) {
         ret = memcmp(k1->val, k2->val, k1->len);
-        if (ret == 0) {
-            ret = 1;
+    } else if (k1->len < k2->len) {
+        if ((ret = memcmp(k1->val, k2->val, k1->len)) == 0) {
+            ret = -1;
         }
     } else {
-        ret = memcmp(k1->val, k2->val, k2->len);        
-        if (ret == 0 && k1->len != k2->len) {
-            ret = -1;
+        if ((ret = memcmp(k1->val, k2->val, k2->len)) == 0) {
+            ret = 1;
         }
     }
     return ret;
