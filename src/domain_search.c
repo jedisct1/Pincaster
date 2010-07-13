@@ -646,7 +646,7 @@ int handle_op_search_in_keys(SearchInKeysOp * const in_keys_op,
     KeyNode scanned_key_node = { .key = pattern };
     if (pattern_len == (size_t) 0U) {
         found_key_node = RB_MIN(KeyNodes_, &pan_db->key_nodes);        
-    } else if (pattern_len == (size_t) 0U) {
+    } else if (wildcard == 0) {
         found_key_node = RB_FIND(KeyNodes_,
                                  &pan_db->key_nodes, &scanned_key_node);
     } else {
