@@ -35,7 +35,7 @@ int open_db_log(void);
 void free_db_log(void);
 int close_db_log(void);
 
-int add_to_db_log(time_t ts, const int verb,
+int add_to_db_log(struct HttpHandlerContext_ * const context, const int verb,
                   const char *uri, struct evbuffer * const input_buffer);
 
 int flush_db_log(const _Bool sync);

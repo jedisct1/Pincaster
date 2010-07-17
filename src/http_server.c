@@ -270,7 +270,7 @@ static int process_api_request(HttpHandlerContext * const context,
         return -1;
     }
     if (fake_req == 0 && write_to_log != 0) {
-        add_to_db_log(context->now, req->type, uri,
+        add_to_db_log(context, req->type, uri,
                       evhttp_request_get_input_buffer(req));
     }
     return 0;    

@@ -2,6 +2,7 @@
 #include "common.h"
 #include "http_server.h"
 #include "domain_system.h"
+#include "replication.h"
 #include "db_log.h"
 
 int init_db_log(void)
@@ -105,9 +106,10 @@ int add_ts_to_ev_log_buffer(struct evbuffer * const log_buffer,
     return 0;    
 }
 
-int add_to_db_log(time_t ts, const int verb,
+int add_to_db_log(HttpHandlerContext * const context, const int verb,
                   const char *uri, struct evbuffer * const input_buffer)
 {
+    time_t ts = context->now;
     DBLog * const db_log = &app_context.db_log;
     if (db_log->db_log_fd == -1) {
         return 0;
