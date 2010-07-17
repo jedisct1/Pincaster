@@ -4,6 +4,7 @@
 
 typedef struct ReplicationContext_ {
     HttpHandlerContext *context;
+    unsigned int active_slaves;
     unsigned int slaves_in_initial_download;
     struct evconnlistener *evl;
     Slab r_clients_slab;
@@ -14,6 +15,7 @@ typedef struct ReplicationClient_ {
     evutil_socket_t client_fd;
     int db_log_fd;
     struct evbuffer *evb;
+    _Bool active;
 } ReplicationClient;
 
 int start_replication_server(HttpHandlerContext * const context,

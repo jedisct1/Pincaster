@@ -10,6 +10,7 @@ int init_replication_context(ReplicationContext * const r_context,
 {
     *r_context = (ReplicationContext) {
         .context = context,
+        .active_slaves = 0U,
         .slaves_in_initial_download = 0U,
         .evl = NULL
     };
@@ -48,7 +49,8 @@ int init_replication_client(ReplicationClient * const r_client,
         .r_context = r_context,
         .client_fd = -1,
         .db_log_fd = -1,
-        .evb = NULL
+        .evb = NULL,
+        .active = 0
     };
     return 0;
 }
@@ -99,10 +101,13 @@ static void sender_writecb(struct bufferevent * const bev,
 
 	if (evbuffer_get_length(bufferevent_get_output(bev)) != 0) {
         return;
-    }
+    }    
     assert(r_context->slaves_in_initial_download > 0);
     r_context->slaves_in_initial_download--;    
     logfile_noformat(context, LOG_NOTICE, "Initial journal sent to slave");
+    assert(r_client->active == 0);
+    r_client->active = 1;
+    r_context->active_slaves++;
 }
 
 static void sender_readcb(struct bufferevent * const bev,
@@ -114,23 +119,36 @@ static void sender_readcb(struct bufferevent * const bev,
     puts("ReadCB");
 }
 
+static void log_activity(const ReplicationContext * const r_context,
+                         const char * const msg)
+{
+    logfile(r_context->context, LOG_NOTICE,
+            "%s - "
+            "[%u] slaves downloading the initial journal%s and "
+            "[%u] active slave%s",
+            msg,
+            r_context->slaves_in_initial_download,
+            r_context->slaves_in_initial_download == 1 ? "s" : "",
+            r_context->active_slaves,
+            r_context->active_slaves == 1 ? "s" : "");
+}
+
 static void sender_errorcb(struct bufferevent * const bev,
                            const short what, void * const r_client_)
 {
     ReplicationClient * const r_client = r_client_;
     ReplicationContext * const r_context = r_client->r_context;
-    HttpHandlerContext * const context = r_context->context;
-    
+
+    (void) what;
     bufferevent_disable(bev, EV_READ | EV_WRITE);
     bufferevent_free(bev);
-    assert(r_context->slaves_in_initial_download > 0U);    
+    assert(r_context->slaves_in_initial_download > 0U);
     r_context->slaves_in_initial_download--;
-    logfile(context, LOG_NOTICE, 
-            "Slave network error [%d] - "
-            "[%u] slaves downloading the initial journal%s",
-            (int) what,
-            r_context->slaves_in_initial_download,
-            r_context->slaves_in_initial_download == 1 ? "s" : "");
+    if (r_client->active != 0) {
+        assert(r_context->active_slaves > 0U);
+        r_context->active_slaves--;
+    }
+    log_activity(r_context, "Slave network error");
 }
 
 static void acceptcb(struct evconnlistener * const listener,
@@ -192,10 +210,7 @@ static void acceptcb(struct evconnlistener * const listener,
                       (off_t) st.st_size);
     r_context->slaves_in_initial_download++;
     bufferevent_enable(bev, EV_WRITE);
-    logfile(context, LOG_NOTICE,
-            "[%u] slave%s downloading the initial journal",
-            r_context->slaves_in_initial_download,
-            r_context->slaves_in_initial_download == 1 ? "s" : "");
+    log_activity(r_context, "New slave registered");
 }
 
 int start_replication_server(HttpHandlerContext * const context,
