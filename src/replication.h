@@ -5,7 +5,8 @@
 typedef struct ReplicationContext_ {
     HttpHandlerContext *context;
     unsigned int slaves_in_initial_download;
-    struct evconnlistener *evl;    
+    struct evconnlistener *evl;
+    Slab r_clients_slab;
 } ReplicationContext;
 
 typedef struct ReplicationClient_ {

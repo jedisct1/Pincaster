@@ -12,7 +12,9 @@ int init_replication_context(ReplicationContext * const r_context,
         .context = context,
         .slaves_in_initial_download = 0U,
         .evl = NULL
-    };    
+    };
+    init_slab(&r_context->r_clients_slab, sizeof(ReplicationClient),
+              "replication clients slab");
     return 0;
 }
 
@@ -35,6 +37,7 @@ void free_replication_context(ReplicationContext * const r_context)
     if (r_context->evl != NULL) {
         evconnlistener_free(r_context->evl);
     }
+    free_slab(&r_context->r_clients_slab, NULL); /* XXX - shouldn't be NULL */
     free(r_context);
 }
 
@@ -50,15 +53,19 @@ int init_replication_client(ReplicationClient * const r_client,
     return 0;
 }
 
+void free_replication_client(ReplicationClient * const r_client);
+
 ReplicationClient *new_replication_client(ReplicationContext * const r_context)
 {
-    ReplicationClient *r_client = malloc(sizeof *r_client);
+    ReplicationClient r_client_;
+    ReplicationClient *r_client;
+        
+    init_replication_client(&r_client_, r_context);
+    r_client = add_entry_to_slab(&r_context->r_clients_slab, &r_client_);
     if (r_client == NULL) {
-        return NULL;
+        free_replication_client(r_client);
     }
-    init_replication_client(r_client, r_context);
-    
-    return r_client;    
+    return r_client;
 }
 
 void free_replication_client(ReplicationClient * const r_client)
@@ -78,8 +85,9 @@ void free_replication_client(ReplicationClient * const r_client)
         evbuffer_free(r_client->evb);
         r_client->evb = NULL;
     }
+    remove_entry_from_slab(&r_client->r_context->r_clients_slab,
+                           r_client);
     r_client->r_context = NULL;
-    free(r_client);
 }
 
 static void sender_writecb(struct bufferevent * const bev,
