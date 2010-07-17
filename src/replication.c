@@ -87,6 +87,7 @@ static void sender_writecb(struct bufferevent * const bev,
 {
     ReplicationClient * const r_client = r_client_;
     ReplicationContext * const r_context = r_client->r_context;
+    HttpHandlerContext * const context = r_context->context;    
 
 	if (evbuffer_get_length(bufferevent_get_output(bev)) != 0) {
         return;
@@ -94,11 +95,13 @@ static void sender_writecb(struct bufferevent * const bev,
     assert(r_client != NULL);
     assert(r_context != NULL);    
     assert(r_context->context != NULL);
-    logfile(r_context->context, LOG_NOTICE, "Slave disconnected");
     bufferevent_disable(bev,EV_READ | EV_WRITE);
     bufferevent_free(bev);
     assert(r_context->slaves_in_initial_download > 0U);
     r_context->slaves_in_initial_download--;
+    logfile(context, LOG_NOTICE, "Slave disconneced - [%u] active slave%s",
+            r_context->slaves_in_initial_download,
+            r_context->slaves_in_initial_download == 1 ? "s" : "");
 }
 
 static void sender_readcb(struct bufferevent * const bev,
@@ -117,11 +120,15 @@ static void sender_errorcb(struct bufferevent * const bev,
     ReplicationContext * const r_context = r_client->r_context;
     HttpHandlerContext * const context = r_context->context;
     
-    logfile(context, LOG_NOTICE, "Slave network error [%d]", what);
     bufferevent_disable(bev, EV_READ | EV_WRITE);
     bufferevent_free(bev);
     assert(r_context->slaves_in_initial_download > 0U);    
     r_context->slaves_in_initial_download--;
+    logfile(context, LOG_NOTICE, 
+            "Slave network error [%d] - [%u] active slave%s",
+            (int) what,
+            r_context->slaves_in_initial_download,
+            r_context->slaves_in_initial_download == 1 ? "s" : "");
 }
 
 static void acceptcb(struct evconnlistener * const listener,
@@ -138,7 +145,7 @@ static void acceptcb(struct evconnlistener * const listener,
     (void) socklen;
     assert(r_context != NULL);
     assert(app_context.db_log.db_log_file_name != NULL);
-    logfile(context, LOG_NOTICE, "New slave connected");
+    logfile_noformat(context, LOG_NOTICE, "New slave connected");
     if (r_context->slaves_in_initial_download == UINT_MAX) {
         logfile(context, LOG_WARNING, "Too many active slaves");
         evutil_closesocket(client_fd);        
@@ -183,6 +190,9 @@ static void acceptcb(struct evconnlistener * const listener,
                       (off_t) st.st_size);
     r_context->slaves_in_initial_download++;
     bufferevent_enable(bev, EV_WRITE);
+    logfile(context, LOG_NOTICE, "[%u] active slave%s",
+            r_context->slaves_in_initial_download,
+            r_context->slaves_in_initial_download == 1 ? "s" : "");
 }
 
 int start_replication_server(HttpHandlerContext * const context,
