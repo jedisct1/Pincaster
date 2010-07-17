@@ -15,7 +15,7 @@ int handle_domain_system(struct evhttp_request * const req,
 int handle_op_system_ping(SystemPingOp * const ping_op,
                           HttpHandlerContext * const context);
 
-int system_rewrite_after_fork_cb(void);
+int system_rewrite_after_fork_cb(HttpHandlerContext * const context);
 
 char *get_tmp_log_file_name(void);
 

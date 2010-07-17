@@ -21,4 +21,6 @@ int start_replication_server(HttpHandlerContext * const context,
 
 void stop_replication_server(HttpHandlerContext * const context);
 
+_Bool any_slave_in_initial_download(const HttpHandlerContext * const context);
+
 #endif

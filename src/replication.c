@@ -251,3 +251,13 @@ void stop_replication_server(HttpHandlerContext * const context)
     }
     context->r_context = NULL;
 }
+
+_Bool any_slave_in_initial_download(const HttpHandlerContext * const context)
+{
+    const ReplicationContext * const r_context = context->r_context;
+    
+    if (r_context == NULL) {
+        return 0;
+    }
+    return r_context->slaves_in_initial_download > 0U;
+}

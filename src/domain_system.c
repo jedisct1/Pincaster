@@ -2,6 +2,7 @@
 #include "common.h"
 #include "http_server.h"
 #include "query_parser.h"
+#include "replication.h"
 #include "domain_records.h"
 #include "domain_system.h"
 
@@ -481,15 +482,16 @@ static int copy_data_between_fds(const int source_fd, const int target_fd)
     return 0;
 }
 
-int system_rewrite_after_fork_cb(void)
+int system_rewrite_after_fork_cb(HttpHandlerContext * const context)
 {
+    (void) context;
     DBLog * const db_log = &app_context.db_log;
     db_log->journal_rewrite_process = (pid_t) -1;
     char *tmp_log_file_name = get_tmp_log_file_name();
     if (tmp_log_file_name == NULL) {
         return -1;
     }
-    logfile_noformat(NULL, LOG_INFO,
+    logfile_noformat(context, LOG_INFO,
                      "Completing the new journal with recent transactions...");
     assert(db_log->offset_before_fork != (off_t) -1);
     if (lseek(db_log->db_log_fd, db_log->offset_before_fork,
@@ -510,7 +512,7 @@ int system_rewrite_after_fork_cb(void)
 #endif
     int tmp_log_fd = open(tmp_log_file_name, flags, (mode_t) 0600);
     if (tmp_log_fd == -1) {
-        logfile(NULL, LOG_ERR, "Can't reopen [%s]: [%s]", tmp_log_file_name,
+        logfile(context, LOG_ERR, "Can't reopen [%s]: [%s]", tmp_log_file_name,
                 strerror(errno));
         unlink(tmp_log_file_name);
     }
@@ -523,10 +525,18 @@ int system_rewrite_after_fork_cb(void)
         exit(1);
     }
     fsync(tmp_log_fd);
-    printf("Renaming [%s] to [%s]\n", tmp_log_file_name,
-           db_log->db_log_file_name);
+    assert(context != NULL);
+    if (any_slave_in_initial_download(context)) {
+        logfile(context, LOG_WARNING, "Unable to rename the journal: "
+                "initial slave sync in progress");
+        unlink(tmp_log_file_name);
+        free(tmp_log_file_name);
+        return -1;
+    }
+    logfile(context, LOG_INFO, "Renaming [%s] to [%s]\n", tmp_log_file_name,
+            db_log->db_log_file_name);
     if (rename(tmp_log_file_name, db_log->db_log_file_name) != 0) {
-        logfile(NULL, LOG_ERR, "Unable to rename [%s] to [%s]: [%s]",
+        logfile(context, LOG_ERR, "Unable to rename [%s] to [%s]: [%s]",
                 tmp_log_file_name, db_log->db_log_file_name,
                 strerror(errno));
         unlink(tmp_log_file_name);
@@ -535,10 +545,10 @@ int system_rewrite_after_fork_cb(void)
     }
     free(tmp_log_file_name);
     if (close(db_log->db_log_fd) != 0) {
-        logfile_error(NULL, "Unable to close the previous journal");
+        logfile_error(context, "Unable to close the previous journal");
     }
     db_log->db_log_fd = tmp_log_fd;
-    logfile_noformat(NULL, LOG_INFO, "Done - New journal activated");
+    logfile_noformat(context, LOG_INFO, "Done - New journal activated");
     
     return 0;
 }

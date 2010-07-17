@@ -79,6 +79,7 @@ typedef struct AppContext_ {
     size_t bucket_size;
     Dimension dimension_accuracy;
     DBLog db_log;
+    struct HttpHandlerContext_ *http_handler_context;
 } AppContext;
 
 #ifdef DEFINE_GLOBALS

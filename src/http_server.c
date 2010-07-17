@@ -9,6 +9,7 @@
 #include "handle_consumer_ops.h"
 #include "expirables.h"
 #include "db_log.h"
+#include "replication.h"
 
 static struct event_base *event_base;
 
@@ -390,8 +391,9 @@ static RETSIGTYPE sigchld_cb(const int sig)
         }
         assert(app_context.db_log.journal_rewrite_process != (pid_t) -1);
         assert(pid == app_context.db_log.journal_rewrite_process);
-        if (pid == app_context.db_log.journal_rewrite_process) {
-            system_rewrite_after_fork_cb();       
+        if (pid == app_context.db_log.journal_rewrite_process &&
+            app_context.http_handler_context != NULL) {
+            system_rewrite_after_fork_cb(app_context.http_handler_context);
         }
     }        
 }
@@ -565,7 +567,7 @@ int http_server(void)
     if (time(&http_handler_context.now) == (time_t) -1) {
         return -1;
     }
-    http_handler_context.log_file_name = app_context.log_file_name;    
+    http_handler_context.log_file_name = app_context.log_file_name;
     if (open_log_file(&http_handler_context) != 0) {
         return -1;
     }
@@ -630,6 +632,7 @@ int http_server(void)
         };
         evtimer_add(&http_handler_context.ev_flush_log_db, &tv);
     }
+    app_context.http_handler_context = &http_handler_context;
     replay_log(&http_handler_context);
     start_replication_server(&http_handler_context,
                              app_context.replication_master_ip,
@@ -666,6 +669,7 @@ bye:
     free_slab(&http_handler_context.expirables_slab,
               free_expirables_slab_entry_cb);
     close_log_file(&http_handler_context);
+    app_context.http_handler_context = NULL;
     
     return 0;
 }
