@@ -26,4 +26,7 @@ void stop_replication_server(HttpHandlerContext * const context);
 
 _Bool any_slave_in_initial_download(const HttpHandlerContext * const context);
 
+int send_to_active_slaves(HttpHandlerContext * const context,
+                          struct evbuffer * const r_entry_buffer);
+
 #endif

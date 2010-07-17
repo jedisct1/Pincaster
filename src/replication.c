@@ -102,7 +102,11 @@ static void sender_writecb(struct bufferevent * const bev,
 	if (evbuffer_get_length(bufferevent_get_output(bev)) != 0) {
         return;
     }    
-    assert(r_context->slaves_in_initial_download > 0);
+    if (r_client->active == 1) {
+        assert(r_context->active_slaves > 0U);
+        return;
+    }
+    assert(r_context->slaves_in_initial_download > 0U);
     r_context->slaves_in_initial_download--;    
     logfile_noformat(context, LOG_NOTICE, "Initial journal sent to slave");
     assert(r_client->active == 0);
@@ -278,4 +282,35 @@ _Bool any_slave_in_initial_download(const HttpHandlerContext * const context)
         return 0;
     }
     return r_context->slaves_in_initial_download > 0U;
+}
+
+typedef struct SendToActiveSlavesContextCB_ {
+    struct evbuffer * const r_entry_buffer;
+} SendToActiveSlavesContextCB;
+
+static int send_to_active_slaves_cb(void * const context_cb_,
+                                    void * const r_client_,
+                                    const size_t sizeof_entry)
+{
+    SendToActiveSlavesContextCB *context_cb = context_cb_;
+    ReplicationClient * const r_client = r_client_;
+
+    (void) sizeof_entry;
+    if (r_client->active == 0) {
+        return 0;
+    }
+    evbuffer_add_buffer(r_client->evb, context_cb->r_entry_buffer);
+                        
+    return 0;    
+}
+
+int send_to_active_slaves(HttpHandlerContext * const context,
+                          struct evbuffer * const r_entry_buffer)
+{
+    SendToActiveSlavesContextCB context_cb = {
+        .r_entry_buffer = r_entry_buffer
+    };    
+    slab_foreach(&context->r_context->r_clients_slab,
+                 send_to_active_slaves_cb, &context_cb);
+    return 0;
 }

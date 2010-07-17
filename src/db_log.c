@@ -147,6 +147,28 @@ int add_to_db_log(HttpHandlerContext * const context, const int verb,
     } else if (evbuffer_get_length(log_buffer) > db_log->journal_buffer_size) {
         flush_db_log(0);
     }
+    if (context->r_context == NULL ||
+        context->r_context->active_slaves == 0U) {
+        return 0;
+    }
+    
+    struct evbuffer *r_entry_buffer;
+    if ((r_entry_buffer = evbuffer_new()) == NULL) {
+        logfile_error(context, "Unable to allocate a buffer in order to "
+                      "ship an item for slaves");
+        return -1;
+    }
+    evbuffer_add(r_entry_buffer, DB_LOG_RECORD_COOKIE_HEAD,
+                 sizeof DB_LOG_RECORD_COOKIE_HEAD - (size_t) 1U);
+    evbuffer_add_printf(r_entry_buffer, "%x %zx:%s %zx:", verb, uri_len,
+                        uri, body_len);
+    if (body != NULL) {
+        evbuffer_add(r_entry_buffer, body, body_len);
+    }
+    evbuffer_add(r_entry_buffer, DB_LOG_RECORD_COOKIE_TAIL,
+                 sizeof DB_LOG_RECORD_COOKIE_TAIL - (size_t) 1U);
+    send_to_active_slaves(context, r_entry_buffer);
+    
     return 0;
 }
 
