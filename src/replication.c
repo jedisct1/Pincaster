@@ -4,6 +4,7 @@
 #include "replication.h"
 
 #define REPLICATION_LISTEN_BACKLOG 128
+#define REPLICATION_MAX_LAG 256 * 1024 * 1024
 
 int init_replication_context(ReplicationContext * const r_context,
                              HttpHandlerContext * const context)
@@ -77,11 +78,11 @@ void free_replication_client(ReplicationClient * const r_client)
     }
     if ((r_client->client_fd) != -1) {
         evutil_closesocket(r_client->client_fd);
-        r_client->client_fd = 1;
+        r_client->client_fd = -1;
     }
     if ((r_client->db_log_fd) != -1) {
         close(r_client->db_log_fd);
-        r_client->db_log_fd = 1;
+        r_client->db_log_fd = -1;
     }
     if (r_client->evb != NULL) {
         evbuffer_free(r_client->evb);
@@ -297,12 +298,18 @@ static int send_to_active_slaves_cb(void * const context_cb_,
     ReplicationClient * const r_client = r_client_;
 
     (void) sizeof_entry;
-    if (r_client->active == 0) {
+    if (r_client->active == 0 || r_client->evb == NULL ||
+        r_client->client_fd == -1) {
+        return 0;
+    }
+    if (evbuffer_get_length(r_client->evb) +
+        context_cb->sizeof_r_entry > REPLICATION_MAX_LAG) {
+        logfile(NULL, LOG_ERR, "Slave is lagging way too much");
+        /* XXX */
         return 0;
     }
     evbuffer_add(r_client->evb, context_cb->r_entry,
-                 context_cb->sizeof_r_entry);
-                        
+                 context_cb->sizeof_r_entry);                        
     return 0;    
 }
 
