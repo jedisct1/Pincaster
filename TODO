@@ -39,3 +39,6 @@ on a second, uncompressed journal.
 - Support for reverse geocoding (find what convex polygon a point is in).
 
 - Use zero-copy when serving public documents.
+
+- Eradicate app_context. db_log should especially join httpcontext.
+

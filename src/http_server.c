@@ -559,7 +559,8 @@ int http_server(void)
         .consumer_bev = NULL,
         .nb_layers = (size_t) 0U,
         .log_file_name = NULL,
-        .log_fd = -1
+        .log_fd = -1,
+        .r_context = NULL
     };
     if (time(&http_handler_context.now) == (time_t) -1) {
         return -1;
@@ -630,6 +631,9 @@ int http_server(void)
         evtimer_add(&http_handler_context.ev_flush_log_db, &tv);
     }
     replay_log(&http_handler_context);
+    start_replication_server(&http_handler_context,
+                             app_context.replication_master_ip,
+                             app_context.replication_master_port);
     if (start_workers(&http_handler_context) != 0) {
         goto bye;
     }
@@ -649,6 +653,7 @@ int http_server(void)
     }
     evtimer_del(&http_handler_context.ev_expiration_cron);
 bye:
+    stop_replication_server(&http_handler_context);    
     bufferevent_free(http_handler_context.publisher_bev);
     bufferevent_free(http_handler_context.consumer_bev);
     evhttp_free(event_http);

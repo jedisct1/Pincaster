@@ -30,12 +30,15 @@
 #include <poll.h>
 #include <pthread.h>
 #include <syslog.h>
+#include <sys/socket.h>
+#include <netdb.h>
 #include "ext/queue.h"
 #include "ext/tree.h"
 #include <yajl_parse.h>
 #include <yajl_gen.h>
 #include <event2/thread.h>
 #include <event.h>
+#include <event2/listener.h>
 #include "app_config.h"
 #include "slab.h"
 #include "cqueue.h"
