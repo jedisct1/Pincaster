@@ -101,9 +101,9 @@ static void log_activity(const ReplicationContext * const r_context,
             "[%u] active slave%s",
             msg,
             r_context->slaves_in_initial_download,
-            r_context->slaves_in_initial_download == 1 ? "s" : "",
+            r_context->slaves_in_initial_download != 1 ? "s" : "",
             r_context->active_slaves,
-            r_context->active_slaves == 1 ? "s" : "");
+            r_context->active_slaves != 1 ? "s" : "");
 }
 
 static void sender_writecb(struct bufferevent * const bev,
