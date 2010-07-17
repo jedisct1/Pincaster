@@ -146,9 +146,10 @@ static void sender_errorcb(struct bufferevent * const bev,
     (void) what;
     bufferevent_disable(bev, EV_READ | EV_WRITE);
     bufferevent_free(bev);
-    assert(r_context->slaves_in_initial_download > 0U);
-    r_context->slaves_in_initial_download--;
-    if (r_client->active != 0) {
+    if (r_client->active == 0) {
+        assert(r_context->slaves_in_initial_download > 0U);
+        r_context->slaves_in_initial_download--;
+    } else if (r_client->active != 0) {
         assert(r_context->active_slaves > 0U);
         r_context->active_slaves--;
     }
