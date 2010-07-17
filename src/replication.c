@@ -8,9 +8,11 @@
 int init_replication_context(ReplicationContext * const r_context,
                              HttpHandlerContext * const context)
 {
-    r_context->context = context;    
-    r_context->slaves_in_initial_download = 0U;
-    
+    *r_context = (ReplicationContext) {
+        .context = context,
+        .slaves_in_initial_download = 0U,
+        .evl = NULL
+    };    
     return 0;
 }
 
@@ -26,7 +28,13 @@ ReplicationContext *new_replication_context(HttpHandlerContext * const context) 
 
 void free_replication_context(ReplicationContext * const r_context)
 {
+    if (r_context == NULL) {
+        return;
+    }
     r_context->context = NULL;
+    if (r_context->evl != NULL) {
+        evconnlistener_free(r_context->evl);
+    }
     free(r_context);
 }
 
@@ -36,7 +44,8 @@ int init_replication_client(ReplicationClient * const r_client,
     *r_client = (ReplicationClient) {
         .r_context = r_context,
         .client_fd = -1,
-        .db_log_fd = -1
+        .db_log_fd = -1,
+        .evb = NULL
     };
     return 0;
 }
@@ -54,6 +63,9 @@ ReplicationClient *new_replication_client(ReplicationContext * const r_context)
 
 void free_replication_client(ReplicationClient * const r_client)
 {
+    if (r_client == NULL) {
+        return;
+    }
     if ((r_client->client_fd) != -1) {
         evutil_closesocket(r_client->client_fd);
         r_client->client_fd = 1;
@@ -61,6 +73,10 @@ void free_replication_client(ReplicationClient * const r_client)
     if ((r_client->db_log_fd) != -1) {
         close(r_client->db_log_fd);
         r_client->db_log_fd = 1;
+    }
+    if (r_client->evb != NULL) {
+        evbuffer_free(r_client->evb);
+        r_client->evb = NULL;
     }
     r_client->r_context = NULL;
     free(r_client);
@@ -71,10 +87,14 @@ static void sender_writecb(struct bufferevent * const bev,
 {
     ReplicationClient * const r_client = r_client_;
     ReplicationContext * const r_context = r_client->r_context;
-    
+
 	if (evbuffer_get_length(bufferevent_get_output(bev)) != 0) {
         return;
     }
+    assert(r_client != NULL);
+    assert(r_context != NULL);    
+    assert(r_context->context != NULL);
+    logfile(r_context->context, LOG_NOTICE, "Slave disconnected");
     bufferevent_disable(bev,EV_READ | EV_WRITE);
     bufferevent_free(bev);
     assert(r_context->slaves_in_initial_download > 0U);
@@ -92,7 +112,7 @@ static void sender_readcb(struct bufferevent * const bev,
 
 static void sender_errorcb(struct bufferevent * const bev,
                            const short what, void * const r_client_)
-{    
+{
     ReplicationClient * const r_client = r_client_;
     ReplicationContext * const r_context = r_client->r_context;
     HttpHandlerContext * const context = r_context->context;
@@ -139,7 +159,7 @@ static void acceptcb(struct evconnlistener * const listener,
     }
     r_client->client_fd = client_fd;
     bufferevent_setcb(bev, sender_readcb, sender_writecb,
-                      sender_errorcb, context);
+                      sender_errorcb, r_client);
     const char s[] = "EXPORTED JOURNAL 1\n";
     bufferevent_write(bev, s, sizeof s);
     struct evbuffer *evb = bufferevent_get_output(bev);
@@ -155,7 +175,8 @@ static void acceptcb(struct evconnlistener * const listener,
         free_replication_client(r_client);
         return;
     }
-    if (st.st_size == (off_t) 0) {
+    r_client->evb = evb;
+    if (st.st_size == (off_t) 0) {        
         logfile(context, LOG_NOTICE, "Slave is asking for an empty journal");
     }
     evbuffer_add_file(evb, r_client->db_log_fd, (off_t) 0,
@@ -189,7 +210,7 @@ int start_replication_server(HttpHandlerContext * const context,
         logfile_error(context, "Unable to start the replication service");
         return -1;
     }
-    struct evconnlistener *evl;        
+    struct evconnlistener *evl;
     evl = evconnlistener_new_bind
         (context->event_base,
             acceptcb, context,
@@ -200,16 +221,23 @@ int start_replication_server(HttpHandlerContext * const context,
         evutil_freeaddrinfo(ai);        
         return -1;
     }
-    evutil_freeaddrinfo(ai);    
-                 
+    evutil_freeaddrinfo(ai);
+    ReplicationContext * const r_context = new_replication_context(context);
+    if (r_context == NULL) {
+        evconnlistener_free(evl);
+        return -1;
+    }
+    r_context->evl = evl;
+    context->r_context = r_context;
+    
     return 0;
 }
 
 void stop_replication_server(HttpHandlerContext * const context)
 {
     ReplicationContext * const r_context = context->r_context;
-    if (r_context == NULL) {
-        return;
+    if (r_context != NULL) {
+        free_replication_context(r_context);
     }
-    free_replication_context(r_context);
+    context->r_context = NULL;
 }
