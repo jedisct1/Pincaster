@@ -168,6 +168,7 @@ int add_to_db_log(HttpHandlerContext * const context, const int verb,
     evbuffer_add(r_entry_buffer, DB_LOG_RECORD_COOKIE_TAIL,
                  sizeof DB_LOG_RECORD_COOKIE_TAIL - (size_t) 1U);
     send_to_active_slaves(context, r_entry_buffer);
+    evbuffer_free(r_entry_buffer);
     
     return 0;
 }

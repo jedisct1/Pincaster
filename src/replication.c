@@ -92,37 +92,6 @@ void free_replication_client(ReplicationClient * const r_client)
     r_client->r_context = NULL;
 }
 
-static void sender_writecb(struct bufferevent * const bev,
-                           void * const r_client_)
-{
-    ReplicationClient * const r_client = r_client_;
-    ReplicationContext * const r_context = r_client->r_context;
-    HttpHandlerContext * const context = r_context->context;    
-
-	if (evbuffer_get_length(bufferevent_get_output(bev)) != 0) {
-        return;
-    }    
-    if (r_client->active == 1) {
-        assert(r_context->active_slaves > 0U);
-        return;
-    }
-    assert(r_context->slaves_in_initial_download > 0U);
-    r_context->slaves_in_initial_download--;    
-    logfile_noformat(context, LOG_NOTICE, "Initial journal sent to slave");
-    assert(r_client->active == 0);
-    r_client->active = 1;
-    r_context->active_slaves++;
-}
-
-static void sender_readcb(struct bufferevent * const bev,
-                          void * const r_client_)
-{
-    (void) bev;
-    (void) r_client_;
-    
-    puts("ReadCB");
-}
-
 static void log_activity(const ReplicationContext * const r_context,
                          const char * const msg)
 {
@@ -137,6 +106,36 @@ static void log_activity(const ReplicationContext * const r_context,
             r_context->active_slaves == 1 ? "s" : "");
 }
 
+static void sender_writecb(struct bufferevent * const bev,
+                           void * const r_client_)
+{
+    ReplicationClient * const r_client = r_client_;
+    ReplicationContext * const r_context = r_client->r_context;
+
+	if (evbuffer_get_length(bufferevent_get_output(bev)) != 0) {
+        return;
+    }    
+    if (r_client->active == 1) {
+        assert(r_context->active_slaves > 0U);
+        return;
+    }
+    assert(r_context->slaves_in_initial_download > 0U);
+    r_context->slaves_in_initial_download--;
+    assert(r_client->active == 0);
+    r_client->active = 1;
+    r_context->active_slaves++;
+    log_activity(r_context, "Initial journal sent to slave");    
+}
+
+static void sender_readcb(struct bufferevent * const bev,
+                          void * const r_client_)
+{
+    (void) bev;
+    (void) r_client_;
+    
+    puts("ReadCB");
+}
+
 static void sender_errorcb(struct bufferevent * const bev,
                            const short what, void * const r_client_)
 {
@@ -145,7 +144,6 @@ static void sender_errorcb(struct bufferevent * const bev,
 
     (void) what;
     bufferevent_disable(bev, EV_READ | EV_WRITE);
-    bufferevent_free(bev);
     if (r_client->active == 0) {
         assert(r_context->slaves_in_initial_download > 0U);
         r_context->slaves_in_initial_download--;
@@ -154,6 +152,7 @@ static void sender_errorcb(struct bufferevent * const bev,
         r_context->active_slaves--;
     }
     log_activity(r_context, "Slave network error");
+    free_replication_client(r_client);
 }
 
 static void acceptcb(struct evconnlistener * const listener,
@@ -286,7 +285,8 @@ _Bool any_slave_in_initial_download(const HttpHandlerContext * const context)
 }
 
 typedef struct SendToActiveSlavesContextCB_ {
-    struct evbuffer * const r_entry_buffer;
+    unsigned char *r_entry;
+    size_t sizeof_r_entry;
 } SendToActiveSlavesContextCB;
 
 static int send_to_active_slaves_cb(void * const context_cb_,
@@ -300,7 +300,8 @@ static int send_to_active_slaves_cb(void * const context_cb_,
     if (r_client->active == 0) {
         return 0;
     }
-    evbuffer_add_buffer(r_client->evb, context_cb->r_entry_buffer);
+    evbuffer_add(r_client->evb, context_cb->r_entry,
+                 context_cb->sizeof_r_entry);
                         
     return 0;    
 }
@@ -308,9 +309,11 @@ static int send_to_active_slaves_cb(void * const context_cb_,
 int send_to_active_slaves(HttpHandlerContext * const context,
                           struct evbuffer * const r_entry_buffer)
 {
-    SendToActiveSlavesContextCB context_cb = {
-        .r_entry_buffer = r_entry_buffer
-    };    
+    SendToActiveSlavesContextCB context_cb;
+    
+    context_cb.sizeof_r_entry = evbuffer_get_length(r_entry_buffer);
+    context_cb.r_entry = evbuffer_pullup(r_entry_buffer, (ev_ssize_t) -1);
+    
     slab_foreach(&context->r_context->r_clients_slab,
                  send_to_active_slaves_cb, &context_cb);
     return 0;
