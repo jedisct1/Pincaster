@@ -66,7 +66,7 @@ ReplicationClient *new_replication_client(ReplicationContext * const r_context)
     init_replication_client(&r_client_, r_context);
     r_client = add_entry_to_slab(&r_context->r_clients_slab, &r_client_);
     if (r_client == NULL) {
-        free_replication_client(r_client);
+        free_replication_client(r_client_);
     }
     return r_client;
 }
@@ -76,7 +76,7 @@ void free_replication_client(ReplicationClient * const r_client)
     if (r_client == NULL) {
         return;
     }
-    if ((r_client->client_fd) != -1) {
+    if (r_client->client_fd != -1) {
         evutil_closesocket(r_client->client_fd);
         r_client->client_fd = -1;
     }
@@ -115,11 +115,14 @@ static void sender_writecb(struct bufferevent * const bev,
 
 	if (evbuffer_get_length(bufferevent_get_output(bev)) != 0) {
         return;
-    }    
+    }
     if (r_client->active == 1) {
         assert(r_context->active_slaves > 0U);
         return;
     }
+    assert(r_client->db_log_fd != -1);
+    close(r_client->db_log_fd);
+    r_client->db_log_fd = -1;
     assert(r_context->slaves_in_initial_download > 0U);
     r_context->slaves_in_initial_download--;
     assert(r_client->active == 0);
@@ -143,19 +146,23 @@ static void sender_errorcb(struct bufferevent * const bev,
     ReplicationClient * const r_client = r_client_;
     ReplicationContext * const r_context = r_client->r_context;
 
-    (void) what;
-    bufferevent_disable(bev, EV_READ | EV_WRITE);
-    if (r_client->active == 0) {
-        assert(r_context->slaves_in_initial_download > 0U);
-        r_context->slaves_in_initial_download--;
-    } else if (r_client->active != 0) {
-        assert(r_context->active_slaves > 0U);
-        r_context->active_slaves--;
+    if (what & BEV_EVENT_ERROR) {
+        log_activity(r_context, "Slave network error");
     }
-    log_activity(r_context, "Slave network error");
-#if 0
-    free_replication_client(r_client);
-#endif
+    if (what & (BEV_EVENT_EOF | BEV_EVENT_ERROR)) {
+        bufferevent_disable(bev, EV_READ | EV_WRITE);
+        if (r_client->active == 0) {
+            assert(r_context->slaves_in_initial_download > 0U);
+            r_context->slaves_in_initial_download--;
+        } else if (r_client->active != 0) {
+            assert(r_context->active_slaves > 0U);
+            r_context->active_slaves--;
+        }
+        if (what & BEV_EVENT_EOF) {
+            log_activity(r_context, "Slave disconnected");
+        }
+        free_replication_client(r_client);
+    }
 }
 
 static void acceptcb(struct evconnlistener * const listener,
