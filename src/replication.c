@@ -153,7 +153,9 @@ static void sender_errorcb(struct bufferevent * const bev,
         r_context->active_slaves--;
     }
     log_activity(r_context, "Slave network error");
+#if 0
     free_replication_client(r_client);
+#endif
 }
 
 static void acceptcb(struct evconnlistener * const listener,
