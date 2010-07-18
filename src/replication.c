@@ -98,7 +98,7 @@ static void log_activity(const ReplicationContext * const r_context,
 {
     logfile(r_context->context, LOG_NOTICE,
             "%s - "
-            "[%u] slaves downloading the initial journal%s and "
+            "[%u] slave%s downloading the initial journal and "
             "[%u] active slave%s",
             msg,
             r_context->slaves_in_initial_download,
