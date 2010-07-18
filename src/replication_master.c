@@ -106,7 +106,7 @@ static void free_replication_client(ReplicationClient * const r_client)
 static void log_activity(const ReplicationMasterContext * const rm_context,
                          const char * const msg)
 {
-    logfile(rm_context->context, LOG_NOTICE,
+    logfile(rm_context->context, LOG_INFO,
             "%s - "
             "[%u] slave%s downloading the initial journal and "
             "[%u] active slave%s",
@@ -180,7 +180,7 @@ static void acceptcb(struct evconnlistener * const listener,
     (void) socklen;
     assert(rm_context != NULL);
     assert(app_context.db_log.db_log_file_name != NULL);
-    logfile_noformat(context, LOG_NOTICE, "New slave connected");
+    logfile_noformat(context, LOG_INFO, "New slave connected");
     if (rm_context->slaves_in_initial_download == UINT_MAX) {
         logfile(context, LOG_WARNING, "Too many downloading slaves");
         evutil_closesocket(client_fd);        
