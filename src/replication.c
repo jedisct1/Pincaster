@@ -66,7 +66,7 @@ ReplicationClient *new_replication_client(ReplicationContext * const r_context)
     init_replication_client(&r_client_, r_context);
     r_client = add_entry_to_slab(&r_context->r_clients_slab, &r_client_);
     if (r_client == NULL) {
-        free_replication_client(r_client_);
+        free_replication_client(&r_client_);
     }
     return r_client;
 }
@@ -88,9 +88,9 @@ void free_replication_client(ReplicationClient * const r_client)
         close(r_client->db_log_fd);
         r_client->db_log_fd = -1;
     }
-    remove_entry_from_slab(&r_client->r_context->r_clients_slab,
-                           r_client);
+    ReplicationContext * const r_context = r_client->r_context;
     r_client->r_context = NULL;
+    remove_entry_from_slab(&r_context->r_clients_slab, r_client);
 }
 
 static void log_activity(const ReplicationContext * const r_context,
