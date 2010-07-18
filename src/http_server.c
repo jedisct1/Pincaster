@@ -183,7 +183,7 @@ static void *worker_thread(void *context_)
     evutil_secure_rng_get_bytes(&thr_id, sizeof thr_id);
     logfile(context, LOG_INFO,
             "Starting worker thread: [%" PRIu32 "]", thr_id);
-    
+
     while (worker_do_work(context) == 0);
     
     logfile(context, LOG_INFO, "Exited worker thread: [%" PRIu32 "]", thr_id);
@@ -330,7 +330,8 @@ static void http_dispatcher_cb(struct evhttp_request * const req,
 
 int fake_request(HttpHandlerContext * const context,
                  const int verb, char * const uri,
-                 const char *body, const size_t body_len)
+                 const char *body, const size_t body_len,
+                 const _Bool in_main_thread)
 {
     struct evhttp_request req;
     
@@ -341,6 +342,9 @@ int fake_request(HttpHandlerContext * const context,
     evbuffer_add(req.input_buffer, body, body_len);
     process_request(context, &req, 1);
     evbuffer_free(req.input_buffer);
+    if (in_main_thread == 0) {
+        return 0;
+    }
     worker_do_work(context);
     
     return 0;
@@ -635,13 +639,20 @@ int http_server(void)
         evtimer_add(&http_handler_context.ev_flush_log_db, &tv);
     }
     app_context.http_handler_context = &http_handler_context;
-    replay_log(&http_handler_context);
-    start_replication_master(&http_handler_context,
-                             app_context.replication_master_ip,
-                             app_context.replication_master_port);
+    if (app_context.replication_slave_ip != NULL &&
+        app_context.replication_slave_port != NULL) {
+        start_replication_slave(&http_handler_context,
+                                app_context.replication_slave_ip,
+                                app_context.replication_slave_port);
+    } else {
+        replay_log(&http_handler_context);
+    }
     if (start_workers(&http_handler_context) != 0) {
         goto bye;
     }
+    start_replication_master(&http_handler_context,
+                             app_context.replication_master_ip,
+                             app_context.replication_master_port);
     evtimer_assign(&http_handler_context.ev_expiration_cron, event_base,
                    expiration_cron, &http_handler_context);
     struct timeval tv = {
@@ -659,6 +670,7 @@ int http_server(void)
     evtimer_del(&http_handler_context.ev_expiration_cron);
 bye:
     stop_replication_master(&http_handler_context);    
+    stop_replication_slave(&http_handler_context);        
     bufferevent_free(http_handler_context.publisher_bev);
     bufferevent_free(http_handler_context.consumer_bev);
     evhttp_free(event_http);
