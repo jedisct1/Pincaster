@@ -189,7 +189,7 @@ static int m_replay_log_record(HttpHandlerContext * const context,
         free(uri);
         return -1;
     }
-    fake_request(context, verb, uri, body, body_len, 0);
+    fake_request(context, verb, uri, body, body_len, 0, 1);
     free(body);
     free(uri);
     

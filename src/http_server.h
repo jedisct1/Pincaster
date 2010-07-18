@@ -339,7 +339,8 @@ int send_op_reply(HttpHandlerContext * const context,
 int fake_request(HttpHandlerContext * const context,
                  const int verb, char * const uri,
                  const char *body, const size_t body_len,
-                 const _Bool in_main_thread);
+                 const _Bool in_main_thread,
+                 const _Bool add_to_journal);
 
 int replay_log(HttpHandlerContext * const context);
 

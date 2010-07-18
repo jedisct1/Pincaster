@@ -331,7 +331,8 @@ static void http_dispatcher_cb(struct evhttp_request * const req,
 int fake_request(HttpHandlerContext * const context,
                  const int verb, char * const uri,
                  const char *body, const size_t body_len,
-                 const _Bool in_main_thread)
+                 const _Bool in_main_thread,
+                 const _Bool add_to_journal)
 {
     struct evhttp_request req;
     
@@ -340,6 +341,9 @@ int fake_request(HttpHandlerContext * const context,
     req.uri = uri;
     req.input_buffer = evbuffer_new();
     evbuffer_add(req.input_buffer, body, body_len);
+    if (add_to_journal != 0) {
+        add_to_db_log(context, verb, uri, req.input_buffer);
+    }
     process_request(context, &req, 1);
     evbuffer_free(req.input_buffer);
     if (in_main_thread == 0) {
