@@ -160,7 +160,8 @@ int add_to_db_log(HttpHandlerContext * const context, const int verb,
     }    
     if (app_context.db_log.fsync_period == 0) {
         flush_db_log(1);
-    } else if (evbuffer_get_length(log_buffer) > db_log->journal_buffer_size) {
+    } else if (evbuffer_get_length(log_buffer) > db_log->journal_buffer_size ||
+               r_entry_buffer != NULL) {
         flush_db_log(0);
     }
     if (r_entry_buffer == NULL) {
