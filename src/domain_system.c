@@ -359,7 +359,7 @@ int rewrite_child(HttpHandlerContext * const context)
     if (db_log->db_log_fd != -1) {
         close(db_log->db_log_fd);
     }
-    nice(BGREWRITEAOF_NICENESS);
+    (void) nice(BGREWRITEAOF_NICENESS);
     logfile_noformat(context, LOG_INFO,
                      "Creating a new journal as a background process...");
     char *tmp_log_file_name = get_tmp_log_file_name();
