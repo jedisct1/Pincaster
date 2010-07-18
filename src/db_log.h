@@ -36,11 +36,14 @@ void free_db_log(void);
 int close_db_log(void);
 
 int add_to_db_log(struct HttpHandlerContext_ * const context, const int verb,
-                  const char *uri, struct evbuffer * const input_buffer);
+                  const char *uri, struct evbuffer * const input_buffer,
+                  const _Bool send_to_slaves);
 
 int flush_db_log(const _Bool sync);
 
 int add_ts_to_ev_log_buffer(struct evbuffer * const log_buffer,
                             const time_t ts);
+
+int reset_log(struct HttpHandlerContext_ * const context);
 
 #endif

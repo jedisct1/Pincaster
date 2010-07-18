@@ -272,7 +272,7 @@ static int process_api_request(HttpHandlerContext * const context,
     }
     if (fake_req == 0 && write_to_log != 0) {
         add_to_db_log(context, req->type, uri,
-                      evhttp_request_get_input_buffer(req));
+                      evhttp_request_get_input_buffer(req), 1);
     }
     return 0;    
 }
@@ -342,7 +342,7 @@ int fake_request(HttpHandlerContext * const context,
     req.input_buffer = evbuffer_new();
     evbuffer_add(req.input_buffer, body, body_len);
     if (add_to_journal != 0) {
-        add_to_db_log(context, verb, uri, req.input_buffer);
+        add_to_db_log(context, verb, uri, req.input_buffer, 1);
     }
     process_request(context, &req, 1);
     evbuffer_free(req.input_buffer);
@@ -645,9 +645,14 @@ int http_server(void)
     app_context.http_handler_context = &http_handler_context;
     if (app_context.replication_slave_ip != NULL &&
         app_context.replication_slave_port != NULL) {
-        start_replication_slave(&http_handler_context,
-                                app_context.replication_slave_ip,
-                                app_context.replication_slave_port);
+        reset_log(&http_handler_context);
+        if (start_replication_slave(&http_handler_context,
+                                    app_context.replication_slave_ip,
+                                    app_context.replication_slave_port) != 0) {
+            logfile(&http_handler_context, LOG_ERR,
+                    "Unable to connect to the master");
+            goto bye;
+        }
     } else {
         replay_log(&http_handler_context);
     }

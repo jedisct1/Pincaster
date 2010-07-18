@@ -107,7 +107,8 @@ int add_ts_to_ev_log_buffer(struct evbuffer * const log_buffer,
 }
 
 int add_to_db_log(HttpHandlerContext * const context, const int verb,
-                  const char *uri, struct evbuffer * const input_buffer)
+                  const char *uri, struct evbuffer * const input_buffer,
+                  const _Bool send_to_slaves)
 {
     struct evbuffer *r_entry_buffer = NULL;
     time_t ts = context->now;
@@ -143,7 +144,8 @@ int add_to_db_log(HttpHandlerContext * const context, const int verb,
     }
     evbuffer_add(log_buffer, DB_LOG_RECORD_COOKIE_TAIL,
                  sizeof DB_LOG_RECORD_COOKIE_TAIL - (size_t) 1U);
-    if (context->rm_context != NULL &&
+    if (send_to_slaves == 1 &&
+        context->rm_context != NULL &&
         context->rm_context->active_slaves > 0U) {
         unsigned char * const r_entry = evbuffer_pullup(log_buffer, (ev_ssize_t) -1);
         const size_t sizeof_r_entry = evbuffer_get_length(log_buffer);
@@ -221,7 +223,7 @@ int replay_log_record(HttpHandlerContext * const context,
     char buf_number[50];
     char *pnt;
     char *endptr;
-    off_t current_offset = lseek(db_log->db_log_fd, (off_t) 0, SEEK_CUR);
+    const off_t current_offset = lseek(db_log->db_log_fd, (off_t) 0, SEEK_CUR);
     
     ssize_t readnb = buffered_read(brc, buf_cookie_head,
                                    sizeof buf_cookie_head);
@@ -352,7 +354,7 @@ int replay_log_record(HttpHandlerContext * const context,
 
 int replay_log(HttpHandlerContext * const context)
 {
-    DBLog * const db_log = &app_context.db_log;    
+    DBLog * const db_log = &app_context.db_log;
     int res;
     uintmax_t counter = (uintmax_t) 0U;
     BufferedReadContext brc;
@@ -374,6 +376,29 @@ int replay_log(HttpHandlerContext * const context)
         logfile_noformat(context, LOG_ERR, "Possibly corrupted journal.");
         
         return -1;
+    }
+    return 0;
+}
+
+int reset_log(HttpHandlerContext * const context)
+{
+    DBLog * const db_log = &app_context.db_log;
+    if (db_log->db_log_fd == -1 || db_log->db_log_file_name == NULL) {
+        logfile_noformat(context, LOG_INFO, "No journal, no need to reset");
+        return 0;
+    }
+    const off_t current_offset = lseek(db_log->db_log_fd, (off_t) 0, SEEK_CUR);
+    if (lseek(db_log->db_log_fd, (off_t) 0, SEEK_SET) != (off_t) 0) {
+        return -1;
+    } 
+    if (ftruncate(db_log->db_log_fd, (off_t) 0) != 0) {
+        if (lseek(db_log->db_log_fd, current_offset, SEEK_SET) != 0) {
+            _exit(1);
+        }        
+    }
+    if (db_log->log_buffer != NULL) {
+        evbuffer_drain(db_log->log_buffer,
+                       evbuffer_get_length(db_log->log_buffer));
     }
     return 0;
 }

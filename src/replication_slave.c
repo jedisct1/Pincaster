@@ -211,33 +211,29 @@ static void reader_readcb(struct bufferevent * const bev,
     struct evbuffer_ptr ptr;
     size_t len;
     unsigned char *buf = NULL;
-    size_t buf_size = 65536;
-    
-    if ((buf = malloc(buf_size)) == NULL) {
-        return;
-    }    
-next:
-    if (evbuffer_get_length(input) == 0) {
-        free(buf);
-        return;
-    }
-    ptr = evbuffer_search_eol(input, NULL, &len, EVBUFFER_EOL_LF);
-    if (ptr.pos == -1) {
-        free(buf);        
-        return;
-    }
-    if (ptr.pos >= (ssize_t) buf_size) {
-        buf_size *= 2U;
-        unsigned char *buf_ = realloc(buf, buf_size);
-        if (buf_ == NULL) {
-            free(buf);
-            return;
+    size_t sizeof_buf = (size_t) 0U;
+    size_t line_size;
+
+    while (evbuffer_get_length(input) != 0) {
+        ptr = evbuffer_search_eol(input, NULL, &len, EVBUFFER_EOL_LF);
+        if (ptr.pos == -1) {
+            break;
         }
+        line_size = (size_t) ptr.pos + (size_t) 1U;
+        if (line_size > sizeof_buf) {
+            assert(line_size > (size_t) 0U);
+            unsigned char * const buf_ = realloc(buf, line_size);
+            if (buf_ == NULL) {
+                break;
+            }
+            buf = buf_;
+            sizeof_buf = line_size;
+        }
+        assert(line_size <= sizeof_buf);
+        evbuffer_remove(input, buf, line_size);
+        m_replay_log_record(context, buf, line_size);
     }
-    assert(ptr.pos < (ssize_t) buf_size);
-    evbuffer_remove(input, buf, ptr.pos + 1);
-    m_replay_log_record(context, buf, (size_t) ptr.pos + 1U);
-    goto next;    
+    free(buf);
 }
 
 static void reader_eventcb(struct bufferevent * const bev,
@@ -245,11 +241,19 @@ static void reader_eventcb(struct bufferevent * const bev,
 {
     HttpHandlerContext * const context = context_;
 
-    (void) bev;
     if (what & BEV_EVENT_CONNECTED) {
         logfile(context, LOG_INFO, "Connected to master");
-    } else if (what & BEV_EVENT_ERROR) {
-        logfile_error(context, "Error while trying to connect to master");
+    } else if (what & (BEV_EVENT_EOF | BEV_EVENT_ERROR)) {
+        if (what & BEV_EVENT_EOF) {
+            logfile(context, LOG_ERR, "Disconnected from master");
+        } else {
+            logfile_error(context, "Error while trying to connect to master");
+        }
+        logfile(context, LOG_ERR, "Aborting in 10 sec...");
+        bufferevent_free(bev);
+        stop_workers(context);
+        sleep(10);
+        _exit(1);
     }
 }
 
@@ -304,7 +308,7 @@ int start_replication_slave(HttpHandlerContext * const context,
     rs_context->bev = bev;
     context->rs_context = rs_context;
     
-    return -0;
+    return 0;
 }
 
 void stop_replication_slave(HttpHandlerContext * const context)
