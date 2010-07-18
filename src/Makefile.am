@@ -1,6 +1,7 @@
 
 pincaster_LDADD = \
-        levent2/.libs/libevent.a \
+        levent2/.libs/libevent_core.a \
+        levent2/.libs/libevent_extra.a \
         levent2/.libs/libevent_pthreads.a \
         @YAJL_LDADD@
 
