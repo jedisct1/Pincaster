@@ -141,6 +141,8 @@ int add_to_db_log(HttpHandlerContext * const context, const int verb,
     if (body != NULL) {
         evbuffer_add(log_buffer, body, body_len);
     }
+    evbuffer_add(log_buffer, DB_LOG_RECORD_COOKIE_TAIL,
+                 sizeof DB_LOG_RECORD_COOKIE_TAIL - (size_t) 1U);
     if (context->r_context != NULL && context->r_context->active_slaves > 0U) {
         unsigned char * const r_entry = evbuffer_pullup(log_buffer, (ev_ssize_t) -1);
         const size_t sizeof_r_entry = evbuffer_get_length(log_buffer);
@@ -153,8 +155,6 @@ int add_to_db_log(HttpHandlerContext * const context, const int verb,
             evbuffer_add(r_entry_buffer, r_entry, sizeof_r_entry);
         }
     }    
-    evbuffer_add(log_buffer, DB_LOG_RECORD_COOKIE_TAIL,
-                 sizeof DB_LOG_RECORD_COOKIE_TAIL - (size_t) 1U);
     if (app_context.db_log.fsync_period == 0) {
         flush_db_log(1);
     } else if (evbuffer_get_length(log_buffer) > db_log->journal_buffer_size) {
