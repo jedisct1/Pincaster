@@ -14,7 +14,7 @@ typedef struct ReplicationClient_ {
     ReplicationContext *r_context;
     evutil_socket_t client_fd;
     int db_log_fd;
-    struct evbuffer *evb;
+    struct bufferevent *bev;
     _Bool active;
 } ReplicationClient;
 

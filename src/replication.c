@@ -50,7 +50,7 @@ int init_replication_client(ReplicationClient * const r_client,
         .r_context = r_context,
         .client_fd = -1,
         .db_log_fd = -1,
-        .evb = NULL,
+        .bev = NULL,
         .active = 0
     };
     return 0;
@@ -76,9 +76,9 @@ void free_replication_client(ReplicationClient * const r_client)
     if (r_client == NULL) {
         return;
     }
-    if (r_client->evb != NULL) {
-        evbuffer_free(r_client->evb);
-        r_client->evb = NULL;
+    if (r_client->bev != NULL) {
+        bufferevent_free(r_client->bev);
+        r_client->bev = NULL;
     }
     if (r_client->client_fd != -1) {
         evutil_closesocket(r_client->client_fd);
@@ -189,12 +189,14 @@ static void acceptcb(struct evconnlistener * const listener,
         logfile_error(context, "Unable to allocate a bufferevent");
         evutil_closesocket(client_fd);
         return;
-    }
+    }    
     if ((r_client = new_replication_client(r_context)) == NULL) {
         logfile_error(context, "Unable to allocate a replication client");
+        bufferevent_free(bev);
         evutil_closesocket(client_fd);
         return;        
     }
+    r_client->bev = bev;
     r_client->client_fd = client_fd;
     bufferevent_setcb(bev, sender_readcb, sender_writecb,
                       sender_errorcb, r_client);
@@ -213,7 +215,6 @@ static void acceptcb(struct evconnlistener * const listener,
         free_replication_client(r_client);
         return;
     }
-    r_client->evb = evb;
     if (st.st_size == (off_t) 0) {        
         logfile(context, LOG_NOTICE, "Slave is asking for an empty journal");
     }
@@ -305,18 +306,19 @@ static int send_to_active_slaves_cb(void * const context_cb_,
     ReplicationClient * const r_client = r_client_;
 
     (void) sizeof_entry;
-    if (r_client->active == 0 || r_client->evb == NULL ||
+    if (r_client->active == 0 || r_client->bev == NULL ||
         r_client->client_fd == -1) {
         return 0;
     }
-    if (evbuffer_get_length(r_client->evb) +
+    struct evbuffer * const evb = bufferevent_get_output(r_client->bev);    
+    if (evbuffer_get_length(evb) +
         context_cb->sizeof_r_entry > REPLICATION_MAX_LAG) {
         logfile(NULL, LOG_ERR, "Slave is lagging way too much");
         /* XXX */
         return 0;
     }
-    evbuffer_add(r_client->evb, context_cb->r_entry,
-                 context_cb->sizeof_r_entry);                        
+    evbuffer_add(evb, context_cb->r_entry, context_cb->sizeof_r_entry);
+    
     return 0;    
 }
 
