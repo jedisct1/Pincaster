@@ -76,6 +76,10 @@ void free_replication_client(ReplicationClient * const r_client)
     if (r_client == NULL) {
         return;
     }
+    if (r_client->evb != NULL) {
+        evbuffer_free(r_client->evb);
+        r_client->evb = NULL;
+    }
     if (r_client->client_fd != -1) {
         evutil_closesocket(r_client->client_fd);
         r_client->client_fd = -1;
@@ -83,10 +87,6 @@ void free_replication_client(ReplicationClient * const r_client)
     if ((r_client->db_log_fd) != -1) {
         close(r_client->db_log_fd);
         r_client->db_log_fd = -1;
-    }
-    if (r_client->evb != NULL) {
-        evbuffer_free(r_client->evb);
-        r_client->evb = NULL;
     }
     remove_entry_from_slab(&r_client->r_context->r_clients_slab,
                            r_client);
@@ -120,9 +120,6 @@ static void sender_writecb(struct bufferevent * const bev,
         assert(r_context->active_slaves > 0U);
         return;
     }
-    assert(r_client->db_log_fd != -1);
-    close(r_client->db_log_fd);
-    r_client->db_log_fd = -1;
     assert(r_context->slaves_in_initial_download > 0U);
     r_context->slaves_in_initial_download--;
     assert(r_client->active == 0);
@@ -222,6 +219,7 @@ static void acceptcb(struct evconnlistener * const listener,
     }
     evbuffer_add_file(evb, r_client->db_log_fd, (off_t) 0,
                       (off_t) st.st_size);
+    r_client->db_log_fd = -1;
     r_context->slaves_in_initial_download++;
     bufferevent_enable(bev, EV_WRITE);
     log_activity(r_context, "New slave registered");
