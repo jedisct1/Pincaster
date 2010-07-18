@@ -143,7 +143,8 @@ int add_to_db_log(HttpHandlerContext * const context, const int verb,
     }
     evbuffer_add(log_buffer, DB_LOG_RECORD_COOKIE_TAIL,
                  sizeof DB_LOG_RECORD_COOKIE_TAIL - (size_t) 1U);
-    if (context->r_context != NULL && context->r_context->active_slaves > 0U) {
+    if (context->rm_context != NULL &&
+        context->rm_context->active_slaves > 0U) {
         unsigned char * const r_entry = evbuffer_pullup(log_buffer, (ev_ssize_t) -1);
         const size_t sizeof_r_entry = evbuffer_get_length(log_buffer);
         

@@ -562,7 +562,7 @@ int http_server(void)
         .nb_layers = (size_t) 0U,
         .log_file_name = NULL,
         .log_fd = -1,
-        .r_context = NULL
+        .rm_context = NULL
     };
     if (time(&http_handler_context.now) == (time_t) -1) {
         return -1;

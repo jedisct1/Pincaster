@@ -6,48 +6,50 @@
 #define REPLICATION_LISTEN_BACKLOG 128
 #define REPLICATION_MAX_LAG 256 * 1024 * 1024
 
-int init_replication_context(ReplicationContext * const r_context,
+int init_replication_context(ReplicationMasterContext * const rm_context,
                              HttpHandlerContext * const context)
 {
-    *r_context = (ReplicationContext) {
+    *rm_context = (ReplicationMasterContext) {
         .context = context,
         .active_slaves = 0U,
         .slaves_in_initial_download = 0U,
         .evl = NULL
     };
-    init_slab(&r_context->r_clients_slab, sizeof(ReplicationClient),
+    init_slab(&rm_context->r_clients_slab, sizeof(ReplicationClient),
               "replication clients slab");
     return 0;
 }
 
-ReplicationContext *new_replication_context(HttpHandlerContext * const context) {
-    ReplicationContext *r_context = malloc(sizeof *r_context);
-    if (r_context == NULL) {
+ReplicationMasterContext *
+new_replication_context(HttpHandlerContext * const context)
+{
+    ReplicationMasterContext *rm_context = malloc(sizeof *rm_context);
+    if (rm_context == NULL) {
         return NULL;
     }
-    init_replication_context(r_context, context);
+    init_replication_context(rm_context, context);
     
-    return r_context;
+    return rm_context;
 }
 
-void free_replication_context(ReplicationContext * const r_context)
+void free_replication_context(ReplicationMasterContext * const rm_context)
 {
-    if (r_context == NULL) {
+    if (rm_context == NULL) {
         return;
     }
-    r_context->context = NULL;
-    if (r_context->evl != NULL) {
-        evconnlistener_free(r_context->evl);
+    rm_context->context = NULL;
+    if (rm_context->evl != NULL) {
+        evconnlistener_free(rm_context->evl);
     }
-    free_slab(&r_context->r_clients_slab, NULL); /* XXX - shouldn't be NULL */
-    free(r_context);
+    free_slab(&rm_context->r_clients_slab, NULL); /* XXX - shouldn't be NULL */
+    free(rm_context);
 }
 
 int init_replication_client(ReplicationClient * const r_client,
-                            ReplicationContext * const r_context)
+                            ReplicationMasterContext * const rm_context)
 {
     *r_client = (ReplicationClient) {
-        .r_context = r_context,
+        .rm_context = rm_context,
         .client_fd = -1,
         .db_log_fd = -1,
         .bev = NULL,
@@ -58,13 +60,14 @@ int init_replication_client(ReplicationClient * const r_client,
 
 void free_replication_client(ReplicationClient * const r_client);
 
-ReplicationClient *new_replication_client(ReplicationContext * const r_context)
+ReplicationClient *
+new_replication_client(ReplicationMasterContext * const rm_context)
 {
     ReplicationClient r_client_;
     ReplicationClient *r_client;
         
-    init_replication_client(&r_client_, r_context);
-    r_client = add_entry_to_slab(&r_context->r_clients_slab, &r_client_);
+    init_replication_client(&r_client_, rm_context);
+    r_client = add_entry_to_slab(&rm_context->r_clients_slab, &r_client_);
     if (r_client == NULL) {
         free_replication_client(&r_client_);
     }
@@ -88,36 +91,36 @@ void free_replication_client(ReplicationClient * const r_client)
         close(r_client->db_log_fd);
         r_client->db_log_fd = -1;
     }
-    ReplicationContext * const r_context = r_client->r_context;
-    r_client->r_context = NULL;
-    remove_entry_from_slab(&r_context->r_clients_slab, r_client);
+    ReplicationMasterContext * const rm_context = r_client->rm_context;
+    r_client->rm_context = NULL;
+    remove_entry_from_slab(&rm_context->r_clients_slab, r_client);
 }
 
-static void log_activity(const ReplicationContext * const r_context,
+static void log_activity(const ReplicationMasterContext * const rm_context,
                          const char * const msg)
 {
-    logfile(r_context->context, LOG_NOTICE,
+    logfile(rm_context->context, LOG_NOTICE,
             "%s - "
             "[%u] slave%s downloading the initial journal and "
             "[%u] active slave%s",
             msg,
-            r_context->slaves_in_initial_download,
-            r_context->slaves_in_initial_download != 1 ? "s" : "",
-            r_context->active_slaves,
-            r_context->active_slaves != 1 ? "s" : "");
+            rm_context->slaves_in_initial_download,
+            rm_context->slaves_in_initial_download != 1 ? "s" : "",
+            rm_context->active_slaves,
+            rm_context->active_slaves != 1 ? "s" : "");
 }
 
 static void sender_writecb(struct bufferevent * const bev,
                            void * const r_client_)
 {
     ReplicationClient * const r_client = r_client_;
-    ReplicationContext * const r_context = r_client->r_context;
+    ReplicationMasterContext * const rm_context = r_client->rm_context;
 
 	if (evbuffer_get_length(bufferevent_get_output(bev)) != 0) {
         return;
     }
     if (r_client->active == 1) {
-        assert(r_context->active_slaves > 0U);
+        assert(rm_context->active_slaves > 0U);
     }
 }
 
@@ -134,23 +137,23 @@ static void sender_errorcb(struct bufferevent * const bev,
                            const short what, void * const r_client_)
 {
     ReplicationClient * const r_client = r_client_;
-    ReplicationContext * const r_context = r_client->r_context;
+    ReplicationMasterContext * const rm_context = r_client->rm_context;
 
     if (what & BEV_EVENT_ERROR) {
-        logfile(r_context->context, LOG_WARNING, "Slave network error: [%s]",
+        logfile(rm_context->context, LOG_WARNING, "Slave network error: [%s]",
                 strerror(errno));
     }
     if (what & (BEV_EVENT_EOF | BEV_EVENT_ERROR)) {
         bufferevent_disable(bev, EV_READ | EV_WRITE);
         if (r_client->active == 0) {
-            assert(r_context->slaves_in_initial_download > 0U);
-            r_context->slaves_in_initial_download--;
+            assert(rm_context->slaves_in_initial_download > 0U);
+            rm_context->slaves_in_initial_download--;
         } else if (r_client->active != 0) {
-            assert(r_context->active_slaves > 0U);
-            r_context->active_slaves--;
+            assert(rm_context->active_slaves > 0U);
+            rm_context->active_slaves--;
         }
         if (what & BEV_EVENT_EOF) {
-            log_activity(r_context, "Slave disconnected");
+            log_activity(rm_context, "Slave disconnected");
         }
         free_replication_client(r_client);
     }
@@ -162,16 +165,16 @@ static void acceptcb(struct evconnlistener * const listener,
                      void * const context_)
 {
     HttpHandlerContext * const context = context_;
-    ReplicationContext * const r_context = context->r_context;
+    ReplicationMasterContext * const rm_context = context->rm_context;
     ReplicationClient *r_client;
 
     (void) listener;
     (void) addr;
     (void) socklen;
-    assert(r_context != NULL);
+    assert(rm_context != NULL);
     assert(app_context.db_log.db_log_file_name != NULL);
     logfile_noformat(context, LOG_NOTICE, "New slave connected");
-    if (r_context->slaves_in_initial_download == UINT_MAX) {
+    if (rm_context->slaves_in_initial_download == UINT_MAX) {
         logfile(context, LOG_WARNING, "Too many downloading slaves");
         evutil_closesocket(client_fd);        
         return;
@@ -184,7 +187,7 @@ static void acceptcb(struct evconnlistener * const listener,
         evutil_closesocket(client_fd);
         return;
     }    
-    if ((r_client = new_replication_client(r_context)) == NULL) {
+    if ((r_client = new_replication_client(rm_context)) == NULL) {
         logfile_error(context, "Unable to allocate a replication client");
         bufferevent_free(bev);
         evutil_closesocket(client_fd);
@@ -215,17 +218,17 @@ static void acceptcb(struct evconnlistener * const listener,
     evbuffer_add_file(evb, r_client->db_log_fd, (off_t) 0,
                       (off_t) st.st_size);
     r_client->db_log_fd = -1;
-    r_context->slaves_in_initial_download++;
+    rm_context->slaves_in_initial_download++;
 
     bufferevent_enable(bev, EV_WRITE);
-    log_activity(r_context, "New slave registered");
+    log_activity(rm_context, "New slave registered");
     
-    assert(r_context->slaves_in_initial_download > 0U);
-    r_context->slaves_in_initial_download--;
+    assert(rm_context->slaves_in_initial_download > 0U);
+    rm_context->slaves_in_initial_download--;
     assert(r_client->active == 0);
     r_client->active = 1;
-    r_context->active_slaves++;
-    log_activity(r_context, "Initial journal sent to slave");    
+    rm_context->active_slaves++;
+    log_activity(rm_context, "Initial journal sent to slave");    
 }
 
 int start_replication_server(HttpHandlerContext * const context,
@@ -265,34 +268,35 @@ int start_replication_server(HttpHandlerContext * const context,
         return -1;
     }
     evutil_freeaddrinfo(ai);
-    ReplicationContext * const r_context = new_replication_context(context);
-    if (r_context == NULL) {
+    ReplicationMasterContext * const rm_context =
+        new_replication_context(context);
+    if (rm_context == NULL) {
         evconnlistener_free(evl);
         return -1;
     }
-    r_context->evl = evl;
-    context->r_context = r_context;
+    rm_context->evl = evl;
+    context->rm_context = rm_context;
     
     return 0;
 }
 
 void stop_replication_server(HttpHandlerContext * const context)
 {
-    ReplicationContext * const r_context = context->r_context;
-    if (r_context != NULL) {
-        free_replication_context(r_context);
+    ReplicationMasterContext * const rm_context = context->rm_context;
+    if (rm_context != NULL) {
+        free_replication_context(rm_context);
     }
-    context->r_context = NULL;
+    context->rm_context = NULL;
 }
 
 _Bool any_slave_in_initial_download(const HttpHandlerContext * const context)
 {
-    const ReplicationContext * const r_context = context->r_context;
+    const ReplicationMasterContext * const rm_context = context->rm_context;
     
-    if (r_context == NULL) {
+    if (rm_context == NULL) {
         return 0;
     }
-    return r_context->slaves_in_initial_download > 0U;
+    return rm_context->slaves_in_initial_download > 0U;
 }
 
 typedef struct SendToActiveSlavesContextCB_ {
@@ -315,15 +319,16 @@ static int send_to_active_slaves_cb(void * const context_cb_,
     struct evbuffer * const evb = bufferevent_get_output(r_client->bev);    
     if (evbuffer_get_length(evb) +
         context_cb->sizeof_r_entry > REPLICATION_MAX_LAG) {
-        ReplicationContext * const r_context = r_client->r_context;
+        ReplicationMasterContext * const rm_context = r_client->rm_context;
         if (r_client->active == 0) {
-            assert(r_context->slaves_in_initial_download > 0U);
-            r_context->slaves_in_initial_download--;
+            assert(rm_context->slaves_in_initial_download > 0U);
+            rm_context->slaves_in_initial_download--;
         } else if (r_client->active != 0) {
-            assert(r_context->active_slaves > 0U);
-            r_context->active_slaves--;
+            assert(rm_context->active_slaves > 0U);
+            rm_context->active_slaves--;
         }
-        log_activity(r_context, "Slave is lagging way too much - disconnecting");
+        log_activity(rm_context, "Slave is lagging way too much - "
+                     "disconnecting");
         bufferevent_free(r_client->bev);
         r_client->bev = NULL;
         evutil_closesocket(r_client->client_fd);
@@ -345,7 +350,7 @@ int send_to_active_slaves(HttpHandlerContext * const context,
     context_cb.sizeof_r_entry = evbuffer_get_length(r_entry_buffer);
     context_cb.r_entry = evbuffer_pullup(r_entry_buffer, (ev_ssize_t) -1);
     
-    slab_foreach(&context->r_context->r_clients_slab,
+    slab_foreach(&context->rm_context->r_clients_slab,
                  send_to_active_slaves_cb, &context_cb);
     return 0;
 }

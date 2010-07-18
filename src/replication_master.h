@@ -1,17 +1,17 @@
 
-#ifndef __REPLICATION_H__
-#define __REPLICATION_H__ 1
+#ifndef __REPLICATION_MASTER_H__
+#define __REPLICATION_MASTER_H__ 1
 
-typedef struct ReplicationContext_ {
+typedef struct ReplicationMasterContext_ {
     HttpHandlerContext *context;
     unsigned int active_slaves;
     unsigned int slaves_in_initial_download;
     struct evconnlistener *evl;
     Slab r_clients_slab;
-} ReplicationContext;
+} ReplicationMasterContext;
 
 typedef struct ReplicationClient_ {
-    ReplicationContext *r_context;
+    ReplicationMasterContext *rm_context;
     evutil_socket_t client_fd;
     int db_log_fd;
     struct bufferevent *bev;
