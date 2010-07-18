@@ -315,8 +315,21 @@ static int send_to_active_slaves_cb(void * const context_cb_,
     struct evbuffer * const evb = bufferevent_get_output(r_client->bev);    
     if (evbuffer_get_length(evb) +
         context_cb->sizeof_r_entry > REPLICATION_MAX_LAG) {
-        logfile(NULL, LOG_ERR, "Slave is lagging way too much");
-        /* XXX */
+        ReplicationContext * const r_context = r_client->r_context;
+        if (r_client->active == 0) {
+            assert(r_context->slaves_in_initial_download > 0U);
+            r_context->slaves_in_initial_download--;
+        } else if (r_client->active != 0) {
+            assert(r_context->active_slaves > 0U);
+            r_context->active_slaves--;
+        }
+        log_activity(r_context, "Slave is lagging way too much - disconnecting");
+        bufferevent_free(r_client->bev);
+        r_client->bev = NULL;
+        evutil_closesocket(r_client->client_fd);
+        r_client->client_fd = -1;
+        /* XXX - Remove entry from slab */
+        
         return 0;
     }
     evbuffer_add(evb, context_cb->r_entry, context_cb->sizeof_r_entry);
