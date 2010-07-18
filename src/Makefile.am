@@ -60,8 +60,8 @@ pincaster_SOURCES = \
         handle_consumer_ops.h \
         public.c \
         public.h \
-        replication.c \
-        replication.h
+        replication_master.c \
+        replication_master.h
 
 #pincaster_DEPENDS = \
 #        yajl/libyajl.a

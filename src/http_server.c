@@ -9,7 +9,7 @@
 #include "handle_consumer_ops.h"
 #include "expirables.h"
 #include "db_log.h"
-#include "replication.h"
+#include "replication_master.h"
 
 static struct event_base *event_base;
 

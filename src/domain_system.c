@@ -2,7 +2,7 @@
 #include "common.h"
 #include "http_server.h"
 #include "query_parser.h"
-#include "replication.h"
+#include "replication_master.h"
 #include "domain_records.h"
 #include "domain_system.h"
 

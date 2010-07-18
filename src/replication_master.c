@@ -1,7 +1,7 @@
 
 #include "common.h"
 #include "http_server.h"
-#include "replication.h"
+#include "replication_master.h"
 
 #define REPLICATION_LISTEN_BACKLOG 128
 #define REPLICATION_MAX_LAG 256 * 1024 * 1024
