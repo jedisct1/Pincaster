@@ -6,8 +6,11 @@
 #define REPLICATION_LISTEN_BACKLOG 128
 #define REPLICATION_MAX_LAG 256 * 1024 * 1024
 
-int init_replication_context(ReplicationMasterContext * const rm_context,
-                             HttpHandlerContext * const context)
+static void free_replication_client(ReplicationClient * const r_client);
+
+static int init_replication_context(ReplicationMasterContext *
+                                    const rm_context,
+                                    HttpHandlerContext * const context)
 {
     *rm_context = (ReplicationMasterContext) {
         .context = context,
@@ -32,7 +35,13 @@ new_replication_context(HttpHandlerContext * const context)
     return rm_context;
 }
 
-void free_replication_context(ReplicationMasterContext * const rm_context)
+static void free_replication_context_cb(void * const r_client_)
+{
+    free_replication_client(r_client_);
+}
+
+static void free_replication_context(ReplicationMasterContext *
+                                     const rm_context)
 {
     if (rm_context == NULL) {
         return;
@@ -41,12 +50,12 @@ void free_replication_context(ReplicationMasterContext * const rm_context)
     if (rm_context->evl != NULL) {
         evconnlistener_free(rm_context->evl);
     }
-    free_slab(&rm_context->r_clients_slab, NULL); /* XXX - shouldn't be NULL */
+    free_slab(&rm_context->r_clients_slab, free_replication_context_cb);
     free(rm_context);
 }
 
-int init_replication_client(ReplicationClient * const r_client,
-                            ReplicationMasterContext * const rm_context)
+static int init_replication_client(ReplicationClient * const r_client,
+                                   ReplicationMasterContext * const rm_context)
 {
     *r_client = (ReplicationClient) {
         .rm_context = rm_context,
@@ -58,9 +67,7 @@ int init_replication_client(ReplicationClient * const r_client,
     return 0;
 }
 
-void free_replication_client(ReplicationClient * const r_client);
-
-ReplicationClient *
+static ReplicationClient *
 new_replication_client(ReplicationMasterContext * const rm_context)
 {
     ReplicationClient r_client_;
@@ -74,7 +81,7 @@ new_replication_client(ReplicationMasterContext * const rm_context)
     return r_client;
 }
 
-void free_replication_client(ReplicationClient * const r_client)
+static void free_replication_client(ReplicationClient * const r_client)
 {
     if (r_client == NULL) {
         return;
