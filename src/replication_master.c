@@ -6,7 +6,8 @@
 #define REPLICATION_LISTEN_BACKLOG 128
 #define REPLICATION_MAX_LAG 256U * 1024U * 1024U
 
-static void free_replication_client(ReplicationClient * const r_client);
+static void free_replication_client(ReplicationClient * const r_client,
+                                    const _Bool remove_from_slab);
 
 static int init_replication_context(ReplicationMasterContext *
                                     const rm_context,
@@ -37,7 +38,7 @@ new_replication_context(HttpHandlerContext * const context)
 
 static void free_replication_context_cb(void * const r_client_)
 {
-    free_replication_client(r_client_);
+    free_replication_client(r_client_, 0);
 }
 
 static void free_replication_context(ReplicationMasterContext *
@@ -76,12 +77,13 @@ new_replication_client(ReplicationMasterContext * const rm_context)
     init_replication_client(&r_client_, rm_context);
     r_client = add_entry_to_slab(&rm_context->r_clients_slab, &r_client_);
     if (r_client == NULL) {
-        free_replication_client(&r_client_);
+        free_replication_client(&r_client_, 1);
     }
     return r_client;
 }
 
-static void free_replication_client(ReplicationClient * const r_client)
+static void free_replication_client(ReplicationClient * const r_client,
+                                    const _Bool remove_from_slab)
 {
     if (r_client == NULL) {
         return;
@@ -100,7 +102,9 @@ static void free_replication_client(ReplicationClient * const r_client)
     }
     ReplicationMasterContext * const rm_context = r_client->rm_context;
     r_client->rm_context = NULL;
-    remove_entry_from_slab(&rm_context->r_clients_slab, r_client);
+    if (remove_from_slab != 0) {
+        remove_entry_from_slab(&rm_context->r_clients_slab, r_client);
+    }
 }
 
 static void log_activity(const ReplicationMasterContext * const rm_context,
@@ -160,7 +164,7 @@ static void sender_eventcb(struct bufferevent * const bev,
         if (what & BEV_EVENT_EOF) {
             log_activity(rm_context, "Slave disconnected");
         }
-        free_replication_client(r_client);
+        free_replication_client(r_client, 1);
     }
 }
 
@@ -208,13 +212,13 @@ static void acceptcb(struct evconnlistener * const listener,
     if ((r_client->db_log_fd = open
          (app_context.db_log.db_log_file_name, O_RDONLY)) == -1) {
         logfile_error(context, "Unable to allocate a replication client");
-        free_replication_client(r_client);
+        free_replication_client(r_client, 1);
         return;
     }
     struct stat st;
     if (fstat(r_client->db_log_fd, &st) != 0) {
         logfile_error(context, "Unable to retrieve the journal file size");
-        free_replication_client(r_client);
+        free_replication_client(r_client, 1);
         return;
     }
     if (st.st_size == (off_t) 0) {        
