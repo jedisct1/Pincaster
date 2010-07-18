@@ -61,7 +61,9 @@ pincaster_SOURCES = \
         public.c \
         public.h \
         replication_master.c \
-        replication_master.h
+        replication_master.h \
+        replication_slave.c \
+        replication_slave.h
 
 #pincaster_DEPENDS = \
 #        yajl/libyajl.a

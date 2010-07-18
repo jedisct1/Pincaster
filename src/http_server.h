@@ -315,6 +315,7 @@ typedef struct HttpHandlerContext_ {
     char *log_file_name;
     int log_fd;
     struct ReplicationMasterContext_ *rm_context;
+    struct ReplicationSlaveContext_ *rs_context;    
 } HttpHandlerContext;
 
 typedef int (*DomainHandler)(struct evhttp_request * const req,

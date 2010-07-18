@@ -10,6 +10,7 @@
 #include "expirables.h"
 #include "db_log.h"
 #include "replication_master.h"
+#include "replication_slave.h"
 
 static struct event_base *event_base;
 
@@ -562,7 +563,8 @@ int http_server(void)
         .nb_layers = (size_t) 0U,
         .log_file_name = NULL,
         .log_fd = -1,
-        .rm_context = NULL
+        .rm_context = NULL,
+        .rs_context = NULL
     };
     if (time(&http_handler_context.now) == (time_t) -1) {
         return -1;
@@ -634,7 +636,7 @@ int http_server(void)
     }
     app_context.http_handler_context = &http_handler_context;
     replay_log(&http_handler_context);
-    start_replication_server(&http_handler_context,
+    start_replication_master(&http_handler_context,
                              app_context.replication_master_ip,
                              app_context.replication_master_port);
     if (start_workers(&http_handler_context) != 0) {
@@ -656,7 +658,7 @@ int http_server(void)
     }
     evtimer_del(&http_handler_context.ev_expiration_cron);
 bye:
-    stop_replication_server(&http_handler_context);    
+    stop_replication_master(&http_handler_context);    
     bufferevent_free(http_handler_context.publisher_bev);
     bufferevent_free(http_handler_context.consumer_bev);
     evhttp_free(event_http);

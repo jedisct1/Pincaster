@@ -4,7 +4,7 @@
 #include "replication_master.h"
 
 #define REPLICATION_LISTEN_BACKLOG 128
-#define REPLICATION_MAX_LAG 256 * 1024 * 1024
+#define REPLICATION_MAX_LAG 256U * 1024U * 1024U
 
 static void free_replication_client(ReplicationClient * const r_client);
 
@@ -238,7 +238,7 @@ static void acceptcb(struct evconnlistener * const listener,
     log_activity(rm_context, "Initial journal sent to slave");    
 }
 
-int start_replication_server(HttpHandlerContext * const context,
+int start_replication_master(HttpHandlerContext * const context,
                              const char * const replication_master_ip,
                              const char * const replication_master_port)
 {
@@ -287,7 +287,7 @@ int start_replication_server(HttpHandlerContext * const context,
     return 0;
 }
 
-void stop_replication_server(HttpHandlerContext * const context)
+void stop_replication_master(HttpHandlerContext * const context)
 {
     ReplicationMasterContext * const rm_context = context->rm_context;
     if (rm_context != NULL) {

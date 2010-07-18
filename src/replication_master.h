@@ -18,11 +18,11 @@ typedef struct ReplicationClient_ {
     _Bool active;
 } ReplicationClient;
 
-int start_replication_server(HttpHandlerContext * const context,
+int start_replication_master(HttpHandlerContext * const context,
                              const char * const replication_master_ip,
                              const char * const replication_master_port);
 
-void stop_replication_server(HttpHandlerContext * const context);
+void stop_replication_master(HttpHandlerContext * const context);
 
 _Bool any_slave_in_initial_download(const HttpHandlerContext * const context);
 
