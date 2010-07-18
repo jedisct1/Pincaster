@@ -4,6 +4,7 @@
 
 typedef struct ReplicationSlaveContext_ {
     HttpHandlerContext *context;
+    struct bufferevent *bev;
 } ReplicationSlaveContext;
 
 int start_replication_slave(HttpHandlerContext * const context,

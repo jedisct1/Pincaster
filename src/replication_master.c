@@ -23,7 +23,7 @@ static int init_replication_context(ReplicationMasterContext *
     return 0;
 }
 
-ReplicationMasterContext *
+static ReplicationMasterContext *
 new_replication_context(HttpHandlerContext * const context)
 {
     ReplicationMasterContext *rm_context = malloc(sizeof *rm_context);
@@ -136,11 +136,9 @@ static void sender_readcb(struct bufferevent * const bev,
 {
     (void) bev;
     (void) r_client_;
-    
-    puts("ReadCB");
 }
 
-static void sender_errorcb(struct bufferevent * const bev,
+static void sender_eventcb(struct bufferevent * const bev,
                            const short what, void * const r_client_)
 {
     ReplicationClient * const r_client = r_client_;
@@ -203,7 +201,7 @@ static void acceptcb(struct evconnlistener * const listener,
     r_client->bev = bev;
     r_client->client_fd = client_fd;
     bufferevent_setcb(bev, sender_readcb, sender_writecb,
-                      sender_errorcb, r_client);
+                      sender_eventcb, r_client);
     const char s[] = "EXPORTED JOURNAL 1\n";
     bufferevent_write(bev, s, sizeof s);
     struct evbuffer *evb = bufferevent_get_output(bev);
@@ -256,11 +254,14 @@ int start_replication_master(HttpHandlerContext * const context,
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
-    hints.ai_flags = EVUTIL_AI_PASSIVE | EVUTIL_AI_ADDRCONFIG;    
-    if (evutil_getaddrinfo(replication_master_ip,
-                           replication_master_port,
-                           NULL, &ai) != 0) {
-        logfile_error(context, "Unable to start the replication service");
+    hints.ai_flags = EVUTIL_AI_PASSIVE | EVUTIL_AI_ADDRCONFIG;
+    const int gai_err = evutil_getaddrinfo(replication_master_ip,
+                                           replication_master_port,
+                                           NULL, &ai);
+    if (gai_err != 0) {
+        logfile(context, LOG_ERR,
+                "Unable to start the replication service: [%s]",
+                gai_strerror(gai_err));
         return -1;
     }
     struct evconnlistener *evl;
