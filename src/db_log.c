@@ -108,9 +108,8 @@ int add_ts_to_ev_log_buffer(struct evbuffer * const log_buffer,
 
 int add_to_db_log(HttpHandlerContext * const context, const int verb,
                   const char *uri, struct evbuffer * const input_buffer,
-                  const _Bool send_to_slaves)
+                  _Bool send_to_slaves)
 {
-    struct evbuffer *r_entry_buffer = NULL;
     time_t ts = context->now;
     DBLog * const db_log = &app_context.db_log;
     if (db_log->db_log_fd == -1) {
@@ -135,35 +134,31 @@ int add_to_db_log(HttpHandlerContext * const context, const int verb,
             body_len--;
         }
     }
-    evbuffer_add(log_buffer, DB_LOG_RECORD_COOKIE_HEAD,
-                 sizeof DB_LOG_RECORD_COOKIE_HEAD - (size_t) 1U);
-    evbuffer_add_printf(log_buffer, "%x %zx:%s %zx:", verb, uri_len,
-                        uri, body_len);
-    if (body != NULL) {
-        evbuffer_add(log_buffer, body, body_len);
+    if (context->rm_context == NULL ||
+        context->rm_context->active_slaves <= 0U) {
+        send_to_slaves = 0;
     }
-    evbuffer_add(log_buffer, DB_LOG_RECORD_COOKIE_TAIL,
-                 sizeof DB_LOG_RECORD_COOKIE_TAIL - (size_t) 1U);
-    if (send_to_slaves == 1 &&
-        context->rm_context != NULL &&
-        context->rm_context->active_slaves > 0U) {
-        if ((r_entry_buffer = evbuffer_new()) == NULL) {
+    struct evbuffer *target_buf = log_buffer;
+    if (send_to_slaves != 0) {
+        if ((target_buf = evbuffer_new()) == NULL) {
             logfile_error(context, "Unable to allocate a buffer in order to "
                           "ship an item for slaves");
-        } else {
-            evbuffer_add(r_entry_buffer, DB_LOG_RECORD_COOKIE_HEAD,
-                         sizeof DB_LOG_RECORD_COOKIE_HEAD - (size_t) 1U);
-            evbuffer_add_printf(r_entry_buffer, "%x %zx:%s %zx:", verb, uri_len,
-                                uri, body_len);
-            if (body != NULL) {
-                evbuffer_add(r_entry_buffer, body, body_len);
-            }
-            evbuffer_add(r_entry_buffer, DB_LOG_RECORD_COOKIE_TAIL,
-                         sizeof DB_LOG_RECORD_COOKIE_TAIL - (size_t) 1U);
+            return -1;
         }
     }
-    send_to_active_slaves(context, r_entry_buffer);
-    evbuffer_free(r_entry_buffer);
+    evbuffer_add(target_buf, DB_LOG_RECORD_COOKIE_HEAD,
+                 sizeof DB_LOG_RECORD_COOKIE_HEAD - (size_t) 1U);
+    evbuffer_add_printf(target_buf, "%x %zx:%s %zx:", verb, uri_len,
+                        uri, body_len);
+    if (body != NULL) {
+        evbuffer_add(target_buf, body, body_len);
+    }
+    evbuffer_add(target_buf, DB_LOG_RECORD_COOKIE_TAIL,
+                 sizeof DB_LOG_RECORD_COOKIE_TAIL - (size_t) 1U);
+    if (send_to_slaves == 1) {
+        send_to_active_slaves(context, target_buf);
+        evbuffer_add_buffer(log_buffer, target_buf);
+    }
     if (app_context.db_log.fsync_period == 0) {
         flush_db_log(1);
     } else if (evbuffer_get_length(log_buffer) > db_log->journal_buffer_size) {
