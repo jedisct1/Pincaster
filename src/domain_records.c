@@ -440,6 +440,14 @@ int handle_op_records_put(RecordsPutOp * const put_op,
         return HTTP_NOTFOUND;
     }
     assert(status > 0);
+    const Rectangle2D * const qbounds = &pan_db->qbounds;
+    if (put_op->position_set != 0 &&
+        !(put_op->position.latitude >= qbounds->edge0.latitude &&
+          put_op->position.longitude >= qbounds->edge0.longitude &&
+          put_op->position.latitude < qbounds->edge1.latitude &&
+          put_op->position.longitude < qbounds->edge1.longitude)) {
+        put_op->position_set = 0;
+    }
     if (status > 0 && put_op->position_set != 0 && key_node->slot != NULL) {
 #if PROJECTION
         const Position2D * const previous_position =
