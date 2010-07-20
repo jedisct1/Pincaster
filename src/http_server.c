@@ -345,7 +345,7 @@ int fake_request(HttpHandlerContext * const context,
         add_to_db_log(context, verb, uri, req.input_buffer, 1);
     }
     while (process_request(context, &req, 1) != 0) {
-        usleep(1000000U / 5U);
+        usleep(1000000U / 25U);
     }
     evbuffer_free(req.input_buffer);
     if (in_main_thread == 0) {
