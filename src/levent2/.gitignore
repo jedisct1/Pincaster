@@ -82,4 +82,5 @@ libevent.pc
 /test/test-ratelim
 /test/test-time
 /test/test-weof
+/test/test-changelist
 
