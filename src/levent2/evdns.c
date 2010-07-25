@@ -1597,14 +1597,16 @@ evdns_request_data_build(const char *const name, const int name_len,
 
 /* exported function */
 struct evdns_server_port *
-evdns_add_server_port_with_base(struct event_base *base, evutil_socket_t socket, int is_tcp, evdns_request_callback_fn_type cb, void *user_data)
+evdns_add_server_port_with_base(struct event_base *base, evutil_socket_t socket, int flags, evdns_request_callback_fn_type cb, void *user_data)
 {
 	struct evdns_server_port *port;
+	if (flags)
+		return NULL; /* flags not yet implemented */
 	if (!(port = mm_malloc(sizeof(struct evdns_server_port))))
 		return NULL;
 	memset(port, 0, sizeof(struct evdns_server_port));
 
-	EVUTIL_ASSERT(!is_tcp); /* TCP sockets not yet implemented */
+
 	port->socket = socket;
 	port->refcnt = 1;
 	port->choked = 0;
@@ -1626,9 +1628,9 @@ evdns_add_server_port_with_base(struct event_base *base, evutil_socket_t socket,
 }
 
 struct evdns_server_port *
-evdns_add_server_port(evutil_socket_t socket, int is_tcp, evdns_request_callback_fn_type cb, void *user_data)
+evdns_add_server_port(evutil_socket_t socket, int flags, evdns_request_callback_fn_type cb, void *user_data)
 {
-	return evdns_add_server_port_with_base(NULL, socket, is_tcp, cb, user_data);
+	return evdns_add_server_port_with_base(NULL, socket, flags, cb, user_data);
 }
 
 /* exported function */
