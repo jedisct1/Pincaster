@@ -7,8 +7,15 @@ Pincaster is an in-memory, persistent data store for geographic data and key/val
 * [Pincaster git repository](http://github.com/jedisct1/Pincaster)
 * [Download snapshots tarballs](http://download.pureftpd.org/pincaster/snapshots/)
 * [Download releases tarballs](http://download.pureftpd.org/pincaster/releases/)
+
+
+Client libraries
+----------------
+
 * [Ruby client library](http://github.com/oz/pincaster)
 * [NodeJS client library](http://github.com/zyll/pincaster)
+* [Python client library)(http://github.com/johnnoone/Pincaster)
+* [PHP client library)(http://github.com/hugdubois/Pincater-php/)
 
 
 Schema overview
