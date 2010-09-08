@@ -14,8 +14,8 @@ Client libraries
 
 * [Ruby client library](http://github.com/oz/pincaster)
 * [NodeJS client library](http://github.com/zyll/pincaster)
-* [Python client library)(http://github.com/johnnoone/Pincaster)
-* [PHP client library)(http://github.com/hugdubois/Pincater-php/)
+* [Python client library](http://github.com/johnnoone/Pincaster)
+* [PHP client library](http://github.com/hugdubois/Pincater-php/)
 
 
 Schema overview
