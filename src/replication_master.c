@@ -207,7 +207,7 @@ static void acceptcb(struct evconnlistener * const listener,
     bufferevent_setcb(bev, sender_readcb, sender_writecb,
                       sender_eventcb, r_client);
     const char s[] = "EXPORTED JOURNAL 1\n";
-    bufferevent_write(bev, s, sizeof s);
+    bufferevent_write(bev, s, sizeof s - (size_t) 1U);
     struct evbuffer *evb = bufferevent_get_output(bev);
     if ((r_client->db_log_fd = open
          (app_context.db_log.db_log_file_name, O_RDONLY)) == -1) {
