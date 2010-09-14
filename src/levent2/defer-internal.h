@@ -30,7 +30,7 @@
 extern "C" {
 #endif
 
-#include "event-config.h"
+#include "event2/event-config.h"
 #include <sys/queue.h>
 
 struct deferred_cb;
@@ -41,7 +41,7 @@ typedef void (*deferred_cb_fn)(struct deferred_cb *, void *);
  * an event_base's event_loop, rather than running immediately. */
 struct deferred_cb {
 	/** Links to the adjacent active (pending) deferred_cb objects. */
-	TAILQ_ENTRY (deferred_cb) (cb_next);
+	TAILQ_ENTRY (deferred_cb) cb_next;
 	/** True iff this deferred_cb is pending in an event_base. */
 	unsigned queued : 1;
 	/** The function to execute when the callback runs. */
@@ -84,22 +84,10 @@ void event_deferred_cb_cancel(struct deferred_cb_queue *, struct deferred_cb *);
  */
 void event_deferred_cb_schedule(struct deferred_cb_queue *, struct deferred_cb *);
 
-#ifdef _EVENT_DISABLE_THREAD_SUPPORT
-#define LOCK_DEFERRED_QUEUE(q) (void)0
-#define UNLOCK_DEFERRED_QUEUE(q) (void)0
-#else
 #define LOCK_DEFERRED_QUEUE(q)						\
-	do {								\
-		if ((q)->lock)						\
-			_evthread_lock_fns.lock(0, (q)->lock);		\
-	} while (0)
-
+	EVLOCK_LOCK((q)->lock, 0)
 #define UNLOCK_DEFERRED_QUEUE(q)					\
-	do {								\
-		if ((q)->lock)						\
-			_evthread_lock_fns.unlock(0, (q)->lock);	\
-	} while (0)
-#endif
+	EVLOCK_UNLOCK((q)->lock, 0)
 
 #ifdef __cplusplus
 }

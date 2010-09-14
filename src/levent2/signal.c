@@ -26,7 +26,7 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include "event-config.h"
+#include "event2/event-config.h"
 
 #ifdef WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -62,6 +62,12 @@
 #include "log-internal.h"
 #include "evmap-internal.h"
 
+#ifndef WIN32
+/* Windows wants us to call our signal handlers as __cdecl.  Nobody else
+ * expects you to do anything crazy like this.  */
+#define __cdecl
+#endif
+
 static int evsig_add(struct event_base *, int, short, short, void *);
 static int evsig_del(struct event_base *, int, short, short, void *);
 
@@ -77,7 +83,7 @@ static const struct eventop evsigops = {
 
 struct event_base *evsig_base = NULL;
 
-static void evsig_handler(int sig);
+static void __cdecl evsig_handler(int sig);
 
 /* Callback for when the signal handler write a byte to our signaling socket */
 static void
@@ -89,8 +95,11 @@ evsig_cb(evutil_socket_t fd, short what, void *arg)
 	(void)arg; /* Suppress "unused variable" warning. */
 
 	n = recv(fd, signals, sizeof(signals), 0);
-	if (n == -1)
-		event_sock_err(1, fd, "%s: read", __func__);
+	if (n == -1) {
+		int err = evutil_socket_geterror(fd);
+		if (! EVUTIL_ERR_RW_RETRIABLE(err))
+			event_sock_err(1, fd, "%s: recv", __func__);
+	}
 }
 
 int
@@ -121,6 +130,7 @@ evsig_init(struct event_base *base)
 	memset(&base->sig.evsigcaught, 0, sizeof(sig_atomic_t)*NSIG);
 
 	evutil_make_socket_nonblocking(base->sig.ev_signal_pair[0]);
+	evutil_make_socket_nonblocking(base->sig.ev_signal_pair[1]);
 
 	event_assign(&base->sig.ev_signal, base, base->sig.ev_signal_pair[1],
 		EV_READ | EV_PERSIST, evsig_cb, &base->sig.ev_signal);
@@ -137,7 +147,7 @@ evsig_init(struct event_base *base)
  * we can restore the original handler when we clear the current one. */
 int
 _evsig_set_handler(struct event_base *base,
-		      int evsignal, void (*handler)(int))
+    int evsignal, void (__cdecl *handler)(int))
 {
 #ifdef _EVENT_HAVE_SIGACTION
 	struct sigaction sa;
@@ -266,7 +276,7 @@ evsig_del(struct event_base *base, int evsignal, short old, short events, void *
 	return (_evsig_restore_handler(base, evsignal));
 }
 
-static void
+static void __cdecl
 evsig_handler(int sig)
 {
 	int save_errno = errno;

@@ -24,7 +24,7 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include "event-config.h"
+#include "event2/event-config.h"
 
 #include <stdint.h>
 #include <sys/types.h>
@@ -118,6 +118,30 @@ epoll_init(struct event_base *base)
 	evsig_init(base);
 
 	return (epollop);
+}
+
+static const char *
+change_to_string(int change)
+{
+	change &= (EV_CHANGE_ADD|EV_CHANGE_DEL);
+	if (change == EV_CHANGE_ADD) {
+		return "add";
+	} else if (change == EV_CHANGE_DEL) {
+		return "del";
+	} else if (change == 0) {
+		return "none";
+	} else {
+		return "???";
+	}
+}
+
+static const char *
+epoll_op_to_string(int op)
+{
+	return op == EPOLL_CTL_ADD?"ADD":
+	    op == EPOLL_CTL_DEL?"DEL":
+	    op == EPOLL_CTL_MOD?"MOD":
+	    "???";
 }
 
 static int
@@ -242,24 +266,23 @@ epoll_apply_changes(struct event_base *base)
 				 * got around to calling epoll_dispatch. */
 				event_debug(("  DEL was unnecessary."));
 			} else {
-				event_warn("Epoll %s on fd %d failed.  Old events were %d; read change was %d; write change was %d.",
-				    op == EPOLL_CTL_ADD?"ADD":
-				    op == EPOLL_CTL_DEL?"DEL":
-				    op == EPOLL_CTL_MOD?"MOD":"???",
+				event_warn("Epoll %s on fd %d failed.  Old events were %d; read change was %d (%s); write change was %d (%s).",
+				    epoll_op_to_string(op),
 				    ch->fd,
 				    ch->old_events,
-				    ch->read_change, ch->write_change
-				    );
+				    ch->read_change,
+				    change_to_string(ch->read_change),
+				    ch->write_change,
+				    change_to_string(ch->write_change));
 			}
 		} else {
 			event_debug(("Epoll %s(%d) on fd %d okay. [old events were %d; read change was %d; write change was %d]",
-				op == EPOLL_CTL_ADD?"ADD":
-				op == EPOLL_CTL_DEL?"DEL":
-				op == EPOLL_CTL_MOD?"MOD":"???",
+				epoll_op_to_string(op),
 				(int)epev.events,
 				(int)ch->fd,
 				ch->old_events,
-				ch->read_change, ch->write_change));
+				ch->read_change,
+				ch->write_change));
 		}
 	}
 

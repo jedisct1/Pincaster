@@ -50,6 +50,7 @@ extern struct testcase_t iocp_testcases[];
 extern struct testcase_t ssl_testcases[];
 extern struct testcase_t listener_testcases[];
 extern struct testcase_t listener_iocp_testcases[];
+extern struct testcase_t thread_testcases[];
 
 void regress_threads(void *);
 void test_bufferevent_zlib(void *);
@@ -109,8 +110,11 @@ int _test_ai_eq(const struct evutil_addrinfo *ai, const char *sockaddr_port,
 			goto end;					\
 	} while (0)
 
+#define test_timeval_diff_leq(tv1, tv2, diff, tolerance)		\
+	tt_int_op(abs(timeval_msec_diff((tv1), (tv2)) - diff), <=, tolerance)
+
 #define test_timeval_diff_eq(tv1, tv2, diff)				\
-	tt_int_op(abs(timeval_msec_diff((tv1), (tv2)) - diff), <=, 30)
+	test_timeval_diff_leq((tv1), (tv2), (diff), 50)
 
 long timeval_msec_diff(const struct timeval *start, const struct timeval *end);
 

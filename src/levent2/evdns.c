@@ -35,7 +35,7 @@
  */
 
 #include <sys/types.h>
-#include "event-config.h"
+#include "event2/event-config.h"
 
 #ifndef _FORTIFY_SOURCE
 #define _FORTIFY_SOURCE 3
@@ -123,12 +123,6 @@
 #define u32 ev_uint32_t
 #define u16 ev_uint16_t
 #define u8  ev_uint8_t
-
-#ifdef WIN32
-#define open _open
-#define read _read
-#define close _close
-#endif
 
 /* maximum number of addresses from a single packet */
 /* that we bother recording */
@@ -2372,6 +2366,7 @@ _evdns_nameserver_add_impl(struct evdns_base *base, const struct sockaddr *addre
 
 	ns->socket = socket(PF_INET, SOCK_DGRAM, 0);
 	if (ns->socket < 0) { err = 1; goto out1; }
+	evutil_make_socket_closeonexec(ns->socket);
 	evutil_make_socket_nonblocking(ns->socket);
 
 	if (base->global_outgoing_addrlen &&
@@ -2496,6 +2491,18 @@ evdns_nameserver_ip_add(const char *ip_as_string) {
 	if (!current_base)
 		current_base = evdns_base_new(NULL, 0);
 	return evdns_base_nameserver_ip_add(current_base, ip_as_string);
+}
+
+int
+evdns_base_nameserver_sockaddr_add(struct evdns_base *base,
+    const struct sockaddr *sa, ev_socklen_t len, unsigned flags)
+{
+	int res;
+	EVUTIL_ASSERT(base);
+	EVDNS_LOCK(base);
+	res = _evdns_nameserver_add_impl(base, sa, len);
+	EVDNS_UNLOCK(base);
+	return res;
 }
 
 /* remove from the queue */
@@ -3507,7 +3514,7 @@ load_nameservers_with_getnetworkparams(struct evdns_base *base)
 		status = -1;
 		goto done;
 	}
-	if (!(fn = (GetNetworkParams_fn_t) GetProcAddress(handle, TEXT("GetNetworkParams")))) {
+	if (!(fn = (GetNetworkParams_fn_t) GetProcAddress(handle, "GetNetworkParams"))) {
 		log(EVDNS_LOG_WARN, "Could not get address of function.");
 		status = -1;
 		goto done;

@@ -1,13 +1,13 @@
 AUTOMAKE_OPTIONS = foreign
 
-AM_CFLAGS = -I$(top_srcdir) -I$(top_srcdir)/compat -I$(top_srcdir)/include
+AM_CFLAGS = -I$(top_srcdir) -I$(top_srcdir)/compat -I$(top_srcdir)/include -I../include -DTINYTEST_LOCAL
 
 EXTRA_DIST = regress.rpc regress.gen.h regress.gen.c test.sh
 
 noinst_PROGRAMS = test-init test-eof test-weof test-time regress \
 	bench bench_cascade bench_http bench_httpclient test-ratelim \
 	test-changelist
-noinst_HEADERS = tinytest.h tinytest_macros.h regress.h
+noinst_HEADERS = tinytest.h tinytest_macros.h regress.h tinytest_local.h
 
 TESTS = $(top_srcdir)/test/test.sh
 
@@ -30,10 +30,13 @@ regress_SOURCES = regress.c regress_buffer.c regress_http.c regress_dns.c \
 	regress_rpc.c regress.gen.c regress.gen.h regress_et.c \
 	regress_bufferevent.c regress_listener.c \
 	regress_util.c tinytest.c regress_main.c regress_minheap.c \
-	$(regress_pthread_SOURCES) $(regress_zlib_SOURCES)
+	$(regress_thread_SOURCES) $(regress_zlib_SOURCES)
 if PTHREADS
-regress_pthread_SOURCES = regress_pthread.c
+regress_thread_SOURCES = regress_thread.c
 PTHREAD_LIBS += ../libevent_pthreads.la
+endif
+if BUILD_WIN32
+regress_thread_SOURCES = regress_thread.c
 endif
 if ZLIB_REGRESS
 regress_zlib_SOURCES = regress_zlib.c
@@ -44,7 +47,7 @@ endif
 
 regress_LDADD = ../libevent.la $(PTHREAD_LIBS) $(ZLIB_LIBS)
 regress_CFLAGS = -I$(top_srcdir) -I$(top_srcdir)/compat \
-	-I$(top_srcdir)/include  $(PTHREAD_CFLAGS) $(ZLIB_CFLAGS)
+	-I$(top_srcdir)/include -I../include $(PTHREAD_CFLAGS) $(ZLIB_CFLAGS)
 regress_LDFLAGS = $(PTHREAD_CFLAGS)
 
 if OPENSSL

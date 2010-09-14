@@ -26,7 +26,7 @@
 #ifndef _EVENT_UTIL_INTERNAL_H
 #define _EVENT_UTIL_INTERNAL_H
 
-#include "event-config.h"
+#include "event2/event-config.h"
 #include <errno.h>
 
 /* For EVUTIL_ASSERT */
@@ -105,25 +105,16 @@ extern "C" {
  * when you care about ASCII's notion of character types, because you are about
  * to send those types onto the wire.
  */
-#define DECLARE_CTYPE_FN(name)						\
-	static int EVUTIL_##name(char c);				\
-	extern const ev_uint32_t EVUTIL_##name##_TABLE[];		\
-	static inline int EVUTIL_##name(char c) {			\
-		ev_uint8_t u = c;					\
-		return !!(EVUTIL_##name##_TABLE[(u >> 5) & 7] & (1 << (u & 31))); \
-	}
-DECLARE_CTYPE_FN(ISALPHA)
-DECLARE_CTYPE_FN(ISALNUM)
-DECLARE_CTYPE_FN(ISSPACE)
-DECLARE_CTYPE_FN(ISDIGIT)
-DECLARE_CTYPE_FN(ISXDIGIT)
-DECLARE_CTYPE_FN(ISPRINT)
-DECLARE_CTYPE_FN(ISLOWER)
-DECLARE_CTYPE_FN(ISUPPER)
-extern const unsigned char EVUTIL_TOUPPER_TABLE[];
-extern const unsigned char EVUTIL_TOLOWER_TABLE[];
-#define EVUTIL_TOLOWER(c) ((char)EVUTIL_TOLOWER_TABLE[(ev_uint8_t)c])
-#define EVUTIL_TOUPPER(c) ((char)EVUTIL_TOUPPER_TABLE[(ev_uint8_t)c])
+int EVUTIL_ISALPHA(char c);
+int EVUTIL_ISALNUM(char c);
+int EVUTIL_ISSPACE(char c);
+int EVUTIL_ISDIGIT(char c);
+int EVUTIL_ISXDIGIT(char c);
+int EVUTIL_ISPRINT(char c);
+int EVUTIL_ISLOWER(char c);
+int EVUTIL_ISUPPER(char c);
+char EVUTIL_TOUPPER(char c);
+char EVUTIL_TOLOWER(char c);
 
 /** Helper macro.  If we know that a given pointer points to a field in a
     structure, return a pointer to the structure itself.  Used to implement
@@ -150,6 +141,8 @@ int evutil_socket_connect(evutil_socket_t *fd_ptr, struct sockaddr *sa, int sock
 
 int evutil_socket_finished_connecting(evutil_socket_t fd);
 
+int evutil_ersatz_socketpair(int, int , int, evutil_socket_t[]);
+
 int evutil_resolve(int family, const char *hostname, struct sockaddr *sa,
     ev_socklen_t *socklen, int port);
 
@@ -166,6 +159,10 @@ long _evutil_weakrand(void);
 #endif
 
 /* Replacement for assert() that calls event_errx on failure. */
+#ifdef NDEBUG
+#define EVUTIL_ASSERT(cond) _EVUTIL_NIL_STMT
+#define EVUTIL_FAILURE_CHECK(cond) 0
+#else
 #define EVUTIL_ASSERT(cond)						\
 	do {								\
 		if (EVUTIL_UNLIKELY(!(cond))) {				\
@@ -180,6 +177,8 @@ long _evutil_weakrand(void);
 			abort();					\
 		}							\
 	} while (0)
+#define EVUTIL_FAILURE_CHECK(cond) EVUTIL_UNLIKELY(cond)
+#endif
 
 /* Internal addrinfo error code.  This one is returned from only from
  * evutil_getaddrinfo_common, when we are sure that we'll have to hit a DNS

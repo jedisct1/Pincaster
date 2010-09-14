@@ -31,7 +31,7 @@
 extern "C" {
 #endif
 
-#include "event-config.h"
+#include "event2/event-config.h"
 #include <sys/queue.h>
 #include "event2/event_struct.h"
 #include "minheap-internal.h"
@@ -182,6 +182,8 @@ struct event_base {
 	/** Data to implement the common signal handelr code. */
 	struct evsig_info sig;
 
+	/** Number of virtual events */
+	int virtual_event_count;
 	/** Number of total events added to this event_base */
 	int event_count;
 	/** Number of total events active in this event_base */
@@ -216,9 +218,6 @@ struct event_base {
 	/** The total size of common_timeout_queues. */
 	int n_common_timeouts_allocated;
 
-	/** The event whose callback is executing right now */
-	struct event *current_event;
-
 	/** List of defered_cb that are active.  We run these after the active
 	 * events. */
 	struct deferred_cb_queue defer_queue;
@@ -247,9 +246,13 @@ struct event_base {
 	unsigned long th_owner_id;
 	/** A lock to prevent conflicting accesses to this event_base */
 	void *th_base_lock;
-	/** A lock to prevent event_del from deleting an event while its
-	 * callback is executing. */
-	void *current_event_lock;
+	/** The event whose callback is executing right now */
+	struct event *current_event;
+	/** A condition that gets signalled when we're done processing an
+	 * event with waiters on it. */
+	void *current_event_cond;
+	/** Number of threads blocking on current_event_cond. */
+	int current_event_waiters;
 #endif
 
 #ifdef WIN32
@@ -261,6 +264,9 @@ struct event_base {
 	enum event_base_config_flag flags;
 
 	/* Notify main thread to wake up break, etc. */
+	/** True if the base already has a pending notify, and we don't need
+	 * to add any more. */
+	int is_notify_pending;
 	/** A socketpair used by some th_notify functions to wake up the main
 	 * thread. */
 	int th_notify_fd[2];
@@ -272,7 +278,7 @@ struct event_base {
 };
 
 struct event_config_entry {
-	TAILQ_ENTRY(event_config_entry) (next);
+	TAILQ_ENTRY(event_config_entry) next;
 
 	const char *avoid_method;
 };
@@ -282,6 +288,7 @@ struct event_config_entry {
 struct event_config {
 	TAILQ_HEAD(event_configq, event_config_entry) entries;
 
+	int n_cpus_hint;
 	enum event_method_feature require_features;
 	enum event_base_config_flag flags;
 };
@@ -311,6 +318,10 @@ int _evsig_set_handler(struct event_base *base, int evsignal,
 int _evsig_restore_handler(struct event_base *base, int evsignal);
 
 void event_active_nolock(struct event *ev, int res, short count);
+
+/* FIXME document. */
+void event_base_add_virtual(struct event_base *base);
+void event_base_del_virtual(struct event_base *base);
 
 #ifdef __cplusplus
 }

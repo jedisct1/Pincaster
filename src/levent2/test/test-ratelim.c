@@ -54,6 +54,7 @@ static int cfg_duration = 5;
 static int cfg_connlimit = 0;
 static int cfg_grouplimit = 0;
 static int cfg_tick_msec = 1000;
+static int cfg_min_share = -1;
 
 static int cfg_connlimit_tolerance = -1;
 static int cfg_grouplimit_tolerance = -1;
@@ -70,6 +71,8 @@ struct client_state {
 	size_t queued;
 	ev_uint64_t received;
 };
+
+static int n_echo_conns_open = 0;
 
 static void
 loud_writecb(struct bufferevent *bev, void *ctx)
@@ -132,6 +135,7 @@ static void
 echo_eventcb(struct bufferevent *bev, short what, void *ctx)
 {
 	if (what & (BEV_EVENT_EOF|BEV_EVENT_ERROR)) {
+		--n_echo_conns_open;
 		bufferevent_free(bev);
 	}
 }
@@ -150,6 +154,7 @@ echo_listenercb(struct evconnlistener *listener, evutil_socket_t newsock,
 		bufferevent_set_rate_limit(bev, conn_bucket_cfg);
 	if (ratelim_group)
 		bufferevent_add_to_rate_limit_group(bev, ratelim_group);
+	++n_echo_conns_open;
 	bufferevent_enable(bev, EV_READ|EV_WRITE);
 }
 
@@ -165,6 +170,7 @@ test_ratelimiting(void)
 
 	struct bufferevent **bevs;
 	struct client_state *states;
+	struct bufferevent_rate_limit_group *group = NULL;
 
 	int i;
 
@@ -181,7 +187,11 @@ test_ratelimiting(void)
 	sin.sin_addr.s_addr = htonl(0x7f000001); /* 127.0.0.1 */
 	sin.sin_port = 0; /* unspecified port */
 
+	if (0)
+		event_enable_debug_mode();
+
 	base = event_base_new();
+
 	listener = evconnlistener_new_bind(base, echo_listenercb, base,
 	    LEV_OPT_CLOSE_ON_FREE|LEV_OPT_REUSEABLE, -1,
 	    (struct sockaddr *)&sin, sizeof(sin));
@@ -206,12 +216,15 @@ test_ratelimiting(void)
 			cfg_grouplimit, cfg_grouplimit * 4,
 			cfg_grouplimit, cfg_grouplimit * 4,
 			&cfg_tick);
-		ratelim_group = bufferevent_rate_limit_group_new(
+		group = ratelim_group = bufferevent_rate_limit_group_new(
 			base, group_bucket_cfg);
 		expected_total_persec = cfg_grouplimit;
 		expected_avg_persec = cfg_grouplimit / cfg_n_connections;
 		if (cfg_connlimit > 0 && expected_avg_persec > cfg_connlimit)
 			expected_avg_persec = cfg_connlimit;
+		if (cfg_min_share >= 0)
+			bufferevent_rate_limit_group_set_min_share(
+				ratelim_group, cfg_min_share);
 	}
 
 	if (expected_avg_persec < 0 && cfg_connlimit > 0)
@@ -243,18 +256,27 @@ test_ratelimiting(void)
 
 	event_base_dispatch(base);
 
-	for (i = 0; i < cfg_n_connections; ++i)
+	ratelim_group = NULL; /* So no more responders get added */
+
+	for (i = 0; i < cfg_n_connections; ++i) {
 		bufferevent_free(bevs[i]);
+	}
 	evconnlistener_free(listener);
 
-	/* This should get _everybody_ freed */
-	tv.tv_sec = 0;
-	tv.tv_usec = 300000;
-	event_base_loopexit(base, &tv);
-	event_base_dispatch(base);
+	/* Make sure no new echo_conns get added to the group. */
+	ratelim_group = NULL;
 
-	if (ratelim_group)
-		bufferevent_rate_limit_group_free(ratelim_group);
+	/* This should get _everybody_ freed */
+	while (n_echo_conns_open) {
+		printf("waiting for %d conns\n", n_echo_conns_open);
+		tv.tv_sec = 0;
+		tv.tv_usec = 300000;
+		event_base_loopexit(base, &tv);
+		event_base_dispatch(base);
+	}
+
+	if (group)
+		bufferevent_rate_limit_group_free(group);
 
 	total_received = 0;
 	total_persec = 0.0;
@@ -301,6 +323,10 @@ test_ratelimiting(void)
 		ok = 0;
 	}
 
+	event_base_free(base);
+	free(bevs);
+	free(states);
+
 	return ok ? 0 : 1;
 }
 
@@ -314,6 +340,7 @@ static struct option {
 	{ "-c", &cfg_connlimit, 0, 0 },
 	{ "-g", &cfg_grouplimit, 0, 0 },
 	{ "-t", &cfg_tick_msec, 10, 0 },
+	{ "--min-share", &cfg_min_share, 0, 0 },
 	{ "--check-connlimit", &cfg_connlimit_tolerance, 0, 0 },
 	{ "--check-grouplimit", &cfg_grouplimit_tolerance, 0, 0 },
 	{ "--check-stddev", &cfg_stddev_tolerance, 0, 0 },

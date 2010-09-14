@@ -31,7 +31,7 @@
 extern "C" {
 #endif
 
-#include "event-config.h"
+#include "event2/event-config.h"
 #include "event2/util.h"
 #include "util-internal.h"
 #include "defer-internal.h"
@@ -256,7 +256,8 @@ int _evbuffer_expand_fast(struct evbuffer *, size_t, int);
  * Returns the number of vecs used.
  */
 int _evbuffer_read_setup_vecs(struct evbuffer *buf, ev_ssize_t howmuch,
-    struct evbuffer_iovec *vecs, int n_vecs, struct evbuffer_chain ***chainp, int exact);
+    struct evbuffer_iovec *vecs, int n_vecs, struct evbuffer_chain ***chainp,
+    int exact);
 
 /* Helper macro: copies an evbuffer_iovec in ei to a win32 WSABUF in i. */
 #define WSABUF_FROM_EVBUFFER_IOV(i,ei) do {		\

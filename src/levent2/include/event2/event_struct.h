@@ -38,7 +38,7 @@
 extern "C" {
 #endif
 
-#include <event-config.h>
+#include <event2/event-config.h>
 #ifdef _EVENT_HAVE_SYS_TYPES_H
 #include <sys/types.h>
 #endif
@@ -48,6 +48,9 @@ extern "C" {
 
 /* For int types. */
 #include <event2/util.h>
+
+/* For evkeyvalq */
+#include <event2/keyvalq_struct.h>
 
 #define EVLIST_TIMEOUT	0x01
 #define EVLIST_INSERTED	0x02
@@ -69,13 +72,22 @@ struct {								\
 }
 #endif /* !TAILQ_ENTRY */
 
+#ifndef TAILQ_HEAD
+#define _EVENT_DEFINED_TQHEAD
+#define TAILQ_HEAD(name, type)			\
+struct name {					\
+	struct type *tqh_first;			\
+	struct type **tqh_last;			\
+}
+#endif
+
 struct event_base;
 struct event {
-	TAILQ_ENTRY (event) (ev_active_next);
-	TAILQ_ENTRY (event) (ev_next);
+	TAILQ_ENTRY(event) ev_active_next;
+	TAILQ_ENTRY(event) ev_next;
 	/* for managing timeouts */
 	union {
-		TAILQ_ENTRY (event) (ev_next_with_common_timeout);
+		TAILQ_ENTRY(event) ev_next_with_common_timeout;
 		int min_heap_idx;
 	} ev_timeout_pos;
 	evutil_socket_t ev_fd;
@@ -85,13 +97,13 @@ struct event {
 	union {
 		/* used for io events */
 		struct {
-			TAILQ_ENTRY (event) (ev_io_next);
+			TAILQ_ENTRY(event) ev_io_next;
 			struct timeval ev_timeout;
 		} ev_io;
 
 		/* used by signal events */
 		struct {
-			TAILQ_ENTRY (event) (ev_signal_next);
+			TAILQ_ENTRY(event) ev_signal_next;
 			short ev_ncalls;
 			/* Allows deletes in callback */
 			short *ev_pncalls;
@@ -110,26 +122,15 @@ struct event {
 	void *ev_arg;
 };
 
-/*
- * Key-Value pairs.  Can be used for HTTP headers but also for
- * query argument parsing.
- */
-struct evkeyval {
-	TAILQ_ENTRY(evkeyval) next;
-
-	char *key;
-	char *value;
-};
+TAILQ_HEAD (event_list, event);
 
 #ifdef _EVENT_DEFINED_TQENTRY
 #undef TAILQ_ENTRY
-struct event_list;
-struct evkeyvalq;
-#undef _EVENT_DEFINED_TQENTRY
-#else
-TAILQ_HEAD (event_list, event);
-TAILQ_HEAD (evkeyvalq, evkeyval);
-#endif /* _EVENT_DEFINED_TQENTRY */
+#endif
+
+#ifdef _EVENT_DEFINED_TQHEAD
+#undef TAILQ_HEAD
+#endif
 
 #ifdef __cplusplus
 }

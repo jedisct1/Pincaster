@@ -32,7 +32,7 @@
 #include <fcntl.h>
 #endif
 
-#include "event-config.h"
+#include "event2/event-config.h"
 
 #ifdef _EVENT___func__
 #define __func__ _EVENT___func__
@@ -71,7 +71,7 @@
 #include <event2/dns_compat.h>
 #include <event2/thread.h>
 
-#include "event-config.h"
+#include "event2/event-config.h"
 #include "regress.h"
 #include "tinytest.h"
 #include "tinytest_macros.h"
@@ -209,7 +209,7 @@ basic_test_setup(const struct testcase_t *testcase)
 			exit(1);
 	}
 	if (testcase->flags & TT_ENABLE_IOCP_FLAG) {
-		if (event_base_start_iocp(base)<0) {
+		if (event_base_start_iocp(base, 0)<0) {
 			event_base_free(base);
 			return (void*)TT_SKIP;
 		}
@@ -325,15 +325,12 @@ const struct testcase_setup_t legacy_setup = {
 
 /* ============================================================ */
 
-
+#if (!defined(_EVENT_HAVE_PTHREADS) && !defined(WIN32)) || defined(_EVENT_DISABLE_THREAD_SUPPORT)
 struct testcase_t thread_testcases[] = {
-#if defined(_EVENT_HAVE_PTHREADS) && !defined(_EVENT_DISABLE_THREAD_SUPPORT)
-	{ "pthreads", regress_threads, TT_FORK, NULL, NULL, },
-#else
-	{ "pthreads", NULL, TT_SKIP, NULL, NULL },
-#endif
+	{ "basic", NULL, TT_SKIP, NULL, NULL },
 	END_OF_TESTCASES
 };
+#endif
 
 struct testgroup_t testgroups[] = {
 	{ "main/", main_testcases },

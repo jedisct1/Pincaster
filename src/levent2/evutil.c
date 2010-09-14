@@ -24,7 +24,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "event-config.h"
+#include "event2/event-config.h"
 
 #define _GNU_SOURCE
 
@@ -77,6 +77,14 @@
 
 #include "strlcpy-internal.h"
 #include "ipv6-internal.h"
+
+#ifdef WIN32
+#define open _open
+#define read _read
+#define close _close
+#define fstat _fstat
+#define stat _stat
+#endif
 
 /**
    Read the contents of 'filename' into a newly allocated NUL-terminated
@@ -145,6 +153,14 @@ evutil_socketpair(int family, int type, int protocol, evutil_socket_t fd[2])
 #ifndef WIN32
 	return socketpair(family, type, protocol, fd);
 #else
+	return evutil_ersatz_socketpair(family, type, protocol, fd);
+#endif
+}
+
+int
+evutil_ersatz_socketpair(int family, int type, int protocol,
+    evutil_socket_t fd[2])
+{
 	/* This code is originally from Tor.  Used with permission. */
 
 	/* This socketpair does not work when localhost is down. So
@@ -152,12 +168,17 @@ evutil_socketpair(int family, int type, int protocol, evutil_socket_t fd[2])
 	 * for now, and really, when localhost is down sometimes, we
 	 * have other problems too.
 	 */
+#ifdef WIN32
+#define ERR(e) WSA##e
+#else
+#define ERR(e) e
+#endif
 	evutil_socket_t listener = -1;
 	evutil_socket_t connector = -1;
 	evutil_socket_t acceptor = -1;
 	struct sockaddr_in listen_addr;
 	struct sockaddr_in connect_addr;
-	int size;
+	ev_socklen_t size;
 	int saved_errno = -1;
 
 	if (protocol
@@ -166,11 +187,11 @@ evutil_socketpair(int family, int type, int protocol, evutil_socket_t fd[2])
 		    && family != AF_UNIX
 #endif
 		)) {
-		EVUTIL_SET_SOCKET_ERROR(WSAEAFNOSUPPORT);
+		EVUTIL_SET_SOCKET_ERROR(ERR(EAFNOSUPPORT));
 		return -1;
 	}
 	if (!fd) {
-		EVUTIL_SET_SOCKET_ERROR(WSAEINVAL);
+		EVUTIL_SET_SOCKET_ERROR(ERR(EINVAL));
 		return -1;
 	}
 
@@ -222,10 +243,10 @@ evutil_socketpair(int family, int type, int protocol, evutil_socket_t fd[2])
 	return 0;
 
  abort_tidy_up_and_fail:
-	saved_errno = WSAECONNABORTED;
+	saved_errno = ERR(ECONNABORTED);
  tidy_up_and_fail:
 	if (saved_errno < 0)
-		saved_errno = WSAGetLastError();
+		saved_errno = EVUTIL_SOCKET_ERROR();
 	if (listener != -1)
 		evutil_closesocket(listener);
 	if (connector != -1)
@@ -235,7 +256,7 @@ evutil_socketpair(int family, int type, int protocol, evutil_socket_t fd[2])
 
 	EVUTIL_SET_SOCKET_ERROR(saved_errno);
 	return -1;
-#endif
+#undef ERR
 }
 
 int
@@ -1846,21 +1867,21 @@ evutil_sockaddr_cmp(const struct sockaddr *sa1, const struct sockaddr *sa2,
  * fails on non-ASCII platforms, but so does every other place where we
  * take a char and write it onto the network.
  **/
-const ev_uint32_t EVUTIL_ISALPHA_TABLE[8] =
+static const ev_uint32_t EVUTIL_ISALPHA_TABLE[8] =
   { 0, 0, 0x7fffffe, 0x7fffffe, 0, 0, 0, 0 };
-const ev_uint32_t EVUTIL_ISALNUM_TABLE[8] =
+static const ev_uint32_t EVUTIL_ISALNUM_TABLE[8] =
   { 0, 0x3ff0000, 0x7fffffe, 0x7fffffe, 0, 0, 0, 0 };
-const ev_uint32_t EVUTIL_ISSPACE_TABLE[8] = { 0x3e00, 0x1, 0, 0, 0, 0, 0, 0 };
-const ev_uint32_t EVUTIL_ISXDIGIT_TABLE[8] =
+static const ev_uint32_t EVUTIL_ISSPACE_TABLE[8] = { 0x3e00, 0x1, 0, 0, 0, 0, 0, 0 };
+static const ev_uint32_t EVUTIL_ISXDIGIT_TABLE[8] =
   { 0, 0x3ff0000, 0x7e, 0x7e, 0, 0, 0, 0 };
-const ev_uint32_t EVUTIL_ISDIGIT_TABLE[8] = { 0, 0x3ff0000, 0, 0, 0, 0, 0, 0 };
-const ev_uint32_t EVUTIL_ISPRINT_TABLE[8] =
+static const ev_uint32_t EVUTIL_ISDIGIT_TABLE[8] = { 0, 0x3ff0000, 0, 0, 0, 0, 0, 0 };
+static const ev_uint32_t EVUTIL_ISPRINT_TABLE[8] =
   { 0, 0xffffffff, 0xffffffff, 0x7fffffff, 0, 0, 0, 0x0 };
-const ev_uint32_t EVUTIL_ISUPPER_TABLE[8] = { 0, 0, 0x7fffffe, 0, 0, 0, 0, 0 };
-const ev_uint32_t EVUTIL_ISLOWER_TABLE[8] = { 0, 0, 0, 0x7fffffe, 0, 0, 0, 0 };
+static const ev_uint32_t EVUTIL_ISUPPER_TABLE[8] = { 0, 0, 0x7fffffe, 0, 0, 0, 0, 0 };
+static const ev_uint32_t EVUTIL_ISLOWER_TABLE[8] = { 0, 0, 0, 0x7fffffe, 0, 0, 0, 0 };
 /* Upper-casing and lowercasing tables to map characters to upper/lowercase
  * equivalents. */
-const unsigned char EVUTIL_TOUPPER_TABLE[256] = {
+static const unsigned char EVUTIL_TOUPPER_TABLE[256] = {
   0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,
   16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,
   32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,
@@ -1878,7 +1899,7 @@ const unsigned char EVUTIL_TOUPPER_TABLE[256] = {
   224,225,226,227,228,229,230,231,232,233,234,235,236,237,238,239,
   240,241,242,243,244,245,246,247,248,249,250,251,252,253,254,255,
 };
-const unsigned char EVUTIL_TOLOWER_TABLE[256] = {
+static const unsigned char EVUTIL_TOLOWER_TABLE[256] = {
   0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,
   16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,
   32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,
@@ -1897,6 +1918,28 @@ const unsigned char EVUTIL_TOLOWER_TABLE[256] = {
   240,241,242,243,244,245,246,247,248,249,250,251,252,253,254,255,
 };
 
+#define IMPL_CTYPE_FN(name)						\
+	int EVUTIL_##name(char c) {					\
+		ev_uint8_t u = c;					\
+		return !!(EVUTIL_##name##_TABLE[(u >> 5) & 7] & (1 << (u & 31))); \
+	}
+IMPL_CTYPE_FN(ISALPHA)
+IMPL_CTYPE_FN(ISALNUM)
+IMPL_CTYPE_FN(ISSPACE)
+IMPL_CTYPE_FN(ISDIGIT)
+IMPL_CTYPE_FN(ISXDIGIT)
+IMPL_CTYPE_FN(ISPRINT)
+IMPL_CTYPE_FN(ISLOWER)
+IMPL_CTYPE_FN(ISUPPER)
+
+char EVUTIL_TOLOWER(char c)
+{
+	return ((char)EVUTIL_TOLOWER_TABLE[(ev_uint8_t)c]);
+}
+char EVUTIL_TOUPPER(char c)
+{
+	return ((char)EVUTIL_TOUPPER_TABLE[(ev_uint8_t)c]);
+}
 int
 evutil_ascii_strcasecmp(const char *s1, const char *s2)
 {

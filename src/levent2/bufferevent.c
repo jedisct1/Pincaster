@@ -27,7 +27,7 @@
 
 #include <sys/types.h>
 
-#include "event-config.h"
+#include "event2/event-config.h"
 
 #ifdef _EVENT_HAVE_SYS_TIME_H
 #include <sys/time.h>
@@ -78,7 +78,7 @@ bufferevent_unsuspend_read(struct bufferevent *bufev, short what)
 	    EVUTIL_UPCAST(bufev, struct bufferevent_private, bev);
 	BEV_LOCK(bufev);
 	bufev_private->read_suspended &= ~what;
-	if (!bufev_private->read_suspended)
+	if (!bufev_private->read_suspended && (bufev->enabled & EV_READ))
 		bufev->be_ops->enable(bufev, EV_READ);
 	BEV_UNLOCK(bufev);
 }
@@ -102,7 +102,7 @@ bufferevent_unsuspend_write(struct bufferevent *bufev, short what)
 	    EVUTIL_UPCAST(bufev, struct bufferevent_private, bev);
 	BEV_LOCK(bufev);
 	bufev_private->write_suspended &= ~what;
-	if (!bufev_private->write_suspended)
+	if (!bufev_private->write_suspended && (bufev->enabled & EV_WRITE))
 		bufev->be_ops->enable(bufev, EV_WRITE);
 	BEV_UNLOCK(bufev);
 }
@@ -206,10 +206,11 @@ bufferevent_run_deferred_callbacks_unlocked(struct deferred_cb *_, void *arg)
 
 #define SCHEDULE_DEFERRED(bevp)						\
 	do {								\
+		bufferevent_incref(&(bevp)->bev);			\
 		event_deferred_cb_schedule(				\
 			event_base_get_deferred_cb_queue((bevp)->bev.ev_base), \
 			&(bevp)->deferred);				\
-	} while (0);
+	} while (0)
 
 
 void
@@ -222,10 +223,8 @@ _bufferevent_run_readcb(struct bufferevent *bufev)
 		return;
 	if (p->options & BEV_OPT_DEFER_CALLBACKS) {
 		p->readcb_pending = 1;
-		if (!p->deferred.queued) {
-			bufferevent_incref(bufev);
+		if (!p->deferred.queued)
 			SCHEDULE_DEFERRED(p);
-		}
 	} else {
 		bufev->readcb(bufev, bufev->cbarg);
 	}
@@ -241,10 +240,8 @@ _bufferevent_run_writecb(struct bufferevent *bufev)
 		return;
 	if (p->options & BEV_OPT_DEFER_CALLBACKS) {
 		p->writecb_pending = 1;
-		if (!p->deferred.queued) {
-			bufferevent_incref(bufev);
+		if (!p->deferred.queued)
 			SCHEDULE_DEFERRED(p);
-		}
 	} else {
 		bufev->writecb(bufev, bufev->cbarg);
 	}
@@ -261,10 +258,8 @@ _bufferevent_run_eventcb(struct bufferevent *bufev, short what)
 	if (p->options & BEV_OPT_DEFER_CALLBACKS) {
 		p->eventcb_pending |= what;
 		p->errno_pending = EVUTIL_SOCKET_ERROR();
-		if (!p->deferred.queued) {
-			bufferevent_incref(bufev);
+		if (!p->deferred.queued)
 			SCHEDULE_DEFERRED(p);
-		}
 	} else {
 		bufev->errorcb(bufev, what, bufev->cbarg);
 	}
@@ -608,7 +603,7 @@ _bufferevent_decref_and_unlock(struct bufferevent *bufev)
 
 	if (bufev_private->rate_limiting) {
 		if (bufev_private->rate_limiting->group)
-			bufferevent_remove_from_rate_limit_group(bufev);
+			bufferevent_remove_from_rate_limit_group_internal(bufev,0);
 		if (event_initialized(&bufev_private->rate_limiting->refill_bucket_event))
 			event_del(&bufev_private->rate_limiting->refill_bucket_event);
 		event_debug_unassign(&bufev_private->rate_limiting->refill_bucket_event);
@@ -788,7 +783,7 @@ _bufferevent_del_generic_timeout_cbs(struct bufferevent *bev)
 	int r1,r2;
 	r1 = event_del(&bev->ev_read);
 	r2 = event_del(&bev->ev_write);
-	if (r2<0 || r2<0)
+	if (r1<0 || r2<0)
 		return -1;
 	return 0;
 }

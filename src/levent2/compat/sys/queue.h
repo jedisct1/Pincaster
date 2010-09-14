@@ -1,4 +1,4 @@
-/*	$OpenBSD: queue.h,v 1.32 2007/04/30 18:42:34 pedro Exp $	*/
+/*	$OpenBSD: queue.h,v 1.16 2000/09/07 19:47:59 art Exp $	*/
 /*	$NetBSD: queue.h,v 1.11 1996/05/16 05:17:14 mycroft Exp $	*/
 
 /*
@@ -36,7 +36,7 @@
 #define	_SYS_QUEUE_H_
 
 /*
- * This file defines five types of data structures: singly-linked lists, 
+ * This file defines five types of data structures: singly-linked lists,
  * lists, simple queues, tail queues, and circular queues.
  *
  *
@@ -82,12 +82,6 @@
  * For details on the use of these macros, see the queue(3) manual page.
  */
 
-#if defined(QUEUE_MACRO_DEBUG) || (defined(_KERNEL) && defined(DIAGNOSTIC))
-#define _Q_INVALIDATE(a) (a) = ((void *)-1)
-#else
-#define _Q_INVALIDATE(a)
-#endif
-
 /*
  * Singly-linked List definitions.
  */
@@ -95,15 +89,17 @@
 struct name {								\
 	struct type *slh_first;	/* first element */			\
 }
- 
+
 #define	SLIST_HEAD_INITIALIZER(head)					\
 	{ NULL }
- 
+
+#ifndef WIN32
 #define SLIST_ENTRY(type)						\
 struct {								\
 	struct type *sle_next;	/* next element */			\
 }
- 
+#endif
+
 /*
  * Singly-linked List access methods.
  */
@@ -116,11 +112,6 @@ struct {								\
 	for((var) = SLIST_FIRST(head);					\
 	    (var) != SLIST_END(head);					\
 	    (var) = SLIST_NEXT(var, field))
-
-#define	SLIST_FOREACH_PREVPTR(var, varp, head, field)			\
-	for ((varp) = &SLIST_FIRST((head));				\
-	    ((var) = *(varp)) != SLIST_END(head);			\
-	    (varp) = &SLIST_NEXT((var), field))
 
 /*
  * Singly-linked List functions.
@@ -139,26 +130,8 @@ struct {								\
 	(head)->slh_first = (elm);					\
 } while (0)
 
-#define	SLIST_REMOVE_NEXT(head, elm, field) do {			\
-	(elm)->field.sle_next = (elm)->field.sle_next->field.sle_next;	\
-} while (0)
-
 #define	SLIST_REMOVE_HEAD(head, field) do {				\
 	(head)->slh_first = (head)->slh_first->field.sle_next;		\
-} while (0)
-
-#define SLIST_REMOVE(head, elm, type, field) do {			\
-	if ((head)->slh_first == (elm)) {				\
-		SLIST_REMOVE_HEAD((head), field);			\
-	} else {							\
-		struct type *curelm = (head)->slh_first;		\
-									\
-		while (curelm->field.sle_next != (elm))			\
-			curelm = curelm->field.sle_next;		\
-		curelm->field.sle_next =				\
-		    curelm->field.sle_next->field.sle_next;		\
-		_Q_INVALIDATE((elm)->field.sle_next);			\
-	}								\
 } while (0)
 
 /*
@@ -225,8 +198,6 @@ struct {								\
 		(elm)->field.le_next->field.le_prev =			\
 		    (elm)->field.le_prev;				\
 	*(elm)->field.le_prev = (elm)->field.le_next;			\
-	_Q_INVALIDATE((elm)->field.le_prev);				\
-	_Q_INVALIDATE((elm)->field.le_next);				\
 } while (0)
 
 #define LIST_REPLACE(elm, elm2, field) do {				\
@@ -235,8 +206,6 @@ struct {								\
 		    &(elm2)->field.le_next;				\
 	(elm2)->field.le_prev = (elm)->field.le_prev;			\
 	*(elm2)->field.le_prev = (elm2);				\
-	_Q_INVALIDATE((elm)->field.le_prev);				\
-	_Q_INVALIDATE((elm)->field.le_next);				\
 } while (0)
 
 /*
@@ -295,8 +264,8 @@ struct {								\
 	(listelm)->field.sqe_next = (elm);				\
 } while (0)
 
-#define SIMPLEQ_REMOVE_HEAD(head, field) do {			\
-	if (((head)->sqh_first = (head)->sqh_first->field.sqe_next) == NULL) \
+#define SIMPLEQ_REMOVE_HEAD(head, elm, field) do {			\
+	if (((head)->sqh_first = (elm)->field.sqe_next) == NULL)	\
 		(head)->sqh_last = &(head)->sqh_first;			\
 } while (0)
 
@@ -318,8 +287,8 @@ struct {								\
 	struct type **tqe_prev;	/* address of previous next element */	\
 }
 
-/* 
- * tail queue access methods 
+/*
+ * tail queue access methods
  */
 #define	TAILQ_FIRST(head)		((head)->tqh_first)
 #define	TAILQ_END(head)			NULL
@@ -391,8 +360,6 @@ struct {								\
 	else								\
 		(head)->tqh_last = (elm)->field.tqe_prev;		\
 	*(elm)->field.tqe_prev = (elm)->field.tqe_next;			\
-	_Q_INVALIDATE((elm)->field.tqe_prev);				\
-	_Q_INVALIDATE((elm)->field.tqe_next);				\
 } while (0)
 
 #define TAILQ_REPLACE(head, elm, elm2, field) do {			\
@@ -403,8 +370,6 @@ struct {								\
 		(head)->tqh_last = &(elm2)->field.tqe_next;		\
 	(elm2)->field.tqe_prev = (elm)->field.tqe_prev;			\
 	*(elm2)->field.tqe_prev = (elm2);				\
-	_Q_INVALIDATE((elm)->field.tqe_prev);				\
-	_Q_INVALIDATE((elm)->field.tqe_next);				\
 } while (0)
 
 /*
@@ -426,7 +391,7 @@ struct {								\
 }
 
 /*
- * Circular queue access methods 
+ * Circular queue access methods
  */
 #define	CIRCLEQ_FIRST(head)		((head)->cqh_first)
 #define	CIRCLEQ_LAST(head)		((head)->cqh_last)
@@ -505,8 +470,6 @@ struct {								\
 	else								\
 		(elm)->field.cqe_prev->field.cqe_next =			\
 		    (elm)->field.cqe_next;				\
-	_Q_INVALIDATE((elm)->field.cqe_prev);				\
-	_Q_INVALIDATE((elm)->field.cqe_next);				\
 } while (0)
 
 #define CIRCLEQ_REPLACE(head, elm, elm2, field) do {			\
@@ -520,8 +483,6 @@ struct {								\
 		(head).cqh_first = (elm2);				\
 	else								\
 		(elm2)->field.cqe_prev->field.cqe_next = (elm2);	\
-	_Q_INVALIDATE((elm)->field.cqe_prev);				\
-	_Q_INVALIDATE((elm)->field.cqe_next);				\
 } while (0)
 
 #endif	/* !_SYS_QUEUE_H_ */

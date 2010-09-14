@@ -16,6 +16,7 @@ EVENT2_EXPORT = \
 	event2/http.h \
 	event2/http_compat.h \
 	event2/http_struct.h \
+	event2/keyvalq_struct.h \
 	event2/listener.h \
 	event2/rpc.h \
 	event2/rpc_compat.h \
@@ -28,4 +29,6 @@ EVENT2_EXPORT = \
 EXTRA_SRC = $(EVENT2_EXPORT)
 
 nobase_include_HEADERS = $(EVENT2_EXPORT)
+
+nobase_nodist_include_HEADERS = ./event2/event-config.h
 

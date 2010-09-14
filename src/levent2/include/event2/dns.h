@@ -179,6 +179,9 @@ extern "C" {
 #define DNS_OPTION_HOSTSFILE 8
 #define DNS_OPTIONS_ALL 15
 
+/* Obsolete name for DNS_QUERY_NO_SEARCH */
+#define DNS_NO_SEARCH DNS_QUERY_NO_SEARCH
+
 /**
  * The callback that contains the results from a lookup.
  * - result is one of the DNS_ERR_* values (DNS_ERR_NONE for success)
@@ -285,7 +288,7 @@ int evdns_base_clear_nameservers_and_suspend(struct evdns_base *base);
 int evdns_base_resume(struct evdns_base *base);
 
 /**
-  Add a nameserver.
+  Add a nameserver by string address.
 
   This function parses a n IPv4 or IPv6 address from a string and adds it as a
   nameserver.  It supports the following formats:
@@ -303,6 +306,13 @@ int evdns_base_resume(struct evdns_base *base);
  */
 int evdns_base_nameserver_ip_add(struct evdns_base *base,
     const char *ip_as_string);
+
+/**
+   Add a nameserver by sockaddr.
+ **/
+int
+evdns_base_nameserver_sockaddr_add(struct evdns_base *base,
+    const struct sockaddr *sa, ev_socklen_t len, unsigned flags);
 
 struct evdns_request;
 
@@ -506,8 +516,6 @@ void evdns_set_transaction_id_fn(ev_uint16_t (*fn)(void));
    since Libevent now provides its own secure RNG.
 */
 void evdns_set_random_bytes_fn(void (*fn)(char *, size_t));
-
-#define DNS_NO_SEARCH 1
 
 /*
  * Functions used to implement a DNS server.

@@ -29,7 +29,7 @@
 #include <ws2tcpip.h>
 #endif
 
-#include "event-config.h"
+#include "event2/event-config.h"
 
 #include <sys/types.h>
 
@@ -49,7 +49,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <assert.h>
 
 #include "event2/event.h"
 #include "event2/util.h"
@@ -422,8 +421,11 @@ logfn(int severity, const char *msg)
 {
 	logsev = severity;
 	tt_want(msg);
-	if (msg)
+	if (msg) {
+		if (logmsg)
+			free(logmsg);
 		logmsg = strdup(msg);
+	}
 }
 
 static int fatal_want_severity = 0;
@@ -525,9 +527,9 @@ test_evutil_log(void *ptr)
 	LOGEQ(_EVENT_LOG_MSG, "Connecting lime to coconut");
 	RESET();
 
-	event_debug(("A millisecond passed!  We should log that!"));
+	event_debug(("A millisecond passed! We should log that!"));
 #ifdef USE_DEBUG
-	LOGEQ(_EVENT_LOG_DEBUG, "A millisecond passed!	We should log that!");
+	LOGEQ(_EVENT_LOG_DEBUG, "A millisecond passed! We should log that!");
 #else
 	tt_int_op(logsev,==,0);
 	tt_ptr_op(logmsg,==,NULL);
@@ -832,7 +834,7 @@ test_evutil_rand(void *arg)
 					buf2[j] |= buf1[j];
 					++counts[(unsigned char)buf1[j]];
 				} else {
-					assert(buf1[j] == 0);
+					tt_assert(buf1[j] == 0);
 					tt_int_op(buf1[j], ==, 0);
 
 				}
@@ -979,7 +981,7 @@ test_evutil_getaddrinfo(void *arg)
 	hints.ai_socktype = SOCK_STREAM;
 	r = evutil_getaddrinfo("1.2.3.4", "http", &hints, &ai);
 	if (r!=0) {
-		TT_GRIPE(("Symbolic service names seem broken."));
+		TT_DECLARE("SKIP", ("Symbolic service names seem broken."));
 	} else {
 		tt_assert(ai);
 		test_ai_eq(ai, "1.2.3.4:80", SOCK_STREAM, IPPROTO_TCP);
@@ -994,7 +996,7 @@ test_evutil_getaddrinfo(void *arg)
 	hints.ai_socktype = SOCK_STREAM;
 	r = evutil_getaddrinfo("www.google.com", "80", &hints, &ai);
 	if (r != 0) {
-		TT_GRIPE(("Couldn't resolve www.google.com"));
+		TT_DECLARE("SKIP", ("Couldn't resolve www.google.com"));
 	} else {
 		tt_assert(ai);
 		tt_int_op(ai->ai_family, ==, PF_INET);

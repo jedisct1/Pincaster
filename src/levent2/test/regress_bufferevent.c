@@ -25,12 +25,15 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/* The old tests here need assertions to work. */
+#undef NDEBUG
+
 #ifdef WIN32
 #include <winsock2.h>
 #include <windows.h>
 #endif
 
-#include "event-config.h"
+#include "event2/event-config.h"
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -58,7 +61,7 @@
 #include <arpa/inet.h>
 #endif
 
-#include "event-config.h"
+#include "event2/event-config.h"
 #include "event2/event.h"
 #include "event2/event_struct.h"
 #include "event2/event_compat.h"
@@ -76,6 +79,7 @@
 #endif
 
 #include "regress.h"
+#include "regress_testutils.h"
 
 /*
  * simple bufferevent test
@@ -422,9 +426,8 @@ listen_cb(struct evconnlistener *listener, evutil_socket_t fd,
 	TT_BLATHER(("Got a request on socket %d", (int)fd ));
 	bev = bufferevent_socket_new(base, fd, bufferevent_connect_test_flags);
 	tt_assert(bev);
-	bufferevent_write(bev, s, sizeof(s));
 	bufferevent_setcb(bev, NULL, sender_writecb, sender_errorcb, NULL);
-	bufferevent_enable(bev, EV_WRITE);
+	bufferevent_write(bev, s, sizeof(s));
 end:
 	;
 }
@@ -467,7 +470,10 @@ test_bufferevent_connect(void *arg)
 	struct evconnlistener *lev=NULL;
 	struct bufferevent *bev1=NULL, *bev2=NULL;
 	struct sockaddr_in localhost;
-	struct sockaddr *sa = (struct sockaddr*)&localhost;
+	struct sockaddr_storage ss;
+	struct sockaddr *sa;
+	ev_socklen_t slen;
+
 	int be_flags=BEV_OPT_CLOSE_ON_FREE;
 
 	if (strstr((char*)data->setup_data, "defer")) {
@@ -491,14 +497,21 @@ test_bufferevent_connect(void *arg)
 
 	memset(&localhost, 0, sizeof(localhost));
 
-	localhost.sin_port = htons(27015);
+	localhost.sin_port = 0; /* pick-a-port */
 	localhost.sin_addr.s_addr = htonl(0x7f000001L);
 	localhost.sin_family = AF_INET;
-
+	sa = (struct sockaddr *)&localhost;
 	lev = evconnlistener_new_bind(data->base, listen_cb, data->base,
 	    LEV_OPT_CLOSE_ON_FREE|LEV_OPT_REUSEABLE,
 	    16, sa, sizeof(localhost));
 	tt_assert(lev);
+
+	sa = (struct sockaddr *)&ss;
+	slen = sizeof(ss);
+	if (regress_get_listener_addr(lev, sa, &slen) < 0) {
+		tt_abort_perror("getsockname");
+	}
+
 	tt_assert(!evconnlistener_enable(lev));
 	bev1 = bufferevent_socket_new(data->base, -1, be_flags);
 	bev2 = bufferevent_socket_new(data->base, -1, be_flags);
@@ -513,13 +526,6 @@ test_bufferevent_connect(void *arg)
 	tt_want(!bufferevent_socket_connect(bev1, sa, sizeof(localhost)));
 	tt_want(!bufferevent_socket_connect(bev2, sa, sizeof(localhost)));
 
-#ifdef WIN32
-	/* FIXME this is to get IOCP to work. it shouldn't be required. */
-	{
-		struct timeval tv = {5000,0};
-		event_base_loopexit(data->base, &tv);
-	}
-#endif
 	event_base_dispatch(data->base);
 
 	tt_int_op(n_strings_read, ==, 2);
@@ -581,7 +587,7 @@ test_bufferevent_connect_fail(void *arg)
 	test_ok = 0;
 
 	memset(&localhost, 0, sizeof(localhost));
-	localhost.sin_port = 0;
+	localhost.sin_port = 0; /* have the kernel pick a port */
 	localhost.sin_addr.s_addr = htonl(0x7f000001L);
 	localhost.sin_family = AF_INET;
 
@@ -608,13 +614,6 @@ test_bufferevent_connect_fail(void *arg)
 	event_add(&close_listener_event, &one_second);
 	close_listener_event_added = 1;
 
-#ifdef WIN32
-	/* FIXME this is to get IOCP to work. it shouldn't be required. */
-	{
-		struct timeval tv = {5000,0};
-		event_base_loopexit(data->base, &tv);
-	}
-#endif
 	event_base_dispatch(data->base);
 
 	tt_int_op(test_ok, ==, 1);

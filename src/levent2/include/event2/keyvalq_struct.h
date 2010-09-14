@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2009-2010 Niels Provos and Nick Mathewson
+ * Copyright (c) 2000-2007 Niels Provos <provos@citi.umich.edu>
+ * Copyright (c) 2007-2010 Niels Provos and Nick Mathewson
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,56 +24,57 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef _EVENT2_BUFFEREVENT_SSL_H_
-#define _EVENT2_BUFFEREVENT_SSL_H_
-
-/** @file bufferevent_ssl.h
-
-    OpenSSL support for bufferevents.
- */
-
-#include <event2/event-config.h>
-#include <event2/bufferevent.h>
-#include <event2/util.h>
+#ifndef _EVENT2_EVENT_KEYVALQ_STRUCT_H_
+#define _EVENT2_EVENT_KEYVALQ_STRUCT_H_
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-struct ssl_st;
+/* Fix so that people don't have to run with <sys/queue.h> */
+/* XXXX This code is duplicated with event_struct.h */
+#ifndef TAILQ_ENTRY
+#define _EVENT_DEFINED_TQENTRY
+#define TAILQ_ENTRY(type)						\
+struct {								\
+	struct type *tqe_next;	/* next element */			\
+	struct type **tqe_prev;	/* address of previous next element */	\
+}
+#endif /* !TAILQ_ENTRY */
 
-enum bufferevent_ssl_state {
-	BUFFEREVENT_SSL_OPEN = 0,
-	BUFFEREVENT_SSL_CONNECTING = 1,
-	BUFFEREVENT_SSL_ACCEPTING = 2
+#ifndef TAILQ_HEAD
+#define _EVENT_DEFINED_TQHEAD
+#define TAILQ_HEAD(name, type)			\
+struct name {					\
+	struct type *tqh_first;			\
+	struct type **tqh_last;			\
+}
+#endif
+
+/*
+ * Key-Value pairs.  Can be used for HTTP headers but also for
+ * query argument parsing.
+ */
+struct evkeyval {
+	TAILQ_ENTRY(evkeyval) next;
+
+	char *key;
+	char *value;
 };
 
-#ifdef _EVENT_HAVE_OPENSSL
-struct bufferevent *
-bufferevent_openssl_filter_new(struct event_base *base,
-    struct bufferevent *underlying,
-    struct ssl_st *ssl,
-    enum bufferevent_ssl_state state,
-    int options);
+TAILQ_HEAD (evkeyvalq, evkeyval);
 
-struct bufferevent *
-bufferevent_openssl_socket_new(struct event_base *base,
-    evutil_socket_t fd,
-    struct ssl_st *ssl,
-    enum bufferevent_ssl_state state,
-    int options);
+/* XXXX This code is duplicated with event_struct.h */
+#ifdef _EVENT_DEFINED_TQENTRY
+#undef TAILQ_ENTRY
+#endif
 
-struct ssl_st *
-bufferevent_openssl_get_ssl(struct bufferevent *bufev);
-
-int bufferevent_ssl_renegotiate(struct bufferevent *bev);
-
-unsigned long bufferevent_get_openssl_error(struct bufferevent *bev);
-
+#ifdef _EVENT_DEFINED_TQHEAD
+#undef TAILQ_HEAD
 #endif
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* _EVENT2_BUFFEREVENT_SSL_H_ */
+#endif

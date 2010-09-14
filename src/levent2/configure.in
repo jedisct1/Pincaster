@@ -5,9 +5,9 @@ AC_INIT(event.c)
 
 AC_CONFIG_MACRO_DIR([m4])
 
-AM_INIT_AUTOMAKE(libevent,2.0.5-beta-dev)
+AM_INIT_AUTOMAKE(libevent,2.0.7-rc-dev)
 AM_CONFIG_HEADER(config.h)
-AC_DEFINE(NUMERIC_VERSION, 0x02000501, [Numeric representation of the version])
+AC_DEFINE(NUMERIC_VERSION, 0x02000701, [Numeric representation of the version])
 
 dnl Initialize prefix.
 if test "$prefix" = "NONE"; then
@@ -18,6 +18,7 @@ dnl Checks for programs.
 AC_PROG_CC
 AC_PROG_INSTALL
 AC_PROG_LN_S
+AC_PROG_MKDIR_P
 
 AC_PROG_GCC_TRADITIONAL
 
@@ -74,6 +75,7 @@ AC_SUBST(ZLIB_LIBS)
 AM_CONDITIONAL(ZLIB_REGRESS, [test "$have_zlib" = "yes"])
 
 dnl See if we have openssl.  This doesn't go in LIBS either.
+if test "$enable_openssl" = "yes"; then
 save_LIBS="$LIBS"
 LIBS=""
 OPENSSL_LIBS=""
@@ -84,6 +86,7 @@ AC_SEARCH_LIBS([SSL_new], [ssl],
 		AC_DEFINE(HAVE_OPENSSL, 1, [Define if the system has openssl])])
 LIBS="$save_LIBS"
 AC_SUBST(OPENSSL_LIBS)
+fi
 
 dnl Checks for header files.
 AC_HEADER_STDC
@@ -327,13 +330,14 @@ main(int argc, char **argv)
         if ((kq = kqueue()) == -1)
 		exit(1);
 
+	memset(&ev, 0, sizeof(ev));
 	ev.ident = fd[[1]];
 	ev.filter = EVFILT_WRITE;
 	ev.flags = EV_ADD | EV_ENABLE;
 	n = kevent(kq, &ev, 1, NULL, 0, NULL);
 	if (n == -1)
 		exit(1);
-	
+
 	read(fd[[0]], buf, sizeof(buf));
 
 	ts.tv_sec = 0;
@@ -591,5 +595,5 @@ if test x$enable_gcc_warnings = xyes; then
 
 fi
 
-AC_CONFIG_FILES( [libevent.pc] )
+AC_CONFIG_FILES( [libevent.pc libevent_openssl.pc libevent_pthreads.pc] )
 AC_OUTPUT(Makefile include/Makefile test/Makefile sample/Makefile)
