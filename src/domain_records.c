@@ -141,7 +141,7 @@ int handle_domain_records(struct evhttp_request * const req,
             release_key(layer_name);
             return HTTP_NOTFOUND;
         }
-        if ((key = new_key_from_c_string(sep)) == NULL) {
+        if ((key = new_key_from_uri_encoded_c_string(sep)) == NULL) {
             release_key(layer_name);
             return HTTP_SERVUNAVAIL;
         }
@@ -193,7 +193,7 @@ int handle_domain_records(struct evhttp_request * const req,
             release_key(layer_name);
             return HTTP_NOTFOUND;
         }
-        if ((key = new_key_from_c_string(sep)) == NULL) {
+        if ((key = new_key_from_uri_encoded_c_string(sep)) == NULL) {
             release_key(layer_name);            
             return HTTP_SERVUNAVAIL;
         }
@@ -260,7 +260,7 @@ int handle_domain_records(struct evhttp_request * const req,
             release_key(layer_name);
             return HTTP_NOTFOUND;
         }
-        if ((key = new_key_from_c_string(sep)) == NULL) {
+        if ((key = new_key_from_uri_encoded_c_string(sep)) == NULL) {
             release_key(layer_name);            
             return HTTP_SERVUNAVAIL;
         }
