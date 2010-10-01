@@ -63,7 +63,7 @@ int handle_public_request(HttpHandlerContext * const context,
         return -1;        
     }
     *sep = 0;
-    if ((layer_name = new_key_from_c_string(uri)) == NULL) {
+    if ((layer_name = new_key_from_uri_encoded_c_string(uri)) == NULL) {
         *sep = '/';
         evhttp_send_error(req, HTTP_SERVUNAVAIL, "Out of memory (layer)");
         return -2;
