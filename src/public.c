@@ -63,7 +63,7 @@ int handle_public_request(HttpHandlerContext * const context,
         return -1;        
     }
     *sep = 0;
-    if ((layer_name = new_key_from_uri_encoded_c_string(uri)) == NULL) {
+    if ((layer_name = new_key_from_c_string(uri)) == NULL) {
         *sep = '/';
         evhttp_send_error(req, HTTP_SERVUNAVAIL, "Out of memory (layer)");
         return -2;
@@ -74,7 +74,7 @@ int handle_public_request(HttpHandlerContext * const context,
         evhttp_send_error(req, HTTP_NOTFOUND, "Not Found");
         return -1;
     }
-    if ((key = new_key_from_uri_encoded_c_string(sep)) == NULL) {
+    if ((key = new_key_from_c_string(sep)) == NULL) {
         release_key(layer_name);
         evhttp_send_error(req, HTTP_SERVUNAVAIL, "Out of memory (key)");
         return -2;

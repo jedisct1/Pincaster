@@ -41,7 +41,7 @@ int handle_domain_layers(struct evhttp_request * const req,
         if (*uri == 0) {
             return HTTP_NOTFOUND;
         }
-        if ((layer_name = new_key_from_uri_encoded_c_string(uri)) == NULL) {
+        if ((layer_name = new_key_from_c_string(uri)) == NULL) {
             return HTTP_SERVUNAVAIL;
         }
         *create_op = (LayersCreateOp) {
@@ -69,7 +69,7 @@ int handle_domain_layers(struct evhttp_request * const req,
         if (*uri == 0) {
             return HTTP_NOTFOUND;
         }
-        if ((layer_name = new_key_from_uri_encoded_c_string(uri)) == NULL) {
+        if ((layer_name = new_key_from_c_string(uri)) == NULL) {
             return HTTP_SERVUNAVAIL;
         }
         *delete_op = (LayersDeleteOp) {
