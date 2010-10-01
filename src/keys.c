@@ -1,6 +1,7 @@
 
 #include "common.h"
 #include "keys.h"
+#include <evhttp.h>
 
 int init_key(Key * const key)
 {
@@ -75,6 +76,23 @@ Key *new_key_from_c_string(const char *ckey)
     
     assert(len > (size_t) 0U);        
     return new_key(ckey, len + (size_t) 1U);
+}
+
+Key *new_key_from_uri_encoded_c_string(const char * const uckey)
+{
+    assert(uckey != NULL);
+    assert(*uckey != 0);
+    
+    char * const decoded_uri = evhttp_decode_uri(uckey);
+    if (decoded_uri == NULL) {
+        return NULL;
+    }
+    const size_t decoded_uri_len = strlen(decoded_uri);
+    assert(decoded_uri_len > (size_t) 0U);
+    Key * const key = new_key(decoded_uri, decoded_uri_len + (size_t) 1U);
+    free(decoded_uri);
+    
+    return key;
 }
 
 Key *new_key_with_leading_zero(const void * const val, const size_t len)

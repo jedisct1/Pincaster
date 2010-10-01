@@ -14,6 +14,7 @@ int retain_key(Key * const key);
 void release_key(Key * const key);
 Key *new_key(const void * const val, const size_t len);
 Key *new_key_from_c_string(const char *ckey);
+Key *new_key_from_uri_encoded_c_string(const char * const uckey);
 Key *new_key_with_leading_zero(const void * const val, const size_t len);
 
 #endif
