@@ -159,10 +159,7 @@ select_dispatch(struct event_base *base, struct timeval *tv)
 			return (-1);
 		}
 
-		evsig_process(base);
 		return (0);
-	} else if (base->sig.evsig_caught) {
-		evsig_process(base);
 	}
 
 	event_debug(("%s: select reports %d", __func__, res));
@@ -237,11 +234,14 @@ select_add(struct event_base *base, int fd, short old, short events, void *p)
 	if (sop->event_fds < fd) {
 		int fdsz = sop->event_fdsz;
 
-		if (fdsz < sizeof(fd_mask))
-			fdsz = sizeof(fd_mask);
+		if (fdsz < (int)sizeof(fd_mask))
+			fdsz = (int)sizeof(fd_mask);
 
+		/* In theory we should worry about overflow here.  In
+		 * reality, though, the highest fd on a unixy system will
+		 * not overflow here. XXXX */
 		while (fdsz <
-		    (howmany(fd + 1, NFDBITS) * sizeof(fd_mask)))
+		    (int) (howmany(fd + 1, NFDBITS) * sizeof(fd_mask)))
 			fdsz *= 2;
 
 		if (fdsz != sop->event_fdsz) {

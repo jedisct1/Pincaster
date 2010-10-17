@@ -120,7 +120,6 @@ static const struct eventop *eventops[] = {
 /* Global state; deprecated */
 struct event_base *event_global_current_base_ = NULL;
 #define current_base event_global_current_base_
-extern struct event_base *evsig_base;
 
 /* Global state */
 
@@ -1502,8 +1501,9 @@ event_base_loop(struct event_base *base, int flags)
 
 	clear_time_cache(base);
 
-	if (base->sig.ev_signal_added)
-		evsig_base = base;
+	if (base->sig.ev_signal_added && base->sig.ev_n_signals_added)
+		evsig_set_base(base);
+
 	done = 0;
 
 #ifndef _EVENT_DISABLE_THREAD_SUPPORT
@@ -1972,8 +1972,9 @@ event_add_internal(struct event *ev, const struct timeval *tv,
 	_event_debug_assert_is_setup(ev);
 
 	event_debug((
-		 "event_add: event: %p, %s%s%scall %p",
+		 "event_add: event: %p (fd %d), %s%s%scall %p",
 		 ev,
+		 (int)ev->ev_fd,
 		 ev->ev_events & EV_READ ? "EV_READ " : " ",
 		 ev->ev_events & EV_WRITE ? "EV_WRITE " : " ",
 		 tv ? "EV_TIMEOUT " : " ",
@@ -2135,8 +2136,8 @@ event_del_internal(struct event *ev)
 	struct event_base *base;
 	int res = 0, notify = 0;
 
-	event_debug(("event_del: %p, callback %p",
-		 ev, ev->ev_callback));
+	event_debug(("event_del: %p (fd %d), callback %p",
+		ev, (int)ev->ev_fd, ev->ev_callback));
 
 	/* An event without a base has not been added */
 	if (ev->ev_base == NULL)
@@ -2225,6 +2226,10 @@ void
 event_active_nolock(struct event *ev, int res, short ncalls)
 {
 	struct event_base *base;
+
+	event_debug(("event_active: %p (fd %d), res %d, callback %p",
+		ev, (int)ev->ev_fd, (int)res, ev->ev_callback));
+
 
 	/* We get different kinds of events, add them together */
 	if (ev->ev_flags & EVLIST_ACTIVE) {
@@ -2734,6 +2739,7 @@ evthread_make_base_notifiable(struct event_base *base)
 
 	/* we need to mark this as internal event */
 	base->th_notify.ev_flags |= EVLIST_INTERNAL;
+	event_priority_set(&base->th_notify, 0);
 
 	return event_add(&base->th_notify, NULL);
 }

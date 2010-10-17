@@ -376,10 +376,9 @@ static int
 start_reading(struct bufferevent_openssl *bev_ssl)
 {
 	if (bev_ssl->underlying) {
-		short e = EV_READ;
-		if (bev_ssl->read_blocked_on_write)
-			e |= EV_WRITE;
-		return bufferevent_enable(bev_ssl->underlying, e);
+		bufferevent_unsuspend_read(bev_ssl->underlying,
+		    BEV_SUSPEND_FILT_READ);
+		return 0;
 	} else {
 		struct bufferevent *bev = &bev_ssl->bev.bev;
 		int r;
@@ -397,12 +396,9 @@ start_reading(struct bufferevent_openssl *bev_ssl)
 static int
 start_writing(struct bufferevent_openssl *bev_ssl)
 {
-	int r;
+	int r = 0;
 	if (bev_ssl->underlying) {
-		short e = EV_WRITE;
-		if (bev_ssl->write_blocked_on_read)
-			e |= EV_READ;
-		r = bufferevent_enable(bev_ssl->underlying, e);
+		;
 	} else {
 		struct bufferevent *bev = &bev_ssl->bev.bev;
 		r = _bufferevent_add_event(&bev->ev_write, &bev->timeout_write);
@@ -418,9 +414,10 @@ stop_reading(struct bufferevent_openssl *bev_ssl)
 {
 	if (bev_ssl->write_blocked_on_read)
 		return;
-	if (bev_ssl->underlying)
-		bufferevent_disable(bev_ssl->underlying, EV_READ);
-	else {
+	if (bev_ssl->underlying) {
+		bufferevent_suspend_read(bev_ssl->underlying,
+		    BEV_SUSPEND_FILT_READ);
+	} else {
 		struct bufferevent *bev = &bev_ssl->bev.bev;
 		event_del(&bev->ev_read);
 	}
@@ -431,9 +428,9 @@ stop_writing(struct bufferevent_openssl *bev_ssl)
 {
 	if (bev_ssl->read_blocked_on_write)
 		return;
-	if (bev_ssl->underlying)
-		bufferevent_disable(bev_ssl->underlying, EV_WRITE);
-	else {
+	if (bev_ssl->underlying) {
+		;
+	} else {
 		struct bufferevent *bev = &bev_ssl->bev.bev;
 		event_del(&bev->ev_write);
 	}
@@ -540,14 +537,14 @@ init_bio_counts(struct bufferevent_openssl *bev_ssl)
 	bev_ssl->counts.n_written =
 	    BIO_number_written(SSL_get_wbio(bev_ssl->ssl));
 	bev_ssl->counts.n_read =
-	    BIO_number_read(SSL_get_wbio(bev_ssl->ssl));
+	    BIO_number_read(SSL_get_rbio(bev_ssl->ssl));
 }
 
 static inline void
 decrement_buckets(struct bufferevent_openssl *bev_ssl)
 {
 	unsigned long num_w = BIO_number_written(SSL_get_wbio(bev_ssl->ssl));
-	unsigned long num_r = BIO_number_read(SSL_get_wbio(bev_ssl->ssl));
+	unsigned long num_r = BIO_number_read(SSL_get_rbio(bev_ssl->ssl));
 	/* These next two subtractions can wrap around. That's okay. */
 	unsigned long w = num_w - bev_ssl->counts.n_written;
 	unsigned long r = num_r - bev_ssl->counts.n_read;
@@ -1219,14 +1216,17 @@ bufferevent_openssl_new_impl(struct event_base *base,
 		goto err;
 	}
 
-	if (underlying)
+	if (underlying) {
 		bufferevent_enable(underlying, EV_READ|EV_WRITE);
-	else {
+		if (state == BUFFEREVENT_SSL_OPEN)
+			bufferevent_suspend_read(underlying,
+			    BEV_SUSPEND_FILT_READ);
+	} else {
 		bev_ssl->bev.bev.enabled = EV_READ|EV_WRITE;
 		if (bev_ssl->fd_is_set) {
-			/* XXX Is this quite right? */
-			if (event_add(&bev_ssl->bev.bev.ev_read, NULL) < 0)
-				goto err;
+			if (state != BUFFEREVENT_SSL_OPEN)
+				if (event_add(&bev_ssl->bev.bev.ev_read, NULL) < 0)
+					goto err;
 			if (event_add(&bev_ssl->bev.bev.ev_write, NULL) < 0)
 				goto err;
 		}
@@ -1271,6 +1271,8 @@ bufferevent_openssl_socket_new(struct event_base *base,
 	/* Does the SSL already have an fd? */
 	BIO *bio = SSL_get_wbio(ssl);
 	long have_fd = -1;
+	const int shutdown_flag = !!(options & BEV_OPT_CLOSE_ON_FREE);
+
 	if (bio)
 		have_fd = BIO_get_fd(bio, NULL);
 
@@ -1286,13 +1288,11 @@ bufferevent_openssl_socket_new(struct event_base *base,
 			   This is probably an error on our part.  Fail. */
 			return NULL;
 		}
+		(void) BIO_set_close(bio, shutdown_flag);
 	} else {
 		/* The SSL isn't configured with a BIO with an fd. */
 		if (fd >= 0) {
 			/* ... and we have an fd we want to use. */
-			int shutdown_flag = 0;
-			if (options & BEV_OPT_CLOSE_ON_FREE)
-				shutdown_flag = 1;
 			bio = BIO_new_socket(fd, shutdown_flag);
 			SSL_set_bio(ssl, bio, bio);
 		} else {

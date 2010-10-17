@@ -47,6 +47,14 @@ struct evconnlistener;
  */
 typedef void (*evconnlistener_cb)(struct evconnlistener *, evutil_socket_t, struct sockaddr *, int socklen, void *);
 
+/**
+   A callback that we invoke when a listener encounters a non-retriable error.
+
+   @param listener The evconnlistener
+   @param user_arg the pointer passed to evconnlistener_new()
+ */
+typedef void (*evconnlistener_errorcb)(struct evconnlistener *, void *);
+
 /** Flag: Indicates that we should not make incoming sockets nonblocking
  * before passing them to the callback. */
 #define LEV_OPT_LEAVE_SOCKETS_BLOCKING	(1u<<0)
@@ -58,6 +66,9 @@ typedef void (*evconnlistener_cb)(struct evconnlistener *, evutil_socket_t, stru
 /** Flag: Indicates that we should disable the timeout (if any) between when
  * this socket is closed and when we can listen again on the same port. */
 #define LEV_OPT_REUSEABLE		(1u<<3)
+/** Flag: Indicates that the listener should be locked so it's safe to use
+ * from multiple threadcs at once. */
+#define LEV_OPT_THREADSAFE		(1u<<4)
 
 /**
    Allocate a new evconnlistener object to listen for incoming TCP connections
@@ -111,6 +122,10 @@ struct event_base *evconnlistener_get_base(struct evconnlistener *lev);
 
 /** Return the socket that an evconnlistner is listening on. */
 evutil_socket_t evconnlistener_get_fd(struct evconnlistener *lev);
+
+/** Set an evconnlistener's error callback. */
+void evconnlistener_set_error_cb(struct evconnlistener *lev,
+    evconnlistener_errorcb errorcb);
 
 #ifdef __cplusplus
 }

@@ -846,7 +846,7 @@ evhttp_read_body(struct evhttp_connection *evcon, struct evhttp_request *req)
 		evbuffer_add_buffer(req->input_buffer, buf);
 		req->body_size += evbuffer_get_length(buf);
 	} else if (req->chunk_cb != NULL ||
-	    evbuffer_get_length(buf) >= req->ntoread) {
+	    evbuffer_get_length(buf) >= (size_t)req->ntoread) {
 		/* We've postponed moving the data until now, but we're
 		 * about to use it. */
 		req->ntoread -= evbuffer_get_length(buf);
@@ -977,8 +977,10 @@ evhttp_connection_free(struct evhttp_connection *evcon)
 	if (evcon->bufev != NULL)
 		bufferevent_free(evcon->bufev);
 
-	if (evcon->fd != -1)
+	if (evcon->fd != -1) {
+		shutdown(evcon->fd, EVUTIL_SHUT_WR);
 		evutil_closesocket(evcon->fd);
+	}
 
 	if (evcon->bind_address != NULL)
 		mm_free(evcon->bind_address);
@@ -1044,6 +1046,7 @@ evhttp_connection_reset(struct evhttp_connection *evcon)
 		if (evhttp_connected(evcon) && evcon->closecb != NULL)
 			(*evcon->closecb)(evcon, evcon->closecb_arg);
 
+		shutdown(evcon->fd, EVUTIL_SHUT_WR);
 		evutil_closesocket(evcon->fd);
 		evcon->fd = -1;
 	}
@@ -2253,11 +2256,11 @@ evhttp_response_phrase_internal(int code)
 	int subcode = code % 100;
 
 	/* Unknown class - can't do any better here */
-	if (klass < 0 || klass >= MEMBERSOF(response_classes))
+	if (klass < 0 || klass >= (int) MEMBERSOF(response_classes))
 		return "Unknown Status Class";
 
 	/* Unknown sub-code, return class name at least */
-	if (subcode >= response_classes[klass].num_responses)
+	if (subcode >= (int) response_classes[klass].num_responses)
 		return response_classes[klass].name;
 
 	return response_classes[klass].responses[subcode];

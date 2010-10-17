@@ -126,7 +126,7 @@ do_fd_set(struct win32op *op, struct idx_info *ent, evutil_socket_t s, int read)
 		if (ent->write_pos_plus1 > 0)
 			return (0);
 	}
-	if (set->fd_count == op->fd_setsz) {
+	if ((int)set->fd_count == op->fd_setsz) {
 		if (realloc_fd_sets(op, op->fd_setsz*2))
 			return (-1);
 		/* set pointer will have changed and needs reiniting! */
@@ -155,7 +155,7 @@ do_fd_clear(struct event_base *base,
 	}
 	if (i < 0)
 		return (0);
-	if (--set->fd_count != i) {
+	if (--set->fd_count != (unsigned)i) {
 		struct idx_info *ent2;
 		SOCKET s2;
 		s2 = set->fd_array[i] = set->fd_array[set->fd_count];
@@ -304,7 +304,6 @@ win32_dispatch(struct event_base *base, struct timeval *tv)
 			msec = LONG_MAX;
 		/* Windows doesn't like you to call select() with no sockets */
 		Sleep(msec);
-		evsig_process(base);
 		return (0);
 	}
 
@@ -320,10 +319,7 @@ win32_dispatch(struct event_base *base, struct timeval *tv)
 	event_debug(("%s: select returned %d", __func__, res));
 
 	if (res <= 0) {
-		evsig_process(base);
 		return res;
-	} else if (base->sig.evsig_caught) {
-		evsig_process(base);
 	}
 
 	if (win32op->readset_out->fd_count) {

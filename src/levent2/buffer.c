@@ -74,6 +74,7 @@
 #ifdef _EVENT_HAVE_UNISTD_H
 #include <unistd.h>
 #endif
+#include <limits.h>
 
 #include "event2/event.h"
 #include "event2/buffer.h"
@@ -570,7 +571,7 @@ evbuffer_reserve_space(struct evbuffer *buf, ev_ssize_t size,
 
 		vec[0].iov_base = CHAIN_SPACE_PTR(chain);
 		vec[0].iov_len = CHAIN_SPACE_LEN(chain);
-		EVUTIL_ASSERT(vec[0].iov_len >= size);
+		EVUTIL_ASSERT(size<0 || (size_t)vec[0].iov_len >= (size_t)size);
 		n = 1;
 	} else {
 		if (_evbuffer_expand_fast(buf, size, n_vecs)<0)
@@ -621,7 +622,7 @@ evbuffer_commit_space(struct evbuffer *buf,
 	    (buf->last && vec[0].iov_base == (void*)CHAIN_SPACE_PTR(buf->last))) {
 		/* The user only got or used one chain; it might not
 		 * be the first one with space in it. */
-		if (vec[0].iov_len > CHAIN_SPACE_LEN(buf->last))
+		if ((size_t)vec[0].iov_len > (size_t)CHAIN_SPACE_LEN(buf->last))
 			goto done;
 		buf->last->off += vec[0].iov_len;
 		added = vec[0].iov_len;
@@ -645,7 +646,7 @@ evbuffer_commit_space(struct evbuffer *buf,
 		if (!chain)
 			goto done;
 		if (vec[i].iov_base != (void*)CHAIN_SPACE_PTR(chain) ||
-		    vec[i].iov_len > CHAIN_SPACE_LEN(chain))
+		    (size_t)vec[i].iov_len > CHAIN_SPACE_LEN(chain))
 			goto done;
 		chain = chain->next;
 	}
@@ -1884,7 +1885,17 @@ evbuffer_expand(struct evbuffer *buf, size_t datlen)
 #ifdef _EVENT_HAVE_SYS_UIO_H
 /* number of iovec we use for writev, fragmentation is going to determine
  * how much we end up writing */
-#define NUM_WRITE_IOVEC 128
+
+#define DEFAULT_WRITE_IOVEC 128
+
+#if defined(UIO_MAXIOV) && UIO_MAXIOV < DEFAULT_WRITE_IOVEC
+#define NUM_WRITE_IOVEC UIO_MAXIOV
+#elif defined(IOV_MAX) && IOV_MAX < DEFAULT_WRITE_IOVEC
+#define NUM_WRITE_IOVEC IOV_MAX
+#else
+#define NUM_WRITE_IOVEC DEFAULT_WRITE_IOVEC
+#endif
+
 #define IOV_TYPE struct iovec
 #define IOV_PTR_FIELD iov_base
 #define IOV_LEN_FIELD iov_len
@@ -1934,7 +1945,7 @@ _evbuffer_read_setup_vecs(struct evbuffer *buf, ev_ssize_t howmuch,
 	}
 
 	chain = *firstchainp;
-	for (i = 0; i < n_vecs_avail && so_far < howmuch; ++i) {
+	for (i = 0; i < n_vecs_avail && so_far < (size_t)howmuch; ++i) {
 		size_t avail = CHAIN_SPACE_LEN(chain);
 		if (avail > (howmuch - so_far) && exact)
 			avail = howmuch - so_far;
@@ -2252,7 +2263,7 @@ evbuffer_write_atmost(struct evbuffer *buffer, evutil_socket_t fd,
 		goto done;
 	}
 
-	if (howmuch < 0 || howmuch > buffer->total_len)
+	if (howmuch < 0 || (size_t)howmuch > buffer->total_len)
 		howmuch = buffer->total_len;
 
 	if (howmuch > 0) {
@@ -2420,7 +2431,7 @@ evbuffer_search_range(struct evbuffer *buffer, const char *what, size_t len, con
 	if (end)
 		last_chain = end->_internal.chain;
 
-	if (!len)
+	if (!len || len > EV_SSIZE_MAX)
 		goto done;
 
 	first = what[0];
@@ -2435,7 +2446,7 @@ evbuffer_search_range(struct evbuffer *buffer, const char *what, size_t len, con
 			pos.pos += p - start_at;
 			pos._internal.pos_in_chain += p - start_at;
 			if (!evbuffer_ptr_memcmp(buffer, &pos, what, len)) {
-				if (end && pos.pos + len > end->pos)
+				if (end && pos.pos + (ev_ssize_t)len > end->pos)
 					goto not_found;
 				else
 					goto done;

@@ -110,7 +110,7 @@ evbuffer_commit_read(struct evbuffer *evbuf, ev_ssize_t nBytes)
 	if (!((*chainp)->flags & EVBUFFER_MEM_PINNED_R))
 		chainp = &(*chainp)->next;
 	remaining = nBytes;
-	for (i = 0; remaining > 0 && i < buf->n_buffers; ++i) {
+	for (i = 0; remaining > 0 && i < (unsigned)buf->n_buffers; ++i) {
 		EVUTIL_ASSERT(*chainp);
 		len = buf->buffers[i].len;
 		if (remaining < len)
@@ -197,7 +197,7 @@ evbuffer_launch_write(struct evbuffer *buf, ev_ssize_t at_most,
 
 	for (i=0; i < MAX_WSABUFS && chain; ++i, chain=chain->next) {
 		WSABUF *b = &buf_o->buffers[i];
-		b->buf = chain->buffer + chain->misalign;
+		b->buf = (char*)( chain->buffer + chain->misalign );
 		_evbuffer_chain_pin(chain, EVBUFFER_MEM_PINNED_W);
 
 		if ((size_t)at_most > chain->off) {

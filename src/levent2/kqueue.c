@@ -147,14 +147,13 @@ kq_init(struct event_base *base)
 	 */
 	if (kevent(kq,
 		kqueueop->changes, 1, kqueueop->events, NEVENT, NULL) != 1 ||
-	    kqueueop->events[0].ident != -1 ||
+	    (int)kqueueop->events[0].ident != -1 ||
 	    kqueueop->events[0].flags != EV_ERROR) {
 		event_warn("%s: detected broken kqueue; not using.", __func__);
 		goto err;
 	}
 
 	base->evsigsel = &kqsigops;
-	base->evsigbase = kqueueop;
 
 	return (kqueueop);
 err:
@@ -379,6 +378,8 @@ kq_sig_add(struct event_base *base, int nsignal, short old, short events, void *
 	if (kevent(kqop->kq, &kev, 1, NULL, 0, &timeout) == -1)
 		return (-1);
 
+	/* XXXX The manpage suggest we could use SIG_IGN instead of a
+	 * do-nothing handler */
 	if (_evsig_set_handler(base, nsignal, kq_sighandler) == -1)
 		return (-1);
 

@@ -1263,7 +1263,8 @@ nameserver_read(struct nameserver *ns) {
 	ASSERT_LOCKED(ns->base);
 
 	for (;;) {
-		const int r = recvfrom(ns->socket, packet, sizeof(packet), 0,
+		const int r = recvfrom(ns->socket, (void*)packet,
+		    sizeof(packet), 0,
 		    (struct sockaddr*)&ss, &addrlen);
 		if (r < 0) {
 			int err = evutil_socket_geterror(ns->socket);
@@ -1300,7 +1301,7 @@ server_port_read(struct evdns_server_port *s) {
 
 	for (;;) {
 		addrlen = sizeof(struct sockaddr_storage);
-		r = recvfrom(s->socket, packet, sizeof(packet), 0,
+		r = recvfrom(s->socket, (void*)packet, sizeof(packet), 0,
 					 (struct sockaddr*) &addr, &addrlen);
 		if (r < 0) {
 			int err = evutil_socket_geterror(s->socket);
@@ -2084,7 +2085,7 @@ evdns_request_transmit_to(struct request *req, struct nameserver *server) {
 	int r;
 	ASSERT_LOCKED(req->base);
 	ASSERT_VALID_REQUEST(req);
-	r = sendto(server->socket, req->request, req->request_len, 0,
+	r = sendto(server->socket, (void*)req->request, req->request_len, 0,
 	    (struct sockaddr *)&server->address, server->addrlen);
 	if (r < 0) {
 		int err = evutil_socket_geterror(server->socket);
@@ -3509,7 +3510,8 @@ load_nameservers_with_getnetworkparams(struct evdns_base *base)
 	GetNetworkParams_fn_t fn;
 
 	ASSERT_LOCKED(base);
-	if (!(handle = LoadLibrary(TEXT("iphlpapi.dll")))) {
+	if (!(handle = evutil_load_windows_system_library(
+			TEXT("iphlpapi.dll")))) {
 		log(EVDNS_LOG_WARN, "Could not open iphlpapi.dll");
 		status = -1;
 		goto done;
@@ -3900,7 +3902,7 @@ evdns_base_parse_hosts_line(struct evdns_base *base, char *line)
 	memset(&ss, 0, sizeof(ss));
 	if (evutil_parse_sockaddr_port(addr, (struct sockaddr*)&ss, &socklen)<0)
 		return -1;
-	if (socklen > sizeof(struct sockaddr_in6))
+	if (socklen > (int)sizeof(struct sockaddr_in6))
 		return -1;
 
 	if (sockaddr_getport((struct sockaddr*)&ss))
@@ -3920,7 +3922,7 @@ evdns_base_parse_hosts_line(struct evdns_base *base, char *line)
 		he = mm_calloc(1, sizeof(struct hosts_entry)+namelen);
 		if (!he)
 			return -1;
-		EVUTIL_ASSERT(socklen <= sizeof(he->addr));
+		EVUTIL_ASSERT(socklen <= (int)sizeof(he->addr));
 		memcpy(&he->addr, &ss, socklen);
 		memcpy(he->hostname, hostname, namelen+1);
 		he->addrlen = socklen;
