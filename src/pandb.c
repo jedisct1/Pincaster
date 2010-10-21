@@ -1015,8 +1015,8 @@ int init_pan_db(PanDB * const db,
     pthread_rwlock_init(&db->rwlock_db, NULL);
     init_quad_node(&db->root);
     db->qbounds = (Rectangle2D) {
-        .edge0 = { .latitude = -180.0F, .longitude = -180.0F },
-        .edge1 = { .latitude =  180.0F, .longitude =  180.0F }
+        .edge0 = { .latitude = -90.0F, .longitude = -180.0F },
+        .edge1 = { .latitude =  90.0F, .longitude =  180.0F }
     };
     db->latitude_accuracy = db->longitude_accuracy =
         app_context.dimension_accuracy;

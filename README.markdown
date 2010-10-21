@@ -257,9 +257,9 @@ Check the list of active layers:
 				"latitude_accuracy": 0.0001,
 				"longitude_accuracy": 0.0001,
 				"bounds": [
+					-90,
 					-180,
-					-180,
-					180,
+					90,
 					180
 				]
 			}
