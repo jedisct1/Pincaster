@@ -47,7 +47,7 @@ _Bool pnt_stack_exists(PntStack * const pnt_stack, const void * const pnt);
 int init_pnt_stack_iterator(PntStackIterator * const pnt_stack_iterator,
                             PntStack * const pnt_stack);
 
-void pnt_stack_iterator_rewind(PntStackIterator * const pnt_stack_iterator);
+int pnt_stack_iterator_rewind(PntStackIterator * const pnt_stack_iterator);
 void *pnt_stack_iterator_next(PntStackIterator * const pnt_stack_iterator);
 void *pnt_stack_cyterator_next(PntStackIterator * const pnt_stack_iterator);
 
