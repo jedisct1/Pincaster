@@ -43,7 +43,7 @@ int parse_config(const char * const file)
         { "ReplicationMasterPort",  &cfg_replication_master_port },        
         { "ReplicationSlaveOfIp",   &cfg_replication_slave_ip },
         { "ReplicationSlaveOfPort", &cfg_replication_slave_port },        
-        { NULL,                NULL }    
+        { NULL,                     NULL }
     };
     app_context.http_handler_context = NULL;
     app_context.server_ip = NULL;
