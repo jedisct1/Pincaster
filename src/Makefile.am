@@ -65,8 +65,5 @@ pincaster_SOURCES = \
         replication_slave.c \
         replication_slave.h
 
-#pincaster_DEPENDS = \
-#        yajl/libyajl.a
-        
 SUBDIRS = \
         ext levent2 yajl
