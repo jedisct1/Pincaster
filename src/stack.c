@@ -136,3 +136,50 @@ _Bool pnt_stack_exists(PntStack * const pnt_stack, const void * const pnt)
     }
     return 0;
 }
+
+int init_pnt_stack_iterator(PntStackIterator * const pnt_stack_iterator,
+                            PntStack * const pnt_stack)
+{
+    pnt_stack_iterator->pnt_stack = pnt_stack;
+    pnt_stack_iterator->depth = (size_t) 0U;
+    
+    return 0;
+}
+
+int pnt_stack_iterator_rewind(PntStackIterator * const pnt_stack_iterator)
+{
+    pnt_stack_iterator->depth = (size_t) 0U;
+    
+    return 1;
+}
+
+void *pnt_stack_iterator_next(PntStackIterator * const pnt_stack_iterator)
+{
+    size_t depth = pnt_stack_iterator->depth;
+    PntStack * const pnt_stack = pnt_stack_iterator->pnt_stack;
+    
+    if (depth >= pnt_stack->depth) {
+        pnt_stack_iterator->depth = (size_t) 0U;
+        return NULL;
+    }        
+    void * const item = pnt_stack->stack + depth;    
+    depth += pnt_stack->element_size;
+    pnt_stack_iterator->depth = depth;
+    
+    return item;
+}
+
+void *pnt_stack_cyterator_next(PntStackIterator * const pnt_stack_iterator)
+{
+    size_t depth = pnt_stack_iterator->depth;
+    PntStack * const pnt_stack = pnt_stack_iterator->pnt_stack;
+    void * const item = pnt_stack->stack + depth;
+    
+    depth += pnt_stack->element_size;
+    if (depth >= pnt_stack->depth) {
+        depth = (size_t) 0U;
+    }
+    pnt_stack_iterator->depth = depth;
+    
+    return item;
+}

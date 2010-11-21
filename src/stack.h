@@ -19,6 +19,11 @@ typedef struct PntStack_ {
     unsigned int low_depth_unreached_count;
 } PntStack;
 
+typedef struct PntStackIterator_ {
+    PntStack * pnt_stack;
+    size_t depth;
+} PntStackIterator;
+
 int init_pnt_stack(PntStack * const pnt_stack,
                    const size_t initial_nb_elements,
                    const size_t element_size);
@@ -38,5 +43,12 @@ int pnt_stack_foreach(PntStack * const pnt_stack, PntStackForeachCB cb,
                       void * const context);
 
 _Bool pnt_stack_exists(PntStack * const pnt_stack, const void * const pnt);
+
+int init_pnt_stack_iterator(PntStackIterator * const pnt_stack_iterator,
+                            PntStack * const pnt_stack);
+
+void pnt_stack_iterator_rewind(PntStackIterator * const pnt_stack_iterator);
+void *pnt_stack_iterator_next(PntStackIterator * const pnt_stack_iterator);
+void *pnt_stack_cyterator_next(PntStackIterator * const pnt_stack_iterator);
 
 #endif
