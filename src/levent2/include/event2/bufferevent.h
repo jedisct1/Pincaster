@@ -204,16 +204,25 @@ int bufferevent_socket_get_dns_error(struct bufferevent *bev);
 /**
   Assign a bufferevent to a specific event_base.
 
+  NOTE that only socket bufferevents support this function.
+
   @param base an event_base returned by event_init()
   @param bufev a bufferevent struct returned by bufferevent_new()
+     or bufferevent_socket_new()
   @return 0 if successful, or -1 if an error occurred
   @see bufferevent_new()
  */
 int bufferevent_base_set(struct event_base *base, struct bufferevent *bufev);
 
+/**
+   Return the event_base used by a bufferevent
+*/
+struct event_base *bufferevent_get_base(struct bufferevent *bev);
 
 /**
   Assign a priority to a bufferevent.
+
+  Only supported for socket bufferevents.
 
   @param bufev a bufferevent struct
   @param pri the priority to be assigned
@@ -556,6 +565,9 @@ struct ev_token_bucket_cfg;
 */
 struct bufferevent_rate_limit_group;
 
+/** Maximum configurable rate- or burst-limit. */
+#define EV_RATE_LIMIT_MAX EV_SSIZE_MAX
+
 /**
    Initialize and return a new object to configure the rate-limiting behavior
    of bufferevents.
@@ -573,8 +585,8 @@ struct bufferevent_rate_limit_group;
    of Libevent may implement them more tightly.
  */
 struct ev_token_bucket_cfg *ev_token_bucket_cfg_new(
-	ev_uint32_t read_rate, ev_uint32_t read_burst,
-	ev_uint32_t write_rate, ev_uint32_t write_burst,
+	size_t read_rate, size_t read_burst,
+	size_t write_rate, size_t write_burst,
 	const struct timeval *tick_len);
 
 /** Free all storage held in 'cfg'.

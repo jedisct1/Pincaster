@@ -155,7 +155,6 @@ epoll_apply_changes(struct event_base *base)
 	int op, events;
 
 	for (i = 0; i < changelist->n_changes; ++i) {
-		int precautionary_add = 0;
 		ch = &changelist->changes[i];
 		events = 0;
 
@@ -170,46 +169,48 @@ epoll_apply_changes(struct event_base *base)
 
 		*/
 
+		/* TODO: Turn this into a switch or a table lookup. */
+
 		if ((ch->read_change & EV_CHANGE_ADD) ||
 		    (ch->write_change & EV_CHANGE_ADD)) {
 			/* If we are adding anything at all, we'll want to do
 			 * either an ADD or a MOD. */
-			short new_events = ch->old_events;
 			events = 0;
 			op = EPOLL_CTL_ADD;
 			if (ch->read_change & EV_CHANGE_ADD) {
 				events |= EPOLLIN;
-				new_events |= EV_READ;
 			} else if (ch->read_change & EV_CHANGE_DEL) {
-				new_events &= ~EV_READ;
+				;
 			} else if (ch->old_events & EV_READ) {
 				events |= EPOLLIN;
 			}
 			if (ch->write_change & EV_CHANGE_ADD) {
 				events |= EPOLLOUT;
-				new_events |= EV_WRITE;
 			} else if (ch->write_change & EV_CHANGE_DEL) {
-				new_events &= ~EV_WRITE;
+				;
 			} else if (ch->old_events & EV_WRITE) {
 				events |= EPOLLOUT;
 			}
 			if ((ch->read_change|ch->write_change) & EV_ET)
 				events |= EPOLLET;
 
-			if (new_events == ch->old_events) {
-				/*
-				  If the changelist has an "add" operation,
-				  but no visible change to the events enabled
-				  on the fd, we need to try the ADD anyway, in
-				  case the fd was closed at some in the
-				  middle.  If it wasn't, the ADD operation
-				  will fail with; that's okay.
-				*/
-				precautionary_add = 1;
-			} else if (ch->old_events) {
+			if (ch->old_events) {
+				/* If MOD fails, we retry as an ADD, and if
+				 * ADD fails we will retry as a MOD.  So the
+				 * only hard part here is to guess which one
+				 * will work.  As a heuristic, we'll try
+				 * MOD first if we think there were old
+				 * events and ADD if we think there were none.
+				 *
+				 * We can be wrong about the MOD if the file
+				 * has in fact been closed and re-opened.
+				 *
+				 * We can be wrong about the ADD if the
+				 * the fd has been re-created with a dup()
+				 * of the same file that it was before.
+				 */
 				op = EPOLL_CTL_MOD;
 			}
-
 		} else if ((ch->read_change & EV_CHANGE_DEL) ||
 		    (ch->write_change & EV_CHANGE_DEL)) {
 			/* If we're deleting anything, we'll want to do a MOD
@@ -255,14 +256,22 @@ epoll_apply_changes(struct event_base *base)
 						(int)epev.events,
 						ch->fd));
 				}
-			} else if (op == EPOLL_CTL_ADD && errno == EEXIST &&
-			    precautionary_add) {
-				/* If a precautionary ADD operation fails with
-				   EEXIST, that's fine too.
-				 */
-				event_debug(("Epoll ADD(%d) on fd %d gave %s: ADD was redundant",
-					(int)epev.events,
-					ch->fd, strerror(errno)));
+			} else if (op == EPOLL_CTL_ADD && errno == EEXIST) {
+				/* If an ADD operation fails with EEXIST,
+				 * either the operation was redundant (as with a
+				 * precautionary add), or we ran into a fun
+				 * kernel bug where using dup*() to duplicate the
+				 * same file into the same fd gives you the same epitem
+				 * rather than a fresh one.  For the second case,
+				 * we must retry with MOD. */
+				if (epoll_ctl(epollop->epfd, EPOLL_CTL_MOD, ch->fd, &epev) == -1) {
+					event_warn("Epoll ADD(%d) on %d retried as MOD; that failed too",
+					    (int)epev.events, ch->fd);
+				} else {
+					event_debug(("Epoll ADD(%d) on %d retried as MOD; succeeded.",
+						(int)epev.events,
+						ch->fd));
+				}
 			} else if (op == EPOLL_CTL_DEL &&
 			    (errno == ENOENT || errno == EBADF ||
 				errno == EPERM)) {

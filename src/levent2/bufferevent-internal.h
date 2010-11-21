@@ -96,7 +96,7 @@ struct bufferevent_rate_limit_group {
 
 	/** The smallest number of bytes that any member of the group should
 	 * be limited to read or write at a time. */
-	ev_int32_t min_share;
+	ev_ssize_t min_share;
 	/** Timeout event that goes off once a tick, when the bucket is ready
 	 * to refill. */
 	struct event master_refill_event;
@@ -378,11 +378,11 @@ int _bufferevent_generic_adj_timeouts(struct bufferevent *bev);
 /* ==== For rate-limiting. */
 
 int _bufferevent_decrement_write_buckets(struct bufferevent_private *bev,
-    int bytes);
+    ev_ssize_t bytes);
 int _bufferevent_decrement_read_buckets(struct bufferevent_private *bev,
-    int bytes);
-int _bufferevent_get_read_max(struct bufferevent_private *bev);
-int _bufferevent_get_write_max(struct bufferevent_private *bev);
+    ev_ssize_t bytes);
+ev_ssize_t _bufferevent_get_read_max(struct bufferevent_private *bev);
+ev_ssize_t _bufferevent_get_write_max(struct bufferevent_private *bev);
 
 #ifdef __cplusplus
 }

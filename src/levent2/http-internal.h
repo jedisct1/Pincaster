@@ -12,6 +12,7 @@
 
 #include "event2/event_struct.h"
 #include "util-internal.h"
+#include "defer-internal.h"
 
 #define HTTP_CONNECT_TIMEOUT	45
 #define HTTP_WRITE_TIMEOUT	50
@@ -40,7 +41,8 @@ struct evbuffer;
 struct addrinfo;
 struct evhttp_request;
 
-/* A stupid connection object - maybe make this a bufferevent later */
+/* Indicates an unknown request method. */
+#define _EVHTTP_REQ_UNKNOWN (1<<15)
 
 enum evhttp_connection_state {
 	EVCON_DISCONNECTED,	/**< not currently connected not trying either*/
@@ -56,8 +58,10 @@ enum evhttp_connection_state {
 
 struct event_base;
 
+/* A client or server connection. */
 struct evhttp_connection {
-	/* we use tailq only if they were created for an http server */
+	/* we use this tailq only if this connection was created for an http
+	 * server */
 	TAILQ_ENTRY(evhttp_connection) next;
 
 	evutil_socket_t fd;
@@ -96,10 +100,13 @@ struct evhttp_connection {
 	void (*closecb)(struct evhttp_connection *, void *);
 	void *closecb_arg;
 
+	struct deferred_cb read_more_deferred_cb;
+
 	struct event_base *base;
 	struct evdns_base *dns_base;
 };
 
+/* A callback for an http server */
 struct evhttp_cb {
 	TAILQ_ENTRY(evhttp_cb) next;
 
@@ -120,11 +127,15 @@ struct evhttp_bound_socket {
 };
 
 struct evhttp {
-	TAILQ_ENTRY(evhttp) next;
+	/* Next vhost, if this is a vhost. */
+	TAILQ_ENTRY(evhttp) next_vhost;
 
+	/* All listeners for this host */
 	TAILQ_HEAD(boundq, evhttp_bound_socket) sockets;
 
 	TAILQ_HEAD(httpcbq, evhttp_cb) callbacks;
+
+	/* All live connections on this host. */
 	struct evconq connections;
 
 	TAILQ_HEAD(vhostsq, evhttp) virtualhosts;
@@ -137,11 +148,19 @@ struct evhttp {
 	size_t default_max_headers_size;
 	ev_uint64_t default_max_body_size;
 
+	/* Bitmask of all HTTP methods that we accept and pass to user
+	 * callbacks. */
+	ev_uint16_t allowed_methods;
+
+	/* Fallback callback if all the other callbacks for this connection
+	   don't match. */
 	void (*gencb)(struct evhttp_request *req, void *);
 	void *gencbarg;
 
 	struct event_base *base;
 };
+
+/* XXX most of these functions could be static. */
 
 /* resets the connection; can be reused for more requests */
 void evhttp_connection_reset(struct evhttp_connection *);
@@ -153,18 +172,12 @@ int evhttp_connection_connect(struct evhttp_connection *);
 void evhttp_connection_fail(struct evhttp_connection *,
     enum evhttp_connection_error error);
 
-void evhttp_get_request(struct evhttp *, evutil_socket_t, struct sockaddr *, ev_socklen_t);
-
 enum message_read_status;
 
 enum message_read_status evhttp_parse_firstline(struct evhttp_request *, struct evbuffer*);
 enum message_read_status evhttp_parse_headers(struct evhttp_request *, struct evbuffer*);
 
 void evhttp_start_read(struct evhttp_connection *);
-void evhttp_make_header(struct evhttp_connection *, struct evhttp_request *);
-
-void evhttp_write_buffer(struct evhttp_connection *,
-    void (*)(struct evhttp_connection *, void *), void *);
 
 /* response sending HTML the data in the buffer */
 void evhttp_response_code(struct evhttp_request *, int, const char *);

@@ -187,9 +187,9 @@ static HT_HEAD(event_debug_map, event_debug_entry) global_debug_map =
 	HT_INITIALIZER();
 
 HT_PROTOTYPE(event_debug_map, event_debug_entry, node, hash_debug_entry,
-    eq_debug_entry);
+    eq_debug_entry)
 HT_GENERATE(event_debug_map, event_debug_entry, node, hash_debug_entry,
-    eq_debug_entry, 0.5, mm_malloc, mm_realloc, mm_free);
+    eq_debug_entry, 0.5, mm_malloc, mm_realloc, mm_free)
 
 /* Macro: record that ev is now setup (that is, ready for an add) */
 #define _event_debug_note_setup(ev) do {				\
@@ -827,7 +827,7 @@ event_reinit(struct event_base *base)
 			if (evmap_io_add(base, ev->ev_fd, ev) == -1)
 				res = -1;
 		} else if (ev->ev_events & EV_SIGNAL) {
-			if (evmap_signal_add(base, ev->ev_fd, ev) == -1)
+			if (evmap_signal_add(base, (int)ev->ev_fd, ev) == -1)
 				res = -1;
 		}
 	}
@@ -1157,7 +1157,7 @@ event_base_init_common_timeout(struct event_base *base,
 		}
 	}
 	if (base->n_common_timeouts == MAX_COMMON_TIMEOUTS) {
-		event_warn("%s: Too many common timeouts already in use; "
+		event_warnx("%s: Too many common timeouts already in use; "
 		    "we only support %d per event_base", __func__,
 		    MAX_COMMON_TIMEOUTS);
 		goto done;
@@ -1491,7 +1491,7 @@ event_base_loop(struct event_base *base, int flags)
 	EVBASE_ACQUIRE_LOCK(base, th_base_lock);
 
 	if (base->running_loop) {
-		event_warn("%s: reentrant invocation.  Only one event_base_loop"
+		event_warnx("%s: reentrant invocation.  Only one event_base_loop"
 		    " can run on each event_base at once.", __func__);
 		EVBASE_RELEASE_LOCK(base, th_base_lock);
 		return -1;
@@ -2009,7 +2009,7 @@ event_add_internal(struct event *ev, const struct timeval *tv,
 		if (ev->ev_events & (EV_READ|EV_WRITE))
 			res = evmap_io_add(base, ev->ev_fd, ev);
 		else if (ev->ev_events & EV_SIGNAL)
-			res = evmap_signal_add(base, ev->ev_fd, ev);
+			res = evmap_signal_add(base, (int)ev->ev_fd, ev);
 		if (res != -1)
 			event_queue_insert(base, ev, EVLIST_INSERTED);
 		if (res == 1) {
@@ -2187,7 +2187,7 @@ event_del_internal(struct event *ev)
 		if (ev->ev_events & (EV_READ|EV_WRITE))
 			res = evmap_io_del(base, ev->ev_fd, ev);
 		else
-			res = evmap_signal_del(base, ev->ev_fd, ev);
+			res = evmap_signal_del(base, (int)ev->ev_fd, ev);
 		if (res == 1) {
 			/* evmap says we need to notify the main thread. */
 			notify = 1;

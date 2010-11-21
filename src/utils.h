@@ -22,6 +22,11 @@ typedef struct BinVal_ {
     size_t max_size;
 } BinVal;
 
+typedef struct SBinVal_ {
+    char *val;
+    size_t size;
+} SBinVal;
+
 typedef struct BufferedReadContext_ {
     struct evbuffer *buf;
     int fd;

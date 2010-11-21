@@ -55,6 +55,7 @@
 #ifdef WIN32
 #include "iocp-internal.h"
 #include "defer-internal.h"
+#include "event-internal.h"
 #endif
 
 struct evconnlistener_ops {
@@ -73,7 +74,8 @@ struct evconnlistener {
 	evconnlistener_errorcb errorcb;
 	void *user_data;
 	unsigned flags;
-	int refcnt;
+	short refcnt;
+	unsigned enabled : 1;
 };
 
 struct evconnlistener_event {
@@ -89,7 +91,7 @@ struct evconnlistener_iocp {
 	struct event_iocp_port *port;
 	short n_accepting;
 	unsigned shutting_down : 1;
-	unsigned enabled : 1;
+	unsigned event_added : 1;
 	struct accepting_socket **accepting;
 };
 #endif
@@ -185,6 +187,7 @@ evconnlistener_new(struct event_base *base,
 
 	event_assign(&lev->listener, base, fd, EV_READ|EV_PERSIST,
 	    listener_read_cb, lev);
+
 	evconnlistener_enable(&lev->base);
 
 	return &lev->base;
@@ -268,7 +271,11 @@ evconnlistener_enable(struct evconnlistener *lev)
 {
 	int r;
 	LOCK(lev);
-	r = lev->ops->enable(lev);
+	lev->enabled = 1;
+	if (lev->cb)
+		r = lev->ops->enable(lev);
+	else
+		r = 0;
 	UNLOCK(lev);
 	return r;
 }
@@ -278,6 +285,7 @@ evconnlistener_disable(struct evconnlistener *lev)
 {
 	int r;
 	LOCK(lev);
+	lev->enabled = 0;
 	r = lev->ops->disable(lev);
 	UNLOCK(lev);
 	return r;
@@ -335,7 +343,23 @@ event_listener_getbase(struct evconnlistener *lev)
 	return event_get_base(&lev_e->listener);
 }
 
-void evconnlistener_set_error_cb(struct evconnlistener *lev,
+void
+evconnlistener_set_cb(struct evconnlistener *lev,
+    evconnlistener_cb cb, void *arg)
+{
+	int enable = 0;
+	LOCK(lev);
+	if (lev->enabled && !lev->cb)
+		enable = 1;
+	lev->cb = cb;
+	lev->user_data = arg;
+	if (enable)
+		evconnlistener_enable(lev);
+	UNLOCK(lev);
+}
+
+void
+evconnlistener_set_error_cb(struct evconnlistener *lev,
     evconnlistener_errorcb errorcb)
 {
 	LOCK(lev);
@@ -420,6 +444,26 @@ static void accepted_socket_cb(struct event_overlapped *o, ev_uintptr_t key,
     ev_ssize_t n, int ok);
 static void accepted_socket_invoke_user_cb(struct deferred_cb *cb, void *arg);
 
+static void
+iocp_listener_event_add(struct evconnlistener_iocp *lev)
+{
+	if (lev->event_added)
+		return;
+
+	lev->event_added = 1;
+	event_base_add_virtual(lev->event_base);
+}
+
+static void
+iocp_listener_event_del(struct evconnlistener_iocp *lev)
+{
+	if (!lev->event_added)
+		return;
+
+	lev->event_added = 0;
+	event_base_del_virtual(lev->event_base);
+}
+
 static struct accepting_socket *
 new_accepting_socket(struct evconnlistener_iocp *lev, int family)
 {
@@ -474,7 +518,7 @@ start_accepting(struct accepting_socket *as)
 	SOCKET s = socket(as->family, SOCK_STREAM, 0);
 	int error = 0;
 
-	if (!as->lev->enabled)
+	if (!as->lev->base.enabled)
 		return 0;
 
 	if (s == INVALID_SOCKET) {
@@ -482,6 +526,8 @@ start_accepting(struct accepting_socket *as)
 		goto report_err;
 	}
 
+	/* XXXX It turns out we need to do this again later.  Does this call
+	 * have any effect? */
 	setsockopt(s, SOL_SOCKET, SO_UPDATE_ACCEPT_CONTEXT,
 	    (char *)&as->lev->fd, sizeof(&as->lev->fd));
 
@@ -565,6 +611,12 @@ accepted_socket_invoke_user_cb(struct deferred_cb *dcb, void *arg)
 		sock = as->s;
 		cb = lev->cb;
 		as->s = INVALID_SOCKET;
+
+		/* We need to call this so getsockname, getpeername, and
+		 * shutdown work correctly on the accepted socket. */
+		/* XXXX handle error? */
+		setsockopt(as->s, SOL_SOCKET, SO_UPDATE_ACCEPT_CONTEXT,
+		    (char *)&as->lev->fd, sizeof(&as->lev->fd));
 	}
 	data = lev->user_data;
 
@@ -574,7 +626,7 @@ accepted_socket_invoke_user_cb(struct deferred_cb *dcb, void *arg)
 	if (errorcb) {
 		WSASetLastError(error);
 		errorcb(lev, data);
-	} else {
+	} else if (cb) {
 		cb(lev, sock, sa_remote, socklen_remote, data);
 	}
 
@@ -638,7 +690,7 @@ iocp_listener_enable(struct evconnlistener *lev)
 	    EVUTIL_UPCAST(lev, struct evconnlistener_iocp, base);
 
 	LOCK(lev);
-	lev_iocp->enabled = 1;
+	iocp_listener_event_add(lev_iocp);
 	for (i = 0; i < lev_iocp->n_accepting; ++i) {
 		struct accepting_socket *as = lev_iocp->accepting[i];
 		if (!as)
@@ -660,7 +712,7 @@ iocp_listener_disable_impl(struct evconnlistener *lev, int shutdown)
 	    EVUTIL_UPCAST(lev, struct evconnlistener_iocp, base);
 
 	LOCK(lev);
-	lev_iocp->enabled = 0;
+	iocp_listener_event_del(lev_iocp);
 	for (i = 0; i < lev_iocp->n_accepting; ++i) {
 		struct accepting_socket *as = lev_iocp->accepting[i];
 		if (!as)
@@ -760,11 +812,12 @@ evconnlistener_new_async(struct event_base *base,
 	lev->base.user_data = ptr;
 	lev->base.flags = flags;
 	lev->base.refcnt = 1;
+	lev->base.enabled = 1;
 
 	lev->port = event_base_get_iocp(base);
 	lev->fd = fd;
 	lev->event_base = base;
-	lev->enabled = 1;
+
 
 	if (event_iocp_port_associate(lev->port, fd, 1) < 0)
 		goto err_free_lev;
@@ -784,7 +837,7 @@ evconnlistener_new_async(struct event_base *base,
 			event_warnx("Couldn't create accepting socket");
 			goto err_free_accepting;
 		}
-		if (start_accepting(lev->accepting[i]) < 0) {
+		if (cb && start_accepting(lev->accepting[i]) < 0) {
 			event_warnx("Couldn't start accepting on socket");
 			EnterCriticalSection(&lev->accepting[i]->lock);
 			free_and_unlock_accepting_socket(lev->accepting[i]);
@@ -792,6 +845,8 @@ evconnlistener_new_async(struct event_base *base,
 		}
 		++lev->base.refcnt;
 	}
+
+	iocp_listener_event_add(lev);
 
 	return &lev->base;
 
