@@ -261,7 +261,7 @@ int start_replication_master(HttpHandlerContext * const context,
     hints.ai_flags = EVUTIL_AI_PASSIVE | EVUTIL_AI_ADDRCONFIG;
     const int gai_err = evutil_getaddrinfo(replication_master_ip,
                                            replication_master_port,
-                                           NULL, &ai);
+                                           &hints, &ai);
     if (gai_err != 0) {
         logfile(context, LOG_ERR,
                 "Unable to start the replication service: [%s]",

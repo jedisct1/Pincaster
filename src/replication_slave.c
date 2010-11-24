@@ -273,7 +273,7 @@ int start_replication_slave(HttpHandlerContext * const context,
     hints.ai_flags = 0;
     const int gai_err = evutil_getaddrinfo(replication_master_ip,
                                            replication_master_port,
-                                           NULL, &ai);
+                                           &hints, &ai);
     if (gai_err != 0) {
         logfile(context, LOG_ERR,
                 "Unable to resolve the replication slave address: [%s]",
