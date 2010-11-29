@@ -686,8 +686,6 @@ end:
 	event_del(&ev);
 }
 
-static int total_common_counts;
-
 struct common_timeout_info {
 	struct event ev;
 	struct timeval called_at;
@@ -730,8 +728,6 @@ test_common_timeout(void *ptr)
 	tt_int_op(ms_200->tv_sec, ==, 0);
 	tt_int_op(ms_100->tv_usec, ==, 100000|0x50000000);
 	tt_int_op(ms_200->tv_usec, ==, 200000|0x50100000);
-
-	total_common_counts = 0;
 
 	memset(info, 0, sizeof(info));
 
@@ -1415,10 +1411,9 @@ static void
 re_add_read_cb(evutil_socket_t fd, short event, void *arg)
 {
 	char buf[256];
-	int len;
 	struct event *ev_other = arg;
 	readd_test_event_last_added = ev_other;
-	len = read(fd, buf, sizeof(buf));
+	(void) read(fd, buf, sizeof(buf));
 	event_add(ev_other, NULL);
 	++test_ok;
 }
@@ -1427,13 +1422,12 @@ static void
 test_nonpersist_readd(void)
 {
 	struct event ev1, ev2;
-	int n, m;
-
+	
 	setup_test("Re-add nonpersistent events: ");
 	event_set(&ev1, pair[0], EV_READ, re_add_read_cb, &ev2);
 	event_set(&ev2, pair[1], EV_READ, re_add_read_cb, &ev1);
-	n = write(pair[0], "Hello", 5);
-	m = write(pair[1], "Hello", 5);
+	(void) write(pair[0], "Hello", 5);
+	(void) write(pair[1], "Hello", 5);
 	if (event_add(&ev1, NULL) == -1 ||
 	    event_add(&ev2, NULL) == -1) {
 		test_ok = 0;
@@ -1900,9 +1894,9 @@ test_base_environ(void *arg)
 
 #if defined(SETENV_OK) && defined(UNSETENV_OK)
 	const char **basenames;
-	char varbuf[128];
 	int i, n_methods=0;
-	const char *defaultname;
+	char varbuf[128];
+	const char *defaultname, *ignoreenvname;
 
 	/* See if unsetenv works before we rely on it. */
 	setenv("EVENT_NOWAFFLES", "1", 1);
@@ -1932,8 +1926,14 @@ test_base_environ(void *arg)
 	base = NULL;
 
 	/* Can we disable the method with EVENT_NOfoo ? */
-	methodname_to_envvar(defaultname, varbuf, sizeof(varbuf));
-	setenv(varbuf, "1", 1);
+	if (!strcmp(defaultname, "epoll (with changelist)")) {
+ 		setenv("EVENT_NOEPOLL", "1", 1);
+		ignoreenvname = "epoll";
+	} else {
+		methodname_to_envvar(defaultname, varbuf, sizeof(varbuf));
+		setenv(varbuf, "1", 1);
+		ignoreenvname = defaultname;
+	}
 
 	/* Use an empty cfg rather than NULL so a failure doesn't exit() */
 	cfg = event_config_new();
@@ -1954,7 +1954,7 @@ test_base_environ(void *arg)
 	event_config_set_flag(cfg, EVENT_BASE_FLAG_IGNORE_ENV);
 	base = event_base_new_with_config(cfg);
 	tt_assert(base);
-	tt_str_op(defaultname, ==, event_base_get_method(base));
+	tt_str_op(ignoreenvname, ==, event_base_get_method(base));
 #else
 	tt_skip();
 #endif

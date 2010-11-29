@@ -33,8 +33,13 @@ Makefile.in
 *.lo
 *.la
 
+# ctags stuff
+TAGS
+
 # Stuff made by our makefiles
 libevent.pc
+libevent_pthreads.pc
+libevent_openssl.pc
 
 ## The initial / makes these files only get ignored in particular directories.
 /autom4te.cache
@@ -56,16 +61,18 @@ libevent.pc
 /depcomp
 /config.h
 /config.h.in
-/event-config.h
 /install-sh
 /libtool
 /ltmain.sh
 /missing
 /stamp-h1
 
+/include/event2/event-config.h
+
 /sample/dns-example
 /sample/event-test
 /sample/hello-world
+/sample/http-server
 /sample/le-proxy
 /sample/signal-test
 /sample/time-test

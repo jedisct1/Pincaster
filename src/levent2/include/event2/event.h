@@ -183,15 +183,31 @@ enum event_base_config_flag {
 	/** Do not allocate a lock for the event base, even if we have
 	    locking set up. */
 	EVENT_BASE_FLAG_NOLOCK = 0x01,
-	/** Do not check the EVENT_NO* environment variables when picking
-	    an event_base. */
+	/** Do not check the EVENT_* environment variables when configuring
+	    an event_base  */
 	EVENT_BASE_FLAG_IGNORE_ENV = 0x02,
 	/** Windows only: enable the IOCP dispatcher at startup */
 	EVENT_BASE_FLAG_STARTUP_IOCP = 0x04,
 	/** Instead of checking the current time every time the event loop is
 	    ready to run timeout callbacks, check after each timeout callback.
 	 */
-	EVENT_BASE_FLAG_NO_CACHE_TIME = 0x08
+	EVENT_BASE_FLAG_NO_CACHE_TIME = 0x08,
+
+	/** If we are using the epoll backend, this flag says that it is
+	    safe to use Libevent's internal change-list code to batch up
+	    adds and deletes in order to try to do as few syscalls as
+	    possible.  Setting this flag can make your code run faster, but
+	    it may trigger a Linux bug: it is not safe to use this flag
+	    if you have any fds cloned by dup() or its variants.  Doing so
+	    will produce strange and hard-to-diagnose bugs.
+
+	    This flag can also be activated by settnig the
+	    EVENT_EPOLL_USE_CHANGELIST environment variable.
+
+	    This flag has no effect if you wind up using a backend other than
+	    epoll.
+	 */
+	EVENT_BASE_FLAG_EPOLL_USE_CHANGELIST = 0x10
 };
 
 /**
@@ -264,6 +280,10 @@ void event_base_free(struct event_base *);
 #define _EVENT_LOG_MSG   1
 #define _EVENT_LOG_WARN  2
 #define _EVENT_LOG_ERR   3
+
+/*
+  A callback function used to intercept Libevent's log messages.
+ */
 typedef void (*event_log_cb)(int severity, const char *msg);
 /**
   Redirect Libevent's log messages.
@@ -271,6 +291,9 @@ typedef void (*event_log_cb)(int severity, const char *msg);
   @param cb a function taking two arguments: an integer severity between
      _EVENT_LOG_DEBUG and _EVENT_LOG_ERR, and a string.  If cb is NULL,
 	 then the default log is used.
+
+  NOTE: The function you provide *must not* call any other libevent
+  functionality.  Doing so can produce undefined behavior.
   */
 void event_set_log_callback(event_log_cb cb);
 
@@ -301,8 +324,12 @@ int event_base_set(struct event_base *, struct event *);
  event_loop() flags
  */
 /*@{*/
-#define EVLOOP_ONCE	0x01	/**< Block at most once. */
-#define EVLOOP_NONBLOCK	0x02	/**< Do not block. */
+/** Block until we have an active event, then exit once all active events
+ * have had their callbacks run. */
+#define EVLOOP_ONCE	0x01
+/** Do not block: see which events are ready now, run the callbacks
+ * highest-priority ones, then exit. */
+#define EVLOOP_NONBLOCK	0x02
 /*@}*/
 
 /**
@@ -416,7 +443,7 @@ int event_base_got_break(struct event_base *);
  */
 #define evtimer_del(ev)			event_del(ev)
 #define evtimer_pending(ev, tv)		event_pending((ev), EV_TIMEOUT, (tv))
-#define evtimer_initialized(ev)		_event_initialized((ev), 0)
+#define evtimer_initialized(ev)		event_initialized(ev)
 
 #define evsignal_add(ev, tv)		event_add((ev), (tv))
 #define evsignal_assign(ev, b, x, cb, arg)			\
@@ -425,7 +452,7 @@ int event_base_got_break(struct event_base *);
 	event_new((b), (x), EV_SIGNAL|EV_PERSIST, (cb), (arg))
 #define evsignal_del(ev)		event_del(ev)
 #define evsignal_pending(ev, tv)	event_pending((ev), EV_SIGNAL, (tv))
-#define evsignal_initialized(ev)	_event_initialized((ev), 0)
+#define evsignal_initialized(ev)	event_initialized(ev)
 
 typedef void (*event_callback_fn)(evutil_socket_t, short, void *);
 
@@ -564,20 +591,19 @@ int event_pending(const struct event *, short, struct timeval *);
 /**
   Test if an event structure might be initialized.
 
-  The event_initialized() macro can be used to check if an event has been
+  The event_initialized() function can be used to check if an event has been
   initialized.
 
-  Warning: This macro is deprecated because it does not perform a reliable
-    test: While it can tell a zeroed-out piece of memory from an initialized
-    event, it can easily be confused by uninitialized memory.
+  Warning: This function is only useful for distinguishing a a zeroed-out
+    piece of memory from an initialized event, it can easily be confused by
+    uninitialized memory.  Thus, it should ONLY be used to distinguish an
+    initialized event from zero.
 
   @param ev an event structure to be tested
   @return 1 if the structure might be initialized, or 0 if it has not been
           initialized
  */
-#define event_initialized(ev)		_event_initialized((ev), 1)
-
-int _event_initialized(const struct event *, int check_fd);
+int event_initialized(const struct event *ev);
 
 /**
    Get the signal number assigned to an event.
@@ -609,7 +635,16 @@ event_callback_fn event_get_callback(const struct event *ev);
 */
 void *event_get_callback_arg(const struct event *ev);
 
-void event_get_assignment(const struct event *event, struct event_base **base_out, evutil_socket_t *fd_out, short *events_out, event_callback_fn *callback_out, void **arg_out);
+/**
+   Extract _all_ of arguments given to construct a given event.  The
+   event_base is copied into *base_out, the fd is copied into *fd_out, and so
+   on.
+
+   If any of the "_out" arguments is NULL, it will be ignored.
+ */
+void event_get_assignment(const struct event *event,
+    struct event_base **base_out, evutil_socket_t *fd_out, short *events_out,
+    event_callback_fn *callback_out, void **arg_out);
 
 /**
    Return the size of struct event that the Libevent library was compiled

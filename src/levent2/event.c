@@ -134,7 +134,7 @@ static void	event_queue_insert(struct event_base *, struct event *, int);
 static void	event_queue_remove(struct event_base *, struct event *, int);
 static int	event_haveevents(struct event_base *);
 
-static void	event_process_active(struct event_base *);
+static int	event_process_active(struct event_base *);
 
 static int	timeout_next(struct event_base *, struct timeval **);
 static void	timeout_process(struct event_base *);
@@ -1347,19 +1347,19 @@ event_process_deferred_callbacks(struct deferred_cb_queue *queue, int *breakptr)
  * priority ones.
  */
 
-static void
+static int
 event_process_active(struct event_base *base)
 {
 	/* Caller must hold th_base_lock */
 	struct event_list *activeq = NULL;
-	int i, c;
+	int i, c = 0;
 
 	for (i = 0; i < base->nactivequeues; ++i) {
 		if (TAILQ_FIRST(&base->activequeues[i]) != NULL) {
 			activeq = &base->activequeues[i];
 			c = event_process_active_single_queue(base, activeq);
 			if (c < 0)
-				return;
+				return -1;
 			else if (c > 0)
 				break; /* Processed a real event; do not
 					* consider lower-priority events */
@@ -1369,6 +1369,7 @@ event_process_active(struct event_base *base)
 	}
 
 	event_process_deferred_callbacks(&base->defer_queue,&base->event_break);
+	return c;
 }
 
 /*
@@ -1561,8 +1562,10 @@ event_base_loop(struct event_base *base, int flags)
 		timeout_process(base);
 
 		if (N_ACTIVE_CALLBACKS(base)) {
-			event_process_active(base);
-			if (!base->event_count_active && (flags & EVLOOP_ONCE))
+			int n = event_process_active(base);
+			if ((flags & EVLOOP_ONCE)
+			    && N_ACTIVE_CALLBACKS(base) == 0
+			    && n != 0)
 				done = 1;
 		} else if (flags & EVLOOP_NONBLOCK)
 			done = 1;
@@ -1818,15 +1821,11 @@ event_pending(const struct event *ev, short event, struct timeval *tv)
 }
 
 int
-_event_initialized(const struct event *ev, int need_fd)
+event_initialized(const struct event *ev)
 {
 	if (!(ev->ev_flags & EVLIST_INIT))
 		return 0;
-#ifdef WIN32
-	/* XXX Is this actually a sensible thing to check? -NM */
-	if (need_fd && (ev)->ev_fd == (evutil_socket_t)INVALID_HANDLE_VALUE)
-		return 0;
-#endif
+
 	return 1;
 }
 
@@ -2690,8 +2689,12 @@ evthread_make_base_notifiable(struct event_base *base)
 		return 0;
 
 #if defined(_EVENT_HAVE_EVENTFD) && defined(_EVENT_HAVE_SYS_EVENTFD_H)
-	base->th_notify_fd[0] = eventfd(0, 0);
+#ifndef EFD_CLOEXEC
+#define EFD_CLOEXEC 0
+#endif
+	base->th_notify_fd[0] = eventfd(0, EFD_CLOEXEC);
 	if (base->th_notify_fd[0] >= 0) {
+		evutil_make_socket_closeonexec(base->th_notify_fd[0]);
 		notify = evthread_notify_base_eventfd;
 		cb = evthread_notify_drain_eventfd;
 	}
@@ -2699,8 +2702,12 @@ evthread_make_base_notifiable(struct event_base *base)
 #if defined(_EVENT_HAVE_PIPE)
 	if (base->th_notify_fd[0] < 0) {
 		if ((base->evsel->features & EV_FEATURE_FDS)) {
-			if (pipe(base->th_notify_fd) < 0)
+			if (pipe(base->th_notify_fd) < 0) {
 				event_warn("%s: pipe", __func__);
+			} else {
+				evutil_make_socket_closeonexec(base->th_notify_fd[0]);
+				evutil_make_socket_closeonexec(base->th_notify_fd[1]);
+			}
 		}
 	}
 #endif
@@ -2715,6 +2722,9 @@ evthread_make_base_notifiable(struct event_base *base)
 			base->th_notify_fd) == -1) {
 			event_sock_warn(-1, "%s: socketpair", __func__);
 			return (-1);
+		} else {
+			evutil_make_socket_closeonexec(base->th_notify_fd[0]);
+			evutil_make_socket_closeonexec(base->th_notify_fd[1]);
 		}
 	}
 

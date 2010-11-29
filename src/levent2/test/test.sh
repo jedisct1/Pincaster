@@ -34,18 +34,19 @@ setup () {
 	EVENT_NOPOLL=yes; export EVENT_NOPOLL
 	EVENT_NOSELECT=yes; export EVENT_NOSELECT
 	EVENT_NOEPOLL=yes; export EVENT_NOEPOLL
+	unset EVENT_EPOLL_USE_CHANGELIST
 	EVENT_NOEVPORT=yes; export EVENT_NOEVPORT
 	EVENT_NOWIN32=yes; export EVENT_NOWIN32
 }
 
 announce () {
-	echo $@
-	echo $@ >>"$TEST_OUTPUT_FILE"
+	echo "$@"
+	echo "$@" >>"$TEST_OUTPUT_FILE"
 }
 
 announce_n () {
-	$ECHO -n $@
-	echo $@ >>"$TEST_OUTPUT_FILE"
+	$ECHO -n "$@"
+	echo "$@" >>"$TEST_OUTPUT_FILE"
 }
 
 
@@ -110,8 +111,24 @@ announce "Running tests:"
 
 # Need to do this by hand?
 setup
+unset EVENT_NOEVPORT
+announce "EVPORT"
+run_tests
+
+setup
 unset EVENT_NOKQUEUE
 announce "KQUEUE"
+run_tests
+
+setup
+unset EVENT_NOEPOLL
+announce "EPOLL"
+run_tests
+
+setup
+unset EVENT_NOEPOLL
+EVENT_EPOLL_USE_CHANGELIST=yes; export EVENT_EPOLL_USE_CHANGELIST
+announce "EPOLL (changelist)"
 run_tests
 
 setup
@@ -127,16 +144,6 @@ run_tests
 setup
 unset EVENT_NOSELECT
 announce "SELECT"
-run_tests
-
-setup
-unset EVENT_NOEPOLL
-announce "EPOLL"
-run_tests
-
-setup
-unset EVENT_NOEVPORT
-announce "EVPORT"
 run_tests
 
 setup

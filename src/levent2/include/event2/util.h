@@ -65,6 +65,8 @@ extern "C" {
 
 #ifdef WIN32
 #include <winsock2.h>
+#else
+#include <sys/socket.h>
 #endif
 
 /* Integer type definitions for types that are supposed to be defined in the
@@ -205,6 +207,13 @@ extern "C" {
 #define ev_socklen_t _EVENT_socklen_t
 #else
 #define ev_socklen_t socklen_t
+#endif
+
+#ifdef _EVENT_HAVE_STRUCT_SOCKADDR_STORAGE___SS_FAMILY
+#if !defined(_EVENT_HAVE_STRUCT_SOCKADDR_STORAGE_SS_FAMILY) \
+ && !defined(ss_family)
+#define ss_family __ss_family
+#endif
 #endif
 
 #ifdef WIN32

@@ -85,6 +85,9 @@ struct {
 	char *remote_host;
 	ev_uint16_t remote_port;
 
+	/* cache of the hostname for evhttp_request_get_host */
+	char *host_cache;
+
 	enum evhttp_request_kind kind;
 	enum evhttp_cmd_type type;
 
@@ -92,6 +95,7 @@ struct {
 	size_t body_size;
 
 	char *uri;			/* uri after HTTP request was parsed */
+	struct evhttp_uri *uri_elems;	/* uri elements */
 
 	char major;			/* HTTP Major number */
 	char minor;			/* HTTP Minor number */
@@ -101,7 +105,7 @@ struct {
 
 	struct evbuffer *input_buffer;	/* read data */
 	ev_int64_t ntoread;
-	int chunked:1,			/* a chunked request */
+	unsigned chunked:1,		/* a chunked request */
 	    userdone:1;			/* the user has sent all data */
 
 	struct evbuffer *output_buffer;	/* outgoing post or data */
