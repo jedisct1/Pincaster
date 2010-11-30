@@ -274,7 +274,7 @@
 /* #undef _EVENT_HAVE_WORKING_KQUEUE */
 
 /* Numeric representation of the version */
-#define _EVENT_NUMERIC_VERSION 0x02000801
+#define _EVENT_NUMERIC_VERSION 0x02000901
 
 /* Name of package */
 #define _EVENT_PACKAGE "libevent"
@@ -317,6 +317,13 @@
 #define _EVENT_SIZEOF_SIZE_T 4
 #endif
 
+/* The size of `void *', as computed by sizeof. */
+#ifdef _WIN64
+#define _EVENT_SIZEOF_VOID_P 8
+#else
+#define _EVENT_SIZEOF_VOID_P 4
+#endif
+
 /* Define to 1 if you have the ANSI C header files. */
 #define _EVENT_STDC_HEADERS 1
 
@@ -324,7 +331,7 @@
 #define _EVENT_TIME_WITH_SYS_TIME 1
 
 /* Version number of package */
-#define _EVENT_VERSION "2.0.8-rc-dev"
+#define _EVENT_VERSION "2.0.9-rc-dev"
 
 /* Define to appropriate substitue if compiler doesnt have __func__ */
 #define _EVENT___func__ __FUNCTION__

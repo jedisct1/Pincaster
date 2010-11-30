@@ -5,9 +5,9 @@ AC_INIT(event.c)
 
 AC_CONFIG_MACRO_DIR([m4])
 
-AM_INIT_AUTOMAKE(libevent,2.0.8-rc-dev)
+AM_INIT_AUTOMAKE(libevent,2.0.9-rc-dev)
 AM_CONFIG_HEADER(config.h)
-AC_DEFINE(NUMERIC_VERSION, 0x02000801, [Numeric representation of the version])
+AC_DEFINE(NUMERIC_VERSION, 0x02000901, [Numeric representation of the version])
 
 dnl Initialize prefix.
 if test "$prefix" = "NONE"; then
@@ -432,8 +432,8 @@ AC_CHECK_TYPES([fd_mask], , ,
 [#ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
 #endif
-#ifdef HAVE_SELECT_H
-#include <select.h>
+#ifdef HAVE_SYS_SELECT_H
+#include <sys/select.h>
 #endif])
 
 AC_CHECK_SIZEOF(long long)
@@ -470,7 +470,7 @@ AC_CHECK_TYPES([struct in6_addr, struct sockaddr_in6, sa_family_t, struct addrin
 #endif
 #endif
 ])
-AC_CHECK_MEMBERS([struct in6_addr.s6_addr32, struct in6_addr.s6_addr16, struct sockaddr_in.sin_len, struct sockaddr_in6.sin6_len], , ,
+AC_CHECK_MEMBERS([struct in6_addr.s6_addr32, struct in6_addr.s6_addr16, struct sockaddr_in.sin_len, struct sockaddr_in6.sin6_len, struct sockaddr_storage.ss_family, struct sockaddr_storage.__ss_family], , ,
 [#include <sys/types.h>
 #ifdef HAVE_NETINET_IN_H
 #include <netinet/in.h>
@@ -529,6 +529,10 @@ if test x$bwin32 != xtrue && test "$enable_thread_support" != "no"; then
 		[Define if we have pthreads on this system])
 	have_pthreads=yes])
   CFLAGS="$CFLAGS $PTHREAD_CFLAGS"
+  AC_CHECK_SIZEOF(pthread_t, ,
+     [AC_INCLUDES_DEFAULT()
+      #include <pthread.h> ]
+  )
 fi
 AM_CONDITIONAL(PTHREADS, [test "$have_pthreads" != "no" && test "$enable_thread_support" != "no"])
 
