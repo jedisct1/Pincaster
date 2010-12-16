@@ -15,13 +15,13 @@ $ ./configure && make
       first need to run the included "autogen.sh" script in order to
       generate the configure script.)
 
-Install as root via
-
-# make install
-
 You can run the regression tests by running
 
 $ make verify
+
+Install as root via
+
+# make install
 
 Before, reporting any problems, please run the regression tests.
 
@@ -82,6 +82,7 @@ fixing bugs:
   Denis Bilenko
   Julien Blache
   Kevin Bowling
+  Kelly Brock
   Ralph Castain
   Shuo Chen
   Ka-Hing Cheung
@@ -98,6 +99,7 @@ fixing bugs:
   Aaron Hopkins
   Tani Hosokawa
   Claudio Jeker
+  Evan Jones
   Valery Kyholodov
   Marko Kreen
   Scott Lamb
@@ -141,6 +143,7 @@ fixing bugs:
   Brodie Thiesfield
   Jason Toffaletti
   Bas Verhoeven
+  Constantine Verutin
   Zack Weinberg
   Taral
   propanbutan

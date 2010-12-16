@@ -1484,7 +1484,7 @@ evhttp_parse_request_line(struct evhttp_request *req, char *line)
 	scheme = evhttp_uri_get_scheme(req->uri_elems);
 	hostname = evhttp_uri_get_host(req->uri_elems);
 	if (scheme && (!evutil_ascii_strcasecmp(scheme, "http") ||
-             !evutil_ascii_strcasecmp(scheme, "https")) &&
+		       !evutil_ascii_strcasecmp(scheme, "https")) &&
 	    hostname &&
 	    !evhttp_find_vhost(req->evcon->http_server, NULL, hostname))
 		req->flags |= EVHTTP_PROXY_REQUEST;
@@ -1836,7 +1836,7 @@ evhttp_get_body(struct evhttp_connection *evcon, struct evhttp_request *req)
 	}
 
 	/* Should we send a 100 Continue status line? */
-	if (req->kind == EVHTTP_REQUEST && REQ_VERSION_ATLEAST(req, 1, 1)) { 
+	if (req->kind == EVHTTP_REQUEST && REQ_VERSION_ATLEAST(req, 1, 1)) {
 		const char *expect;
 
 		expect = evhttp_find_header(req->input_headers, "Expect");
@@ -1848,6 +1848,12 @@ evhttp_get_body(struct evhttp_connection *evcon, struct evhttp_request *req)
 				   no, we should respond with an error. For
 				   now, just optimistically tell the client to
 				   send their message body. */
+				if (req->ntoread > 0 &&
+				    (size_t)req->ntoread > req->evcon->max_body_size) {
+					evhttp_send_error(req, HTTP_ENTITYTOOLARGE,
+							  NULL);
+					return;
+				}
 				if (!evbuffer_get_length(bufferevent_get_input(evcon->bufev)))
 					evhttp_send_continue(evcon, req);
 			} else {
@@ -2746,7 +2752,7 @@ evhttp_dispatch_callback(struct httpcbq *callbacks, struct evhttp_request *req)
 	size_t offset = 0;
 	char *translated;
 	const char *path;
-	
+
 	/* Test for different URLs */
 	path = evhttp_uri_get_path(req->uri_elems);
 	offset = strlen(path);
@@ -3070,11 +3076,12 @@ evhttp_new_object(void)
 	http->timeout = -1;
 	evhttp_set_max_headers_size(http, EV_SIZE_MAX);
 	evhttp_set_max_body_size(http, EV_SIZE_MAX);
-	evhttp_set_allowed_methods(http, EVHTTP_REQ_GET |
-			                 EVHTTP_REQ_POST |
-			                 EVHTTP_REQ_HEAD |
-			                 EVHTTP_REQ_PUT |
-			                 EVHTTP_REQ_DELETE);
+	evhttp_set_allowed_methods(http,
+	    EVHTTP_REQ_GET |
+	    EVHTTP_REQ_POST |
+	    EVHTTP_REQ_HEAD |
+	    EVHTTP_REQ_PUT |
+	    EVHTTP_REQ_DELETE);
 
 	TAILQ_INIT(&http->sockets);
 	TAILQ_INIT(&http->callbacks);
@@ -3222,10 +3229,10 @@ evhttp_remove_server_alias(struct evhttp *http, const char *alias)
 			mm_free(evalias->alias);
 			mm_free(evalias);
 			return 0;
-		}	
+		}
 	}
 
-	return -1;	
+	return -1;
 }
 
 void
@@ -3382,7 +3389,7 @@ evhttp_request_free(struct evhttp_request *req)
 		mm_free(req->response_code_line);
 	if (req->host_cache != NULL)
 		mm_free(req->host_cache);
-		
+
 	evhttp_clear_headers(req->input_headers);
 	mm_free(req->input_headers);
 
@@ -3461,10 +3468,10 @@ evhttp_request_get_host(struct evhttp_request *req)
 	if (!host && req->input_headers) {
 		const char *p;
 		size_t len;
-	
+
 		host = evhttp_find_header(req->input_headers, "Host");
 		/* The Host: header may include a port. Remove it here
-                   to be consistent with uri_elems case above. */
+		   to be consistent with uri_elems case above. */
 		if (host) {
 			p = host + strlen(host) - 1;
 			while (p > host && EVUTIL_ISDIGIT(*p))
@@ -3482,7 +3489,7 @@ evhttp_request_get_host(struct evhttp_request *req)
 			}
 		}
 	}
-	
+
 	return host;
 }
 
@@ -3585,7 +3592,7 @@ evhttp_associate_new_request_with_connection(struct evhttp_connection *evcon)
 	req->flags |= EVHTTP_REQ_OWN_CONNECTION;
 
 	/* We did not present the request to the user user yet, so treat it as
-	 * if the user was done with the request.  This allows us to free the 
+	 * if the user was done with the request.  This allows us to free the
 	 * request on a persistent connection if the client drops it without
 	 * sending a request.
 	 */
@@ -4025,7 +4032,7 @@ evhttp_uri_parse(const char *source_uri)
 
 	      URI = scheme ":" hier-part [ "?" query ] [ "#" fragment ]
 
-              relative-ref  = relative-part [ "?" query ] [ "#" fragment ]
+	      relative-ref  = relative-part [ "?" query ] [ "#" fragment ]
 
 	 */
 

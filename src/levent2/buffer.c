@@ -246,6 +246,12 @@ evbuffer_chains_all_empty(struct evbuffer_chain *chain)
 	}
 	return 1;
 }
+#else
+/* The definition is needed for EVUTIL_ASSERT, which uses sizeof to avoid
+"unused variable" warnings. */
+static inline int evbuffer_chains_all_empty(struct evbuffer_chain *chain) {
+	return 1;
+}
 #endif
 
 static void
@@ -2140,7 +2146,7 @@ evbuffer_readfile(struct evbuffer *buf, evutil_socket_t fd, ev_ssize_t howmuch)
 	/* XXX we _will_ waste some space here if there is any space left
 	 * over on buf->last. */
 	nchains = evbuffer_reserve_space(buf, howmuch, v, 2);
-        if (nchains < 1 || nchains > 2) {
+	if (nchains < 1 || nchains > 2) {
 		result = -1;
 		goto done;
 	}

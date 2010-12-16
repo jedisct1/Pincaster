@@ -58,6 +58,7 @@ struct event_base;
 #define HTTP_BADREQUEST		400	/**< invalid http request was made */
 #define HTTP_NOTFOUND		404	/**< could not find content for uri */
 #define HTTP_BADMETHOD		405 	/**< method not allowed for this uri */
+#define HTTP_ENTITYTOOLARGE	413	/**<  */
 #define HTTP_EXPECTATIONFAILED	417	/**< we can't handle this expectation */
 #define HTTP_INTERNAL           500     /**< internal error */
 #define HTTP_NOTIMPLEMENTED     501     /**< not implemented */
@@ -266,20 +267,20 @@ int evhttp_remove_virtual_host(struct evhttp* http, struct evhttp* vhost);
 
 /**
    Add a server alias to an http object. The http object can be a virtual
-   host or the main server. 
+   host or the main server.
 
    @param http the evhttp object
    @param alias the alias to add
-   @see evhttp_add_remove_alias() 
+   @see evhttp_add_remove_alias()
 */
 int evhttp_add_server_alias(struct evhttp *http, const char *alias);
 
 /**
    Remove a server alias from an http object.
- 
+
    @param http the evhttp object
    @param alias the alias to remove
-   @see evhttp_add_server_alias() 
+   @see evhttp_add_server_alias()
 */
 int evhttp_remove_server_alias(struct evhttp *http, const char *alias);
 

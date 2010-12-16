@@ -244,7 +244,8 @@ int event_config_set_flag(struct event_config *cfg, int flag);
 
 /**
  * Records a hint for the number of CPUs in the system. This is used for
- * tuning thread pools, etc, for optimal performance.
+ * tuning thread pools, etc, for optimal performance.  In Libevent 2.0,
+ * it is only on Windows, and only when IOCP is in use.
  *
  * @param cfg the event configuration object
  * @param cpus the number of cpus
@@ -754,9 +755,10 @@ const struct timeval *event_base_init_common_timeout(struct event_base *base,
  @param realloc_fn A replacement for realloc
  @param free_fn A replacement for free.
  **/
-void event_set_mem_functions(void *(*malloc_fn)(size_t sz),
-                             void *(*realloc_fn)(void *ptr, size_t sz),
-                             void (*free_fn)(void *ptr));
+void event_set_mem_functions(
+	void *(*malloc_fn)(size_t sz),
+	void *(*realloc_fn)(void *ptr, size_t sz),
+	void (*free_fn)(void *ptr));
 #define EVENT_SET_MEM_FUNCTIONS_IMPLEMENTED
 #endif
 
