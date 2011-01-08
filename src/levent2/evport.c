@@ -51,6 +51,7 @@
  */
 
 #include "event2/event-config.h"
+#include "evconfig-private.h"
 
 #include <sys/time.h>
 #include <sys/queue.h>
@@ -340,6 +341,12 @@ evport_dispatch(struct event_base *base, struct timeval *tv)
 			res |= EV_READ;
 		if (pevt->portev_events & POLLOUT)
 			res |= EV_WRITE;
+
+		/*
+		 * Check for the error situations or a hangup situation
+		 */
+		if (pevt->portev_events & (POLLERR|POLLHUP|POLLNVAL))
+			res |= EV_READ|EV_WRITE;
 
 		EVUTIL_ASSERT(epdp->ed_nevents > fd);
 		fdi = &(epdp->ed_fds[fd]);
