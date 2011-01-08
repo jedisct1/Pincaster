@@ -1,4 +1,8 @@
 
+- Rewrite URI handling code.
+
+- Authentication.
+
 - Tuneable HTTP cache control.
 
 - Handle clusterized geographic results for point+radius search.
@@ -15,8 +19,6 @@ children of the quad node.
 - Drop pthread rwlocks for fcfs rwlocks.
 
 - Add configuration to the journal at startup time.
-
-- Authentication.
 
 - Multiget.
 
