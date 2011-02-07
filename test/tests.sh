@@ -39,7 +39,7 @@ EXPECTED=$(python -m json.tool <<EOF
                 {
                         "name": "tlay",
                         "nodes": 0,
-                        "type": "geoidal",
+                        "type": "ellipsoidal",
                         "distance_accuracy": "fast",
                         "latitude_accuracy": 0.0001,
                         "longitude_accuracy": 0.0001,

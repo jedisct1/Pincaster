@@ -138,8 +138,9 @@ int parse_config(const char * const file)
             app_context.default_layer_type = LAYER_TYPE_FLATWRAP;            
         } else if (strcasecmp(cfg_default_layer_type_s, "spherical") == 0) {
             app_context.default_layer_type = LAYER_TYPE_SPHERICAL;            
-        } else if (strcasecmp(cfg_default_layer_type_s, "geoidal") == 0) {
-            app_context.default_layer_type = LAYER_TYPE_GEOIDAL;
+        } else if (strcasecmp(cfg_default_layer_type_s, "ellipsoidal") == 0 ||
+                   strcasecmp(cfg_default_layer_type_s, "geoidal") == 0) {
+            app_context.default_layer_type = LAYER_TYPE_ELLIPSOIDAL;
         } else {
             ret = -1;
         }

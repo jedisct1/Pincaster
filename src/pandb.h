@@ -53,7 +53,7 @@ typedef enum NodeType_ {
 
 typedef enum LayerType_ {
     LAYER_TYPE_NONE, LAYER_TYPE_FLAT, LAYER_TYPE_FLATWRAP,
-        LAYER_TYPE_SPHERICAL, LAYER_TYPE_GEOIDAL
+        LAYER_TYPE_SPHERICAL, LAYER_TYPE_ELLIPSOIDAL
 } LayerType;
 
 typedef struct BareNode_ {

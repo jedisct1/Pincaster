@@ -252,7 +252,7 @@ Check the list of active layers:
 				"name": "restaurants",
 				"records": 0,
 				"geo_records": 0,
-				"type": "geoidal",
+				"type": "ellipsoidal",
 				"distance_accuracy": "fast",
 				"latitude_accuracy": 0.0001,
 				"longitude_accuracy": 0.0001,

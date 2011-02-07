@@ -493,7 +493,7 @@ static int find_near_context_cb(void *context_, void *entry,
     
     (void) sizeof_entry;
     if (context->db->layer_type == LAYER_TYPE_SPHERICAL ||
-        context->db->layer_type == LAYER_TYPE_GEOIDAL) {
+        context->db->layer_type == LAYER_TYPE_ELLIPSOIDAL) {
         switch (context->db->accuracy) {
         case ACCURACY_VINCENTY:
             cd = vincenty_distance_between_geoidal_positions
@@ -792,7 +792,7 @@ static int find_in_rect_context_cb(void *context_, void *entry,
         return 0;
     }
     if (context->db->layer_type == LAYER_TYPE_SPHERICAL ||
-        context->db->layer_type == LAYER_TYPE_GEOIDAL) {
+        context->db->layer_type == LAYER_TYPE_ELLIPSOIDAL) {
         cd = rhomboid_distance_between_geoidal_positions
             (context->position, &scanned_slot->position);
     } else {
@@ -842,7 +842,7 @@ static int find_in_rect_cluster_context_cb(void *context_, void *entry,
             fabsf(center.longitude - rect->edge0.longitude)) / 2.0;
     Meters radius;
     if (context->db->layer_type == LAYER_TYPE_SPHERICAL ||
-        context->db->layer_type == LAYER_TYPE_GEOIDAL) {
+        context->db->layer_type == LAYER_TYPE_ELLIPSOIDAL) {
         radius = geoidal_distance_to_meters(distance);
     } else {
         radius = (Meters) distance;

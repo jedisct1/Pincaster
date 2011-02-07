@@ -338,8 +338,8 @@ int add_layer_name_to_json_gen(void *context_, void *entry,
         type = "flatwrap"; break;
     case LAYER_TYPE_SPHERICAL:
         type = "spherical"; break;
-    case LAYER_TYPE_GEOIDAL:
-        type = "geoidal"; break;
+    case LAYER_TYPE_ELLIPSOIDAL:
+        type = "ellipsoidal"; break;
     default:
         type = "unknown";
     }
@@ -352,7 +352,7 @@ int add_layer_name_to_json_gen(void *context_, void *entry,
                     (unsigned int) sizeof "distance_accuracy" - (size_t) 1U);
     const char *accuracy;
     if (pan_db->layer_type == LAYER_TYPE_SPHERICAL ||
-        pan_db->layer_type == LAYER_TYPE_GEOIDAL) {
+        pan_db->layer_type == LAYER_TYPE_ELLIPSOIDAL) {
         switch (pan_db->accuracy) {
         case ACCURACY_VINCENTY:
             accuracy = "vincenty"; break;        
