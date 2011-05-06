@@ -16,9 +16,12 @@ libyajl_a_SOURCES = \
   yajl_lex.h \
   yajl_parser.c \
   yajl_parser.h \
+  yajl_tree.c \
+  yajl_version.c \
   api/yajl_common.h \
   api/yajl_gen.h \
-  api/yajl_parse.h
+  api/yajl_parse.h \
+  api/yajl_tree.h
 
 SUBDIRS = api
 

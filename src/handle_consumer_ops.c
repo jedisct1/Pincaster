@@ -6,7 +6,7 @@
 static int send_json_gen(yajl_gen json_gen, const OpReply * const op_reply)
 {
     const unsigned char *json_out_buf;
-    unsigned int json_out_len; 
+    size_t json_out_len;
     struct evbuffer *evb;
     
     yajl_gen_map_close(json_gen);        

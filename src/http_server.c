@@ -51,13 +51,12 @@ int send_op_reply(HttpHandlerContext * const context,
 
 yajl_gen new_json_gen(const OpReply * const op_reply)
 {
-    yajl_gen json_gen = yajl_gen_alloc(&(yajl_gen_config) {
-        .beautify = BEAUTIFY_JSON,
-        .indentString = "\t"
-    }, NULL);
+    yajl_gen json_gen = yajl_gen_alloc(NULL);
     if (json_gen == NULL) {
         return NULL;
     }
+    yajl_gen_config(json_gen, yajl_gen_beautify, BEAUTIFY_JSON);
+    yajl_gen_config(json_gen, yajl_gen_indent_string, "\t");
     yajl_gen_map_open(json_gen);
     yajl_gen_string(json_gen, (const unsigned char *) "tid",
                     sizeof "tid" - (size_t) 1U);
