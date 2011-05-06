@@ -18,7 +18,7 @@
 #
 # LICENSE
 #
-#   Copyright (c) 2010 Cristian Greco <cristian@regolo.cc>
+#   Copyright (c) 2010 Cristian Greco <cristian at regolo.cc>
 #
 #   Copying and distribution of this file, with or without modification, are
 #   permitted in any medium without royalty provided the copyright notice
