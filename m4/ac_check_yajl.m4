@@ -32,8 +32,8 @@ AC_DEFUN([AC_CHECK_YAJL], [
   CFLAGS_SAVED="$CFLAGS"
   LIBS_SAVED="$LIBS"
 
-  AC_CHECK_HEADER([yajl/yajl_parse.h], [
-    AC_CHECK_LIB([yajl], [yajl_parse], [
+  AC_CHECK_HEADER([yajl/yajl_tree.h], [
+    AC_CHECK_LIB([yajl], [yajl_tree_parse], [
       YAJL_CFLAGS="-I/usr/include/yajl"
       YAJL_LIBS="-lyajl"
       ac_yajl_found="yes"
@@ -60,7 +60,7 @@ AC_DEFUN([AC_CHECK_YAJL], [
 
     AC_MSG_CHECKING([for yajl_gen_alloc in -lyajl])
     AC_LINK_IFELSE([
-      AC_LANG_PROGRAM([[ #include <yajl/yajl_gen.h> ]], [[ yajl_gen_config conf = { 1, "  " };  yajl_gen g = yajl_gen_alloc(&conf, (void *)0); ]])
+      AC_LANG_PROGRAM([[ #include <yajl/yajl_gen.h> ]], [[ yajl_gen g = yajl_gen_alloc(&conf, (void *)0); yajl_gen_config(g, yajl_gen_beautify, 1); ]])
      ], [
       AC_MSG_RESULT([yes])
       ac_yajl_found="yes"
