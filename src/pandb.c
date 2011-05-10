@@ -396,7 +396,7 @@ int remove_entry_from_key_node(PanDB * const db,
                 scanned_node->nodes[t]->bucket_node.bucket.busy_slots;
         } while (t-- != 0U);
         if (only_buckets != 0 && busy_slots_in_siblings <
-            bucket->bucket_size / (NbSlots) 4U * (NbSlots) 3U) {
+            bucket->bucket_size / (NbSlots) 6U * (NbSlots) 5U) {
             BucketNode *old_child_node;
             BucketNode *new_node;
             PackOldChildNodeCB context;
