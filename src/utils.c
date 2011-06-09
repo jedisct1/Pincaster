@@ -532,6 +532,17 @@ ret:
     goto ret;
 }
 
+ssize_t safe_read_partial(const int fd, void * const buf_,
+                          const size_t max_count)
+{
+    unsigned char * const buf = (unsigned char * const) buf_;
+    ssize_t readnb;
+
+    while ((readnb = read(fd, buf, max_count)) < (ssize_t) 0 &&
+           errno == EINTR);
+    return readnb;
+}
+
 int fcntl_or_flags(const int socket, const int or_flags)
 {
     int flags;
