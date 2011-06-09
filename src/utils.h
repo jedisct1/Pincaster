@@ -74,7 +74,7 @@ void untangle_rect(Rectangle2D * const rect);
 
 int safe_write(const int fd, const void * const buf_, size_t count,
                const int timeout);
-ssize_t safe_read(const int fd, void * const buf_, size_t maxlen);
+ssize_t safe_read(const int fd, void * const buf_, size_t count);
 
 int fcntl_or_flags(const int socket, const int or_flags);
 int fcntl_nand_flags(const int socket, const int nand_flags);

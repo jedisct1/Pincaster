@@ -511,27 +511,26 @@ int safe_write(const int fd, const void * const buf_, size_t count,
     return 0;
 }
 
-ssize_t safe_read(const int fd, void * const buf_, size_t maxlen)
+ssize_t safe_read(const int fd, void * const buf_, size_t count)
 {
     unsigned char *buf = (unsigned char *) buf_;
     ssize_t readnb;
     
     do {
-        while ((readnb = read(fd, buf, maxlen)) < (ssize_t) 0 &&
+        while ((readnb = read(fd, buf, count)) < (ssize_t) 0 &&
                errno == EINTR);
-        if (readnb < (ssize_t) 0 || readnb > (ssize_t) maxlen) {
+        if (readnb < (ssize_t) 0 || readnb > (ssize_t) count) {
             return readnb;
         }
         if (readnb == (ssize_t) 0) {
 ret:
             return (ssize_t) (buf - (unsigned char *) buf_);
         }
-        maxlen -= readnb;
+        count -= readnb;
         buf += readnb;
-    } while (maxlen > (ssize_t) 0);
+    } while (count > (ssize_t) 0);
     goto ret;
 }
-
 
 int fcntl_or_flags(const int socket, const int or_flags)
 {
