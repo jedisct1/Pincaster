@@ -515,21 +515,21 @@ ssize_t safe_read(const int fd, void * const buf_, size_t count)
 {
     unsigned char *buf = (unsigned char *) buf_;
     ssize_t readnb;
-    
+
     do {
         while ((readnb = read(fd, buf, count)) < (ssize_t) 0 &&
                errno == EINTR);
-        if (readnb < (ssize_t) 0 || readnb > (ssize_t) count) {
+        if (readnb < (ssize_t) 0) {
             return readnb;
         }
         if (readnb == (ssize_t) 0) {
-ret:
-            return (ssize_t) (buf - (unsigned char *) buf_);
+            break;
         }
         count -= readnb;
         buf += readnb;
     } while (count > (ssize_t) 0);
-    goto ret;
+
+    return (ssize_t) (buf - (unsigned char *) buf_);
 }
 
 ssize_t safe_read_partial(const int fd, void * const buf_,
