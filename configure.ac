@@ -101,8 +101,8 @@ AC_CHECK_TYPES([ptrdiff_t])
 # Switches
 AC_HEADER_ASSERT
 
-AC_ARG_WITH(debug,
-[AS_HELP_STRING(--with-debug,For maintainers only - please do not use)],
+AC_ARG_ENABLE(debug,
+[AS_HELP_STRING(--enable-debug,For maintainers only - please do not use)],
 [ if test "x$withval" = "xyes" ; then
     CFLAGS="$CFLAGS -DQUEUE_MACRO_DEBUG=1 -DDEBUG=1 -g -Wall -W -Wcast-align -Wbad-function-cast -Wstrict-prototypes -Wwrite-strings -Wreturn-type "
   fi ])
