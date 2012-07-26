@@ -82,7 +82,7 @@ typedef struct AppContext_ {
     struct HttpHandlerContext_ *http_handler_context;
 } AppContext;
 
-#ifdef DEFINE_GLOBALS
+#ifndef DEFINE_GLOBALS
 extern AppContext app_context;
 #else
 AppContext app_context;
