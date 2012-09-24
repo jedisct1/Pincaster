@@ -99,8 +99,6 @@ AC_TYPE_UINT32_T
 AC_CHECK_TYPES([ptrdiff_t])
 
 # Switches
-AC_HEADER_ASSERT
-
 AC_ARG_ENABLE(debug,
 [AS_HELP_STRING(--enable-debug,For maintainers only - please do not use)],
 [ if test "x$enableval" = "xyes" ; then
@@ -124,6 +122,13 @@ AC_SUBST([MAINT])
 LEVENTDIR="levent2"
 AC_CONFIG_SUBDIRS([src/levent2])
 CPPFLAGS="-I$LEVENTDIR -I$LEVENTDIR/include $CPPFLAGS"
+
+dnl Output
+
+AH_VERBATIM([NDEBUG], [/* Never ever ignore assertions */
+#ifdef NDEBUG
+#/**/undef/**/ NDEBUG
+#endif])
 
 AC_CONFIG_FILES([Makefile
                  src/Makefile
