@@ -368,7 +368,8 @@ Meters vincenty_distance_between_geoidal_positions(const Position2D * const p1,
         if (isnan(cos2SigmaM)) {
             cos2SigmaM = 0.0;
         }
-        const double C = f / 16.0 * cosSqAlpha * (4.0 + f * (4.0 - 3.0 * cosSqAlpha));
+        const double C = f / 16.0 * cosSqAlpha *
+            (4.0 + f * (4.0 - 3.0 * cosSqAlpha));
         lambdaP = lambda;
         lambda = L + (1.0 - C) * f * sinAlpha *
             (sigma + C * sinSigma *
