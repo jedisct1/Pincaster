@@ -1,7 +1,7 @@
 Pincaster
 =========
 
-Pincaster is an in-memory, persistent data store for geographic data and key/dictionnary pairs, with replication and a HTTP/JSON interface.
+Pincaster is an in-memory, persistent data store for geographic data and key/dictionary pairs, with replication and a HTTP/JSON interface.
 
 * [Pincaster presentation](http://www.slideshare.net/jedisct1/an-introduction-to-pincaster-4626242)
 * [Pincaster git repository](http://github.com/jedisct1/Pincaster)
