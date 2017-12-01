@@ -496,8 +496,8 @@ int system_rewrite_after_fork_cb(HttpHandlerContext * const context)
     assert(db_log->offset_before_fork != (off_t) -1);
     if (lseek(db_log->db_log_fd, db_log->offset_before_fork,
               SEEK_SET) == (off_t) -1) {
-        free(tmp_log_file_name);        
         unlink(tmp_log_file_name);
+        free(tmp_log_file_name);
         return -1;
     }
     int flags = O_RDWR | O_APPEND;
