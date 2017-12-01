@@ -209,6 +209,7 @@ static int add_slot_to_bucket(PanDB * const db, BucketNode * const bucket_node,
     
     (void) db;
     *new_slot = NULL;
+    assert(bucket_node != NULL);    
     assert(bucket_node->type == NODE_TYPE_BUCKET_NODE);
     bucket = &bucket_node->bucket;
     *new_slot = add_entry_to_slab(&bucket->slab, slot);
@@ -217,7 +218,6 @@ static int add_slot_to_bucket(PanDB * const db, BucketNode * const bucket_node,
     }
     assert(slot->key_node != NULL);
     * *new_slot = *slot;
-    assert(bucket_node != NULL);
     (*new_slot)->bucket_node = bucket_node;
     bucket->busy_slots++;
     if (update_sub_slots == 1) {
