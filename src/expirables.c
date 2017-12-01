@@ -30,8 +30,11 @@ static int expirable_cmp(const Expirable * const exp1,
 
 int add_expirable_to_tree(PanDB * const pan_db, Expirable * const expirable)
 {
-    assert(RB_INSERT(Expirables_, &pan_db->expirables, expirable) == NULL);
-    
+    Expirable *prev;
+
+    prev = RB_INSERT(Expirables_, &pan_db->expirables, expirable);
+    assert(prev == NULL);
+
     return 0;
 }
 
