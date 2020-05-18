@@ -19,7 +19,7 @@ EXPECTED=$(python -m json.tool <<EOF
 }
 EOF
 )
-RESULT=$(curl --silent http://localhost:4269/api/1.0/system/ping.json | python -m json.tool)
+RESULT=$(curl --silent --fail http://localhost:4269/api/1.0/system/ping.json | python -m json.tool)
 [ "$RESULT" = "$EXPECTED" ]
 
 EXPECTED=$(python -m json.tool <<EOF
@@ -29,7 +29,7 @@ EXPECTED=$(python -m json.tool <<EOF
 }
 EOF
 )
-RESULT=$(curl --silent -d'' -XPOST http://localhost:4269/api/1.0/layers/tlay.json | python -m json.tool)
+RESULT=$(curl --silent --fail -d'' -XPOST http://localhost:4269/api/1.0/layers/tlay.json | python -m json.tool)
 [ "$RESULT" = "$EXPECTED" ]
 
 EXPECTED=$(python -m json.tool <<EOF
@@ -54,7 +54,7 @@ EXPECTED=$(python -m json.tool <<EOF
 }
 EOF
 )
-RESULT=$(curl --silent http://localhost:4269/api/1.0/layers/index.json | python -mjson.tool)
+RESULT=$(curl --silent --fail http://localhost:4269/api/1.0/layers/index.json | python -mjson.tool)
 [ "$RESULT" = "$EXPECTED" ]
 
 EXPECTED=$(python -m json.tool <<EOF
@@ -64,7 +64,7 @@ EXPECTED=$(python -m json.tool <<EOF
 }
 EOF
 )
-RESULT=$(curl --silent -XPUT -d 'description=Maison&who=Robert' http://localhost:4269/api/1.0/records/tlay/home.json | python -mjson.tool)
+RESULT=$(curl --silent --fail -XPUT -d 'description=Maison&who=Robert' http://localhost:4269/api/1.0/records/tlay/home.json | python -mjson.tool)
 [ "$RESULT" = "$EXPECTED" ]
 
 EXPECTED=$(python -m json.tool <<EOF
@@ -79,7 +79,7 @@ EXPECTED=$(python -m json.tool <<EOF
 }
 EOF
 )
-RESULT=$(curl --silent http://localhost:4269/api/1.0/records/tlay/home.json | python -m json.tool)
+RESULT=$(curl --silent --fail http://localhost:4269/api/1.0/records/tlay/home.json | python -m json.tool)
 [ "$RESULT" = "$EXPECTED" ]
 
 EXPECTED=$(python -m json.tool <<EOF
@@ -89,7 +89,7 @@ EXPECTED=$(python -m json.tool <<EOF
 }
 EOF
 )
-RESULT=$(curl --silent -XDELETE http://localhost:4269/api/1.0/records/tlay/home.json | python -m json.tool)
+RESULT=$(curl --silent --fail -XDELETE http://localhost:4269/api/1.0/records/tlay/home.json | python -m json.tool)
 [ "$RESULT" = "$EXPECTED" ]
 
 EXPECTED=$(python -m json.tool <<EOF
@@ -99,7 +99,7 @@ EXPECTED=$(python -m json.tool <<EOF
 }
 EOF
 )
-RESULT=$(curl --silent -XPUT -d '_loc=48.60,2.10&description=Macdo' http://localhost:4269/api/1.0/records/tlay/macdo.json | python -mjson.tool)
+RESULT=$(curl --silent --fail -XPUT -d '_loc=48.60,2.10&description=Macdo' http://localhost:4269/api/1.0/records/tlay/macdo.json | python -mjson.tool)
 [ "$RESULT" = "$EXPECTED" ]
 
 EXPECTED=$(python -m json.tool <<EOF
@@ -115,7 +115,7 @@ EXPECTED=$(python -m json.tool <<EOF
 }
 EOF
 )
-RESULT=$(curl --silent http://localhost:4269/api/1.0/records/tlay/macdo.json | python -m json.tool)
+RESULT=$(curl --silent --fail http://localhost:4269/api/1.0/records/tlay/macdo.json | python -m json.tool)
 [ "$RESULT" = "$EXPECTED" ]
 
 EXPECTED=$(python -m json.tool <<EOF
@@ -125,7 +125,7 @@ EXPECTED=$(python -m json.tool <<EOF
 }
 EOF
 )
-RESULT=$(curl --silent -XPUT -d '_add_int:visits=1' http://localhost:4269/api/1.0/records/tlay/macdo.json | python -m json.tool)
+RESULT=$(curl --silent --fail -XPUT -d '_add_int:visits=1' http://localhost:4269/api/1.0/records/tlay/macdo.json | python -m json.tool)
 [ "$RESULT" = "$EXPECTED" ]
 
 EXPECTED=$(python -m json.tool <<EOF
@@ -135,7 +135,7 @@ EXPECTED=$(python -m json.tool <<EOF
 }
 EOF
 )
-RESULT=$(curl --silent -XPUT -d '_add_int:visits=1' http://localhost:4269/api/1.0/records/tlay/macdo.json | python -m json.tool)
+RESULT=$(curl --silent --fail -XPUT -d '_add_int:visits=1' http://localhost:4269/api/1.0/records/tlay/macdo.json | python -m json.tool)
 [ "$RESULT" = "$EXPECTED" ]
 
 EXPECTED=$(python -m json.tool <<EOF
@@ -152,7 +152,7 @@ EXPECTED=$(python -m json.tool <<EOF
 }
 EOF
 )
-RESULT=$(curl --silent http://localhost:4269/api/1.0/records/tlay/macdo.json | python -m json.tool)
+RESULT=$(curl --silent --fail http://localhost:4269/api/1.0/records/tlay/macdo.json | python -m json.tool)
 [ "$RESULT" = "$EXPECTED" ]
 
 EXPECTED=$(python -m json.tool <<EOF
@@ -162,7 +162,7 @@ EXPECTED=$(python -m json.tool <<EOF
 }
 EOF
 )
-RESULT=$(curl --silent -XPUT -d '_delete:visits=1' http://localhost:4269/api/1.0/records/tlay/macdo.json | python -m json.tool)
+RESULT=$(curl --silent --fail -XPUT -d '_delete:visits=1' http://localhost:4269/api/1.0/records/tlay/macdo.json | python -m json.tool)
 [ "$RESULT" = "$EXPECTED" ]
 
 EXPECTED=$(python -m json.tool <<EOF
@@ -178,7 +178,7 @@ EXPECTED=$(python -m json.tool <<EOF
 }
 EOF
 )
-RESULT=$(curl --silent http://localhost:4269/api/1.0/records/tlay/macdo.json | python -m json.tool)
+RESULT=$(curl --silent --fail http://localhost:4269/api/1.0/records/tlay/macdo.json | python -m json.tool)
 [ "$RESULT" = "$EXPECTED" ]
 
 EXPECTED=$(python -m json.tool <<EOF
@@ -188,7 +188,7 @@ EXPECTED=$(python -m json.tool <<EOF
 }
 EOF
 )
-RESULT=$(curl --silent -XPUT -d '_delete_all=1' http://localhost:4269/api/1.0/records/tlay/macdo.json | python -m json.tool)
+RESULT=$(curl --silent --fail -XPUT -d '_delete_all=1' http://localhost:4269/api/1.0/records/tlay/macdo.json | python -m json.tool)
 [ "$RESULT" = "$EXPECTED" ]
 
 EXPECTED=$(python -m json.tool <<EOF
@@ -201,7 +201,7 @@ EXPECTED=$(python -m json.tool <<EOF
 }
 EOF
 )
-RESULT=$(curl --silent http://localhost:4269/api/1.0/records/tlay/macdo.json | python -m json.tool)
+RESULT=$(curl --silent --fail http://localhost:4269/api/1.0/records/tlay/macdo.json | python -m json.tool)
 [ "$RESULT" = "$EXPECTED" ]
 
 EXPECTED=$(python -m json.tool <<EOF
@@ -211,7 +211,7 @@ EXPECTED=$(python -m json.tool <<EOF
 }
 EOF
 )
-RESULT=$(curl --silent -XPUT -d 'description=Macdo' http://localhost:4269/api/1.0/records/tlay/macdo.json | python -mjson.tool)
+RESULT=$(curl --silent --fail -XPUT -d 'description=Macdo' http://localhost:4269/api/1.0/records/tlay/macdo.json | python -mjson.tool)
 [ "$RESULT" = "$EXPECTED" ]
 
 EXPECTED=$(python -m json.tool <<EOF
@@ -227,7 +227,7 @@ EXPECTED=$(python -m json.tool <<EOF
 }
 EOF
 )
-RESULT=$(curl --silent http://localhost:4269/api/1.0/records/tlay/macdo.json | python -m json.tool)
+RESULT=$(curl --silent --fail http://localhost:4269/api/1.0/records/tlay/macdo.json | python -m json.tool)
 [ "$RESULT" = "$EXPECTED" ]
 
 EXPECTED=$(python -m json.tool <<EOF
@@ -237,7 +237,7 @@ EXPECTED=$(python -m json.tool <<EOF
 }
 EOF
 )
-RESULT=$(curl --silent -XPUT -d 'superuser=1&score=10&visits=2&_loc=48.502,2.231' http://localhost:4269/api/1.0/records/tlay/place.json | python -mjson.tool)
+RESULT=$(curl --silent --fail -XPUT -d 'superuser=1&score=10&visits=2&_loc=48.502,2.231' http://localhost:4269/api/1.0/records/tlay/place.json | python -mjson.tool)
 [ "$RESULT" = "$EXPECTED" ]
 
 
@@ -248,7 +248,7 @@ EXPECTED=$(python -m json.tool <<EOF
 }
 EOF
 )
-RESULT=$(curl --silent -XPUT '-d_delete:superuser=1&name=Ross&firstname=John&_add_int:score=-10&_add_int:visits=1&_loc=49,3' http://localhost:4269/api/1.0/records/tlay/place.json | python -mjson.tool)
+RESULT=$(curl --silent --fail -XPUT '-d_delete:superuser=1&name=Ross&firstname=John&_add_int:score=-10&_add_int:visits=1&_loc=49,3' http://localhost:4269/api/1.0/records/tlay/place.json | python -mjson.tool)
 
 EXPECTED=$(python -m json.tool <<EOF
 {
@@ -266,7 +266,7 @@ EXPECTED=$(python -m json.tool <<EOF
 }
 EOF
 )
-RESULT=$(curl --silent http://localhost:4269/api/1.0/records/tlay/place.json | python -m json.tool)
+RESULT=$(curl --silent --fail http://localhost:4269/api/1.0/records/tlay/place.json | python -m json.tool)
 [ "$RESULT" = "$EXPECTED" ]
 
 EXPECTED=$(python -m json.tool <<EOF
@@ -287,7 +287,7 @@ EXPECTED=$(python -m json.tool <<EOF
 }
 EOF
 )
-RESULT=$(curl --silent http://localhost:4269/api/1.0/search/tlay/nearby/48.61,2.14.json?radius=20000 | python -m json.tool)
+RESULT=$(curl --silent --fail http://localhost:4269/api/1.0/search/tlay/nearby/48.61,2.14.json?radius=20000 | python -m json.tool)
 [ "$RESULT" = "$EXPECTED" ]
 
 EXPECTED=$(python -m json.tool <<EOF
@@ -305,7 +305,7 @@ EXPECTED=$(python -m json.tool <<EOF
 }
 EOF
 )
-RESULT=$(curl --silent http://localhost:4269/api/1.0/search/tlay/nearby/48.61,2.14.json?radius=20000\&properties=0 | python -m json.tool)
+RESULT=$(curl --silent --fail http://localhost:4269/api/1.0/search/tlay/nearby/48.61,2.14.json?radius=20000\&properties=0 | python -m json.tool)
 [ "$RESULT" = "$EXPECTED" ]
 
 EXPECTED=$(python -m json.tool <<EOF
@@ -326,7 +326,7 @@ EXPECTED=$(python -m json.tool <<EOF
 }
 EOF
 )
-RESULT=$(curl --silent http://localhost:4269/api/1.0/search/tlay/nearby/48.61,2.14.json?radius=200000\&limit=1 | python -m json.tool)
+RESULT=$(curl --silent --fail http://localhost:4269/api/1.0/search/tlay/nearby/48.61,2.14.json?radius=200000\&limit=1 | python -m json.tool)
 [ "$RESULT" = "$EXPECTED" ]
 
 EXPECTED=$(python -m json.tool <<EOF
@@ -336,7 +336,7 @@ EXPECTED=$(python -m json.tool <<EOF
 }
 EOF
 )
-RESULT=$(curl --silent -XDELETE http://localhost:4269/api/1.0/layers/tlay.json | python -m json.tool)
+RESULT=$(curl --silent --fail -XDELETE http://localhost:4269/api/1.0/layers/tlay.json | python -m json.tool)
 [ "$RESULT" = "$EXPECTED" ]
 
 EXPECTED=$(python -m json.tool <<EOF
@@ -346,7 +346,7 @@ EXPECTED=$(python -m json.tool <<EOF
 }
 EOF
 )
-RESULT=$(curl --silent -d'x' http://localhost:4269/api/1.0/system/rewrite.json | python -m json.tool)
+RESULT=$(curl --silent --fail -d'x' http://localhost:4269/api/1.0/system/rewrite.json | python -m json.tool)
 [ "$RESULT" = "$EXPECTED" ]
 
 echo "SUCCESS"
