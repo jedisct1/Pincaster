@@ -372,7 +372,7 @@ static void free_expirables_slab_entry_cb(void *expirable_)
     };
 }
 
-static RETSIGTYPE sigterm_cb(const int sig)
+static void sigterm_cb(const int sig)
 {
     (void) sig;
     if (app_context.db_log.journal_rewrite_process != (pid_t) -1) {
@@ -384,7 +384,7 @@ static RETSIGTYPE sigterm_cb(const int sig)
     }
 }
 
-static RETSIGTYPE sigchld_cb(const int sig)
+static void sigchld_cb(const int sig)
 {
     (void) sig;
     
@@ -550,7 +550,13 @@ static int open_log_file(HttpHandlerContext * const context)
 static int close_log_file(HttpHandlerContext * const context)
 {
     if (context->log_fd != -1) {
+#ifdef F_FULLFSYNC
+        if (ioctl(context->log_fd, F_FULLFSYNC, 0) != 0) {
+            fsync(context->log_fd);
+        }
+#else
         fsync(context->log_fd);
+#endif
         close(context->log_fd);
         context->log_fd = -1;
     }

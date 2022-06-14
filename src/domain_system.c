@@ -385,7 +385,13 @@ int rewrite_child(HttpHandlerContext * const context)
     }
     free(tmp_log_file_name);    
     rebuild_journal(context, db_log_fd);
+#ifdef F_FULLFSYNC
+    if (ioctl(db_log_fd, F_FULLFSYNC, 0) != 0) {
+        fsync(db_log_fd);
+    }
+#else
     fsync(db_log_fd);
+#endif
     close(db_log_fd);    
     
     return 0;
@@ -524,7 +530,13 @@ int system_rewrite_after_fork_cb(HttpHandlerContext * const context)
     if (lseek(db_log->db_log_fd, (off_t) 0, SEEK_END) == -1) {
         exit(1);
     }
+#ifdef F_FULLFSYNC
+    if (ioctl(tmp_log_fd, F_FULLFSYNC, 0) != 0) {
+        fsync(tmp_log_fd);
+    }
+#else
     fsync(tmp_log_fd);
+#endif
     assert(context != NULL);
     if (any_slave_in_initial_download(context)) {
         logfile(context, LOG_WARNING, "Unable to rename the journal: "
