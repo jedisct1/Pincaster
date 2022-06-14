@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2000-2007 Niels Provos <provos@citi.umich.edu>
- * Copyright (c) 2007-2010 Niels Provos and Nick Mathewson
+ * Copyright (c) 2007-2012 Niels Provos and Nick Mathewson
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -24,16 +24,26 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef _EVENT2_TAG_COMPAT_H_
-#define _EVENT2_TAG_COMPAT_H_
+#ifndef EVENT2_TAG_COMPAT_H_INCLUDED_
+#define EVENT2_TAG_COMPAT_H_INCLUDED_
 
-/** @file tag_compat.h
+/** @file event2/tag_compat.h
 
-    Obsolete/deprecated functions from tag.h; provided only for backwards
+    @brief Obsolete/deprecated functions from tag.h; provided only for backwards
     compatibility.
  */
 
+/**
+   @name Misnamed functions
+
+   @deprecated These macros are deprecated because their names don't follow
+     Libevent's naming conventions.  Use evtag_encode_int and
+     evtag_encode_int64 instead.
+
+   @{
+*/
 #define encode_int(evbuf, number) evtag_encode_int((evbuf), (number))
 #define encode_int64(evbuf, number) evtag_encode_int64((evbuf), (number))
+/**@}*/
 
-#endif /* _EVENT2_TAG_H_ */
+#endif /* EVENT2_TAG_H_INCLUDED_ */

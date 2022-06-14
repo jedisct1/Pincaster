@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2003-2009 Niels Provos <provos@citi.umich.edu>
- * Copyright (c) 2009-2010 Niels Provos and Nick Mathewson
+ * Copyright (c) 2009-2012 Niels Provos and Nick Mathewson
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,24 +28,25 @@
 #include "event2/event-config.h"
 #include "evconfig-private.h"
 
-#ifdef _EVENT_HAVE_SYS_TYPES_H
+#ifdef EVENT__HAVE_SYS_TYPES_H
 #include <sys/types.h>
 #endif
-#ifdef _EVENT_HAVE_SYS_PARAM_H
+#ifdef EVENT__HAVE_SYS_PARAM_H
 #include <sys/param.h>
 #endif
 
-#ifdef WIN32
+#ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <winsock2.h>
 #include <windows.h>
 #undef WIN32_LEAN_AND_MEAN
-#else
-#include <sys/ioctl.h>
 #endif
 
+#ifdef EVENT__HAVE_SYS_IOCTL_H
+#include <sys/ioctl.h>
+#endif
 #include <sys/queue.h>
-#ifdef _EVENT_HAVE_SYS_TIME_H
+#ifdef EVENT__HAVE_SYS_TIME_H
 #include <sys/time.h>
 #endif
 
@@ -53,10 +54,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#ifndef WIN32
+#ifndef _WIN32
 #include <syslog.h>
 #endif
-#ifdef _EVENT_HAVE_UNISTD_H
+#ifdef EVENT__HAVE_UNISTD_H
 #include <unistd.h>
 #endif
 #include <limits.h>
@@ -92,9 +93,13 @@
        a final padding nibble with value 0 is appended.
 */
 
+EVENT2_EXPORT_SYMBOL
 int evtag_decode_int(ev_uint32_t *pnumber, struct evbuffer *evbuf);
+EVENT2_EXPORT_SYMBOL
 int evtag_decode_int64(ev_uint64_t *pnumber, struct evbuffer *evbuf);
+EVENT2_EXPORT_SYMBOL
 int evtag_encode_tag(struct evbuffer *evbuf, ev_uint32_t tag);
+EVENT2_EXPORT_SYMBOL
 int evtag_decode_tag(ev_uint32_t *ptag, struct evbuffer *evbuf);
 
 void
@@ -207,10 +212,19 @@ decode_tag_internal(ev_uint32_t *ptag, struct evbuffer *evbuf, int dodrain)
 	 */
 	data = evbuffer_pullup(
 		evbuf, len < sizeof(number) + 1 ? len : sizeof(number) + 1);
+	if (!data)
+		return (-1);
 
 	while (count++ < len) {
 		ev_uint8_t lower = *data++;
-		number |= (lower & 0x7f) << shift;
+		if (shift >= 28) {
+			/* Make sure it fits into 32 bits */
+			if (shift > 28)
+				return (-1);
+			if ((lower & 0x7f) > 15)
+				return (-1);
+		}
+		number |= (lower & (unsigned)0x7f) << shift;
 		shift += 7;
 
 		if (!(lower & 0x80)) {
@@ -313,6 +327,8 @@ do {									\
 									\
 	/* XXX(niels): faster? */					\
 	data = evbuffer_pullup(evbuf, offset + 1) + offset;		\
+	if (!data)							\
+		return (-1);						\
 									\
 	nibbles = ((data[0] & 0xf0) >> 4) + 1;				\
 	if (nibbles > maxnibbles || (nibbles >> 1) + 1 > len)		\
@@ -320,6 +336,8 @@ do {									\
 	len = (nibbles >> 1) + 1;					\
 									\
 	data = evbuffer_pullup(evbuf, offset + len) + offset;		\
+	if (!data)							\
+		return (-1);						\
 									\
 	while (nibbles > 0) {						\
 		number <<= 4;						\

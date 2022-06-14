@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2010 Niels Provos and Nick Mathewson
+ * Copyright (c) 2008-2012 Niels Provos and Nick Mathewson
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,12 +23,12 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef _EVENT2_THREAD_H_
-#define _EVENT2_THREAD_H_
+#ifndef EVENT2_THREAD_H_INCLUDED_
+#define EVENT2_THREAD_H_INCLUDED_
 
-/** @file thread.h
+/** @file event2/thread.h
 
-  Functions for multi-threaded applications using Libevent.
+  @brief Functions for multi-threaded applications using Libevent.
 
   When using a multi-threaded application in which multiple threads
   add and delete events from a single event base, Libevent needs to
@@ -38,20 +38,15 @@
   _must_ be set up before an event_base is created if you want the base to
   use them.
 
-  A multi-threaded application must provide locking functions to
-  Libevent via evthread_set_locking_callback().  Libevent will invoke
-  this callback whenever a lock needs to be acquired or released.
-
-  The total number of locks employed by Libevent can be determined
-  via the evthread_num_locks() function.  An application must provision
-  that many locks.
-
-  If the owner of an event base is waiting for events to happen,
-  Libevent may signal the thread via a special file descriptor to wake
-  up.   To enable this feature, an application needs to provide a
-  thread identity function via evthread_set_id_callback().
+  Most programs will either be using Windows threads or Posix threads.  You
+  can configure Libevent to use one of these evthread_use_windows_threads() or
+  evthread_use_pthreads() respectively.  If you're using another threading
+  library, you'll need to configure threading functions manually using
+  evthread_set_lock_callbacks() and evthread_set_condition_callbacks().
 
  */
+
+#include <event2/visibility.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -59,6 +54,11 @@ extern "C" {
 
 #include <event2/event-config.h>
 
+/**
+   @name Flags passed to lock functions
+
+   @{
+*/
 /** A flag passed to a locking callback when the lock was allocated as a
  * read-write lock, and we want to acquire or release the lock for writing. */
 #define EVTHREAD_WRITE	0x04
@@ -69,11 +69,16 @@ extern "C" {
  * for the lock; if we can't get the lock immediately, we will instead
  * return nonzero from the locking callback. */
 #define EVTHREAD_TRY    0x10
+/**@}*/
 
-#ifndef _EVENT_DISABLE_THREAD_SUPPORT
+#if !defined(EVENT__DISABLE_THREAD_SUPPORT) || defined(EVENT_IN_DOXYGEN_)
 
 #define EVTHREAD_LOCK_API_VERSION 1
 
+/**
+   @name Types of locks
+
+   @{*/
 /** A recursive lock is one that can be acquired multiple times at once by the
  * same thread.  No other process can allocate the lock until the thread that
  * has been holding it has unlocked it as many times as it locked it. */
@@ -81,9 +86,10 @@ extern "C" {
 /* A read-write lock is one that allows multiple simultaneous readers, but
  * where any one writer excludes all other writers and readers. */
 #define EVTHREAD_LOCKTYPE_READWRITE 2
+/**@}*/
 
 /** This structure describes the interface a threading library uses for
- * locking.   It's used to tell evthread_set_lock_callbacks how to use
+ * locking.   It's used to tell evthread_set_lock_callbacks() how to use
  * locking on this platform.
  */
 struct evthread_lock_callbacks {
@@ -120,6 +126,7 @@ struct evthread_lock_callbacks {
  * probably shouldn't call this function; instead, use
  * evthread_use_windows_threads() or evthread_use_posix_threads() if you can.
  */
+EVENT2_EXPORT_SYMBOL
 int evthread_set_lock_callbacks(const struct evthread_lock_callbacks *);
 
 #define EVTHREAD_CONDITION_API_VERSION 1
@@ -168,58 +175,94 @@ struct evthread_condition_callbacks {
  *
  * Note that if you're using Windows or the Pthreads threading library, you
  * probably shouldn't call this function; instead, use
- * evthread_use_windows_threads() or evthread_use_posix_threads() if you can.
+ * evthread_use_windows_threads() or evthread_use_pthreads() if you can.
  */
+EVENT2_EXPORT_SYMBOL
 int evthread_set_condition_callbacks(
 	const struct evthread_condition_callbacks *);
 
 /**
    Sets the function for determining the thread id.
 
-   @param base the event base for which to set the id function
    @param id_fn the identify function Libevent should invoke to
      determine the identity of a thread.
 */
+EVENT2_EXPORT_SYMBOL
 void evthread_set_id_callback(
     unsigned long (*id_fn)(void));
 
-#if defined(WIN32) && !defined(_EVENT_DISABLE_THREAD_SUPPORT)
+#if (defined(_WIN32) && !defined(EVENT__DISABLE_THREAD_SUPPORT)) || defined(EVENT_IN_DOXYGEN_)
 /** Sets up Libevent for use with Windows builtin locking and thread ID
-	functions.  Unavailable if Libevent is not built for Windows.
+    functions.  Unavailable if Libevent is not built for Windows.
 
-	@return 0 on success, -1 on failure. */
+    @return 0 on success, -1 on failure. */
+EVENT2_EXPORT_SYMBOL
 int evthread_use_windows_threads(void);
+/**
+   Defined if Libevent was built with support for evthread_use_windows_threads()
+*/
 #define EVTHREAD_USE_WINDOWS_THREADS_IMPLEMENTED 1
 #endif
 
-#if defined(_EVENT_HAVE_PTHREADS)
+#if defined(EVENT__HAVE_PTHREADS) || defined(EVENT_IN_DOXYGEN_)
 /** Sets up Libevent for use with Pthreads locking and thread ID functions.
-	Unavailable if Libevent is not build for use with pthreads.  Requires
-	libraries to link against Libevent_pthreads as well as Libevent.
+    Unavailable if Libevent is not build for use with pthreads.  Requires
+    libraries to link against Libevent_pthreads as well as Libevent.
 
-	@return 0 on success, -1 on failure. */
+    @return 0 on success, -1 on failure. */
+EVENT2_EXPORT_SYMBOL
 int evthread_use_pthreads(void);
+
+/* Enables posix mutex priority inheritance
+ * (if pthread_mutexattr_setprotocol() is supported). */
+#define EVTHREAD_PTHREAD_PRIO_INHERIT 0x01
+
+/**
+ * Sets up Libevent for use with Pthreads locking and thread ID functions.
+ * Use evthread_use_pthreads_with_flags() to use Pthreads locking, taking the
+ * specified flags under consideration.
+ *
+ * @param flags the flags to apply when setting up Pthreads locking. @see EVTHREAD_PTHREAD_*
+ * @return 0 on success, -1 on failure.
+ **/
+EVENT2_EXPORT_SYMBOL
+int evthread_use_pthreads_with_flags(int flags);
+
+/** Defined if Libevent was built with support for evthread_use_pthreads() */
 #define EVTHREAD_USE_PTHREADS_IMPLEMENTED 1
 
 #endif
 
 /** Enable debugging wrappers around the current lock callbacks.  If Libevent
  * makes one of several common locking errors, exit with an assertion failure.
+ *
+ * If you're going to call this function, you must do so before any locks are
+ * allocated.
  **/
+EVENT2_EXPORT_SYMBOL
+void evthread_enable_lock_debugging(void);
+
+/* Old (misspelled) version: This is deprecated; use
+ * evthread_enable_log_debugging instead. */
+EVENT2_EXPORT_SYMBOL
 void evthread_enable_lock_debuging(void);
 
-#endif /* _EVENT_DISABLE_THREAD_SUPPORT */
+#endif /* EVENT__DISABLE_THREAD_SUPPORT */
 
 struct event_base;
-/** Make sure it's safe to tell an event base to wake up from another thread.
+/** Make sure it's safe to tell an event base to wake up from another thread
     or a signal handler.
 
-	@return 0 on success, -1 on failure.
+    You shouldn't need to call this by hand; configuring the base with thread
+    support should be necessary and sufficient.
+
+    @return 0 on success, -1 on failure.
  */
+EVENT2_EXPORT_SYMBOL
 int evthread_make_base_notifiable(struct event_base *base);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* _EVENT2_THREAD_H_ */
+#endif /* EVENT2_THREAD_H_INCLUDED_ */

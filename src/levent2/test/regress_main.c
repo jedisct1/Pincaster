@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2003-2007 Niels Provos <provos@citi.umich.edu>
- * Copyright (c) 2007-2010 Niels Provos and Nick Mathewson
+ * Copyright (c) 2007-2012 Niels Provos and Nick Mathewson
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -24,24 +24,37 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+#include "util-internal.h"
 
-#ifdef WIN32
+#ifdef _WIN32
 #include <winsock2.h>
 #include <windows.h>
 #include <io.h>
 #include <fcntl.h>
 #endif
 
-#include "event2/event-config.h"
-
-#ifdef _EVENT___func__
-#define __func__ _EVENT___func__
+/* move_pthread_to_realtime_scheduling_class() */
+#ifdef EVENT__HAVE_MACH_MACH_H
+#include <mach/mach.h>
 #endif
+#ifdef EVENT__HAVE_MACH_MACH_TIME_H
+#include <mach/mach_time.h>
+#endif
+
+#if defined(__APPLE__) && defined(__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__)
+#if (__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ >= 1060 && \
+    __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ < 1070)
+#define FORK_BREAKS_GCOV
+#include <vproc.h>
+#endif
+#endif
+
+#include "event2/event-config.h"
 
 #if 0
 #include <sys/types.h>
 #include <sys/stat.h>
-#ifdef _EVENT_HAVE_SYS_TIME_H
+#ifdef EVENT__HAVE_SYS_TIME_H
 #include <sys/time.h>
 #endif
 #include <sys/queue.h>
@@ -50,8 +63,11 @@
 #endif
 
 #include <sys/types.h>
+#ifdef EVENT__HAVE_SYS_STAT_H
+#include <sys/stat.h>
+#endif
 
-#ifndef WIN32
+#ifndef _WIN32
 #include <sys/socket.h>
 #include <sys/wait.h>
 #include <signal.h>
@@ -73,9 +89,14 @@
 
 #include "event2/event-config.h"
 #include "regress.h"
+#include "regress_thread.h"
 #include "tinytest.h"
 #include "tinytest_macros.h"
 #include "../iocp-internal.h"
+#include "../event-internal.h"
+#include "../evthread-internal.h"
+
+struct evutil_weakrand_state test_weakrand_state;
 
 long
 timeval_msec_diff(const struct timeval *start, const struct timeval *end)
@@ -84,7 +105,6 @@ timeval_msec_diff(const struct timeval *start, const struct timeval *end)
 	ms *= 1000;
 	ms += ((end->tv_usec - start->tv_usec)+500) / 1000;
 	return ms;
-
 }
 
 /* ============================================================ */
@@ -111,11 +131,14 @@ static void dnslogcb(int w, const char *m)
 int
 regress_make_tmpfile(const void *data, size_t datalen, char **filename_out)
 {
-#ifndef WIN32
+#ifndef _WIN32
 	char tmpfilename[32];
 	int fd;
 	*filename_out = NULL;
 	strcpy(tmpfilename, "/tmp/eventtmp.XXXXXX");
+#ifdef EVENT__HAVE_UMASK
+	umask(0077);
+#endif
 	fd = mkstemp(tmpfilename);
 	if (fd == -1)
 		return (-1);
@@ -156,28 +179,93 @@ regress_make_tmpfile(const void *data, size_t datalen, char **filename_out)
 #endif
 }
 
+#ifndef _WIN32
+pid_t
+regress_fork(void)
+{
+	pid_t pid = fork();
+#ifdef FORK_BREAKS_GCOV
+	vproc_transaction_begin(0);
+#endif
+	return pid;
+}
+#endif
+
 static void
 ignore_log_cb(int s, const char *msg)
 {
 }
 
-static void *
+/**
+ * Put into the real time scheduling class for better timers latency.
+ * https://developer.apple.com/library/archive/technotes/tn2169/_index.html#//apple_ref/doc/uid/DTS40013172-CH1-TNTAG6000
+ */
+#if defined(__APPLE__)
+static void move_pthread_to_realtime_scheduling_class(pthread_t pthread)
+{
+	mach_timebase_info_data_t info;
+	mach_timebase_info(&info);
+
+	const uint64_t NANOS_PER_MSEC = 1000000ULL;
+	double clock2abs =
+		((double)info.denom / (double)info.numer) * NANOS_PER_MSEC;
+
+	thread_time_constraint_policy_data_t policy;
+	policy.period      = 0;
+	policy.computation = (uint32_t)(5 * clock2abs); // 5 ms of work
+	policy.constraint  = (uint32_t)(10 * clock2abs);
+	policy.preemptible = FALSE;
+
+	int kr = thread_policy_set(pthread_mach_thread_np(pthread),
+		THREAD_TIME_CONSTRAINT_POLICY,
+		(thread_policy_t)&policy,
+		THREAD_TIME_CONSTRAINT_POLICY_COUNT);
+	if (kr != KERN_SUCCESS) {
+		mach_error("thread_policy_set:", kr);
+		exit(1);
+	}
+}
+
+void thread_setup(THREAD_T pthread)
+{
+	move_pthread_to_realtime_scheduling_class(pthread);
+}
+#else /** \__APPLE__ */
+void thread_setup(THREAD_T pthread) {}
+#endif /** \!__APPLE__ */
+
+
+void *
 basic_test_setup(const struct testcase_t *testcase)
 {
 	struct event_base *base = NULL;
 	evutil_socket_t spair[2] = { -1, -1 };
 	struct basic_test_data *data = NULL;
 
-#ifndef WIN32
+#if defined(EVTHREAD_USE_PTHREADS_IMPLEMENTED)
+	int evthread_flags = 0;
+	if (testcase->flags & TT_ENABLE_PRIORITY_INHERITANCE)
+		evthread_flags |= EVTHREAD_PTHREAD_PRIO_INHERIT;
+#endif
+
+	thread_setup(THREAD_SELF());
+
+#ifndef _WIN32
 	if (testcase->flags & TT_ENABLE_IOCP_FLAG)
 		return (void*)TT_SKIP;
 #endif
+
+	if (testcase->flags & TT_ENABLE_DEBUG_MODE &&
+		!libevent_tests_running_in_debug_mode) {
+		event_enable_debug_mode();
+		libevent_tests_running_in_debug_mode = 1;
+	}
 
 	if (testcase->flags & TT_NEED_THREADS) {
 		if (!(testcase->flags & TT_FORK))
 			return NULL;
 #if defined(EVTHREAD_USE_PTHREADS_IMPLEMENTED)
-		if (evthread_use_pthreads())
+		if (evthread_use_pthreads_with_flags(evthread_flags))
 			exit(1);
 #elif defined(EVTHREAD_USE_WINDOWS_THREADS_IMPLEMENTED)
 		if (evthread_use_windows_threads())
@@ -212,7 +300,7 @@ basic_test_setup(const struct testcase_t *testcase)
 			exit(1);
 	}
 	if (testcase->flags & TT_ENABLE_IOCP_FLAG) {
-		if (event_base_start_iocp(base, 0)<0) {
+		if (event_base_start_iocp_(base, 0)<0) {
 			event_base_free(base);
 			return (void*)TT_SKIP;
 		}
@@ -237,7 +325,7 @@ basic_test_setup(const struct testcase_t *testcase)
 	return data;
 }
 
-static int
+int
 basic_test_cleanup(const struct testcase_t *testcase, void *ptr)
 {
 	struct basic_test_data *data = ptr;
@@ -257,9 +345,14 @@ basic_test_cleanup(const struct testcase_t *testcase, void *ptr)
 	}
 
 	if (testcase->flags & TT_NEED_BASE) {
-		if (data->base)
+		if (data->base) {
+			event_base_assert_ok_(data->base);
 			event_base_free(data->base);
+		}
 	}
+
+	if (testcase->flags & TT_FORK)
+		libevent_global_shutdown();
 
 	free(data);
 
@@ -279,7 +372,7 @@ static void *
 legacy_test_setup(const struct testcase_t *testcase)
 {
 	struct basic_test_data *data = basic_test_setup(testcase);
-	if (data == (void*)TT_SKIP)
+	if (data == (void*)TT_SKIP || data == NULL)
 		return data;
 	global_base = data->base;
 	pair[0] = data->pair[0];
@@ -328,7 +421,7 @@ const struct testcase_setup_t legacy_setup = {
 
 /* ============================================================ */
 
-#if (!defined(_EVENT_HAVE_PTHREADS) && !defined(WIN32)) || defined(_EVENT_DISABLE_THREAD_SUPPORT)
+#if (!defined(EVENT__HAVE_PTHREADS) && !defined(_WIN32)) || defined(EVENT__DISABLE_THREAD_SUPPORT)
 struct testcase_t thread_testcases[] = {
 	{ "basic", NULL, TT_SKIP, NULL, NULL },
 	END_OF_TESTCASES
@@ -339,6 +432,7 @@ struct testgroup_t testgroups[] = {
 	{ "main/", main_testcases },
 	{ "heap/", minheap_testcases },
 	{ "et/", edgetriggered_testcases },
+	{ "finalize/", finalize_testcases },
 	{ "evbuffer/", evbuffer_testcases },
 	{ "signal/", signal_testcases },
 	{ "util/", util_testcases },
@@ -349,46 +443,95 @@ struct testgroup_t testgroups[] = {
 	{ "rpc/", rpc_testcases },
 	{ "thread/", thread_testcases },
 	{ "listener/", listener_testcases },
-#ifdef WIN32
+	{ "watch/", watch_testcases },
+#ifdef _WIN32
 	{ "iocp/", iocp_testcases },
 	{ "iocp/bufferevent/", bufferevent_iocp_testcases },
 	{ "iocp/listener/", listener_iocp_testcases },
+	{ "iocp/http/", http_iocp_testcases },
 #endif
-#ifdef _EVENT_HAVE_OPENSSL
-	{ "ssl/", ssl_testcases },
+#ifdef EVENT__HAVE_OPENSSL
+	{ "openssl/", openssl_testcases },
+#endif
+#ifdef EVENT__HAVE_MBEDTLS
+	{ "mbedtls/", mbedtls_testcases },
 #endif
 	END_OF_GROUPS
 };
 
+const char *alltests[] = { "+..", NULL };
+const char *livenettests[] = {
+	"+util/getaddrinfo_live",
+	"+dns/gethostby..",
+	"+dns/resolve_reverse",
+	NULL
+};
+const char *finetimetests[] = {
+	"+util/monotonic_res_precise",
+	"+util/monotonic_res_fallback",
+	"+thread/deferred_cb_skew",
+	"+http/connection_retry",
+	"+http/https_connection_retry",
+	NULL
+};
+struct testlist_alias_t testaliases[] = {
+	{ "all", alltests },
+	{ "live_net", livenettests },
+	{ "fine_timing", finetimetests },
+	END_OF_ALIASES
+};
+
+int libevent_tests_running_in_debug_mode = 0;
+
 int
 main(int argc, const char **argv)
 {
-#ifdef WIN32
+#ifdef _WIN32
 	WORD wVersionRequested;
 	WSADATA wsaData;
-	int	err;
 
 	wVersionRequested = MAKEWORD(2, 2);
 
-	err = WSAStartup(wVersionRequested, &wsaData);
+	(void) WSAStartup(wVersionRequested, &wsaData);
 #endif
 
-#ifndef WIN32
+#ifndef _WIN32
 	if (signal(SIGPIPE, SIG_IGN) == SIG_ERR)
 		return 1;
 #endif
 
-#ifdef WIN32
+#ifdef _WIN32
 	tinytest_skip(testgroups, "http/connection_retry");
+	tinytest_skip(testgroups, "http/https_connection_retry");
+	tinytest_skip(testgroups, "http/read_on_write_error");
 #endif
 
-#ifndef _EVENT_DISABLE_THREAD_SUPPORT
+#ifndef EVENT__DISABLE_THREAD_SUPPORT
 	if (!getenv("EVENT_NO_DEBUG_LOCKS"))
-		evthread_enable_lock_debuging();
+		evthread_enable_lock_debugging();
 #endif
+
+	if (getenv("EVENT_DEBUG_MODE")) {
+		event_enable_debug_mode();
+		libevent_tests_running_in_debug_mode = 1;
+	}
+	if (getenv("EVENT_DEBUG_LOGGING_ALL")) {
+		event_enable_debug_logging(EVENT_DBG_ALL);
+	}
+
+	tinytest_set_aliases(testaliases);
+
+	evutil_weakrand_seed_(&test_weakrand_state, 0);
+
+	if (getenv("EVENT_NO_FILE_BUFFERING")) {
+		setbuf(stdout, NULL);
+		setbuf(stderr, NULL);
+	}
 
 	if (tinytest_main(argc,argv,testgroups))
 		return 1;
+
+	libevent_global_shutdown();
 
 	return 0;
 }

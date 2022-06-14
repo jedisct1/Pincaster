@@ -1,6 +1,7 @@
 /* Portable arc4random.c based on arc4random.c from OpenBSD.
  * Portable version by Chris Davis, adapted for Libevent by Nick Mathewson
  * Copyright (c) 2010 Chris Davis, Niels Provos, and Nick Mathewson
+ * Copyright (c) 2010-2012 Niels Provos and Nick Mathewson
  *
  * Note that in Libevent, this file isn't compiled directly.  Instead,
  * it's included from evutil_rand.c
@@ -50,16 +51,20 @@
 
 #ifndef ARC4RANDOM_NO_INCLUDES
 #include "evconfig-private.h"
-#ifdef WIN32
-#include <wincrypt.h>
+#ifdef _WIN32
+#include <bcrypt.h>
 #include <process.h>
+#include <winerror.h>
 #else
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/param.h>
 #include <sys/time.h>
-#ifdef _EVENT_HAVE_SYS_SYSCTL_H
+#ifdef EVENT__HAVE_SYS_SYSCTL_H
 #include <sys/sysctl.h>
+#endif
+#ifdef EVENT__HAVE_SYS_RANDOM_H
+#include <sys/random.h>
 #endif
 #endif
 #include <limits.h>
@@ -79,16 +84,19 @@ struct arc4_stream {
 	unsigned char s[256];
 };
 
-#ifdef WIN32
+#ifdef _WIN32
 #define getpid _getpid
 #define pid_t int
+#endif
+
+#ifndef O_RDONLY
+#define O_RDONLY _O_RDONLY
 #endif
 
 static int rs_initialized;
 static struct arc4_stream rs;
 static pid_t arc4_stir_pid;
 static int arc4_count;
-static int arc4_seeded_ok;
 
 static inline unsigned char arc4_getbyte(void);
 
@@ -120,7 +128,7 @@ arc4_addrandom(const unsigned char *dat, int datlen)
 	rs.j = rs.i;
 }
 
-#ifndef WIN32
+#ifndef _WIN32
 static ssize_t
 read_all(int fd, unsigned char *buf, size_t count)
 {
@@ -140,72 +148,44 @@ read_all(int fd, unsigned char *buf, size_t count)
 }
 #endif
 
-#ifdef WIN32
+#ifdef _WIN32
 #define TRY_SEED_WIN32
 static int
 arc4_seed_win32(void)
 {
-	/* This is adapted from Tor's crypto_seed_rng() */
-	static int provider_set = 0;
-	static HCRYPTPROV provider;
 	unsigned char buf[ADD_ENTROPY];
 
-	if (!provider_set) {
-		if (!CryptAcquireContext(&provider, NULL, NULL, PROV_RSA_FULL,
-		    CRYPT_VERIFYCONTEXT)) {
-			if (GetLastError() != (DWORD)NTE_BAD_KEYSET)
-				return -1;
-		}
-		provider_set = 1;
-	}
-	if (!CryptGenRandom(provider, sizeof(buf), buf))
+	if (BCryptGenRandom(NULL, buf, sizeof(buf),
+		BCRYPT_USE_SYSTEM_PREFERRED_RNG))
 		return -1;
 	arc4_addrandom(buf, sizeof(buf));
-	memset(buf, 0, sizeof(buf));
-	arc4_seeded_ok = 1;
+	evutil_memclear_(buf, sizeof(buf));
 	return 0;
 }
 #endif
 
-#if defined(_EVENT_HAVE_SYS_SYSCTL_H)
-#if _EVENT_HAVE_DECL_CTL_KERN && _EVENT_HAVE_DECL_KERN_RANDOM && _EVENT_HAVE_DECL_RANDOM_UUID
-#define TRY_SEED_SYSCTL_LINUX
+#if defined(EVENT__HAVE_GETRANDOM)
+#define TRY_SEED_GETRANDOM
 static int
-arc4_seed_sysctl_linux(void)
+arc4_seed_getrandom(void)
 {
-	/* Based on code by William Ahern, this function tries to use the
-	 * RANDOM_UUID sysctl to get entropy from the kernel.  This can work
-	 * even if /dev/urandom is inaccessible for some reason (e.g., we're
-	 * running in a chroot). */
-	int mib[] = { CTL_KERN, KERN_RANDOM, RANDOM_UUID };
 	unsigned char buf[ADD_ENTROPY];
-	size_t len, n;
-	unsigned i;
-	int any_set;
-
-	memset(buf, 0, sizeof(buf));
+	size_t len;
+	ssize_t n = 0;
 
 	for (len = 0; len < sizeof(buf); len += n) {
-		n = sizeof(buf) - len;
-
-		if (0 != sysctl(mib, 3, &buf[len], &n, NULL, 0))
+		n = getrandom(&buf[len], sizeof(buf) - len, 0);
+		if (n < 0)
 			return -1;
 	}
-	/* make sure that the buffer actually got set. */
-	for (i=0,any_set=0; i<sizeof(buf); ++i) {
-		any_set |= buf[i];
-	}
-	if (!any_set)
-		return -1;
-
 	arc4_addrandom(buf, sizeof(buf));
-	memset(buf, 0, sizeof(buf));
-	arc4_seeded_ok = 1;
+	evutil_memclear_(buf, sizeof(buf));
 	return 0;
 }
-#endif
+#endif /* EVENT__HAVE_GETRANDOM */
 
-#if _EVENT_HAVE_DECL_CTL_KERN && _EVENT_HAVE_DECL_KERN_ARND
+#if defined(EVENT__HAVE_SYS_SYSCTL_H) && defined(EVENT__HAVE_SYSCTL)
+#if EVENT__HAVE_DECL_CTL_KERN && EVENT__HAVE_DECL_KERN_ARND
 #define TRY_SEED_SYSCTL_BSD
 static int
 arc4_seed_sysctl_bsd(void)
@@ -239,12 +219,11 @@ arc4_seed_sysctl_bsd(void)
 		return -1;
 
 	arc4_addrandom(buf, sizeof(buf));
-	memset(buf, 0, sizeof(buf));
-	arc4_seeded_ok = 1;
+	evutil_memclear_(buf, sizeof(buf));
 	return 0;
 }
 #endif
-#endif /* defined(_EVENT_HAVE_SYS_SYSCTL_H) */
+#endif /* defined(EVENT__HAVE_SYS_SYSCTL_H) */
 
 #ifdef __linux__
 #define TRY_SEED_PROC_SYS_KERNEL_RANDOM_UUID
@@ -260,7 +239,7 @@ arc4_seed_proc_sys_kernel_random_uuid(void)
 	unsigned char entropy[64];
 	int bytes, n, i, nybbles;
 	for (bytes = 0; bytes<ADD_ENTROPY; ) {
-		fd = open("/proc/sys/kernel/random/uuid", O_RDONLY, 0);
+		fd = evutil_open_closeonexec_("/proc/sys/kernel/random/uuid", O_RDONLY, 0);
 		if (fd < 0)
 			return -1;
 		n = read(fd, buf, sizeof(buf));
@@ -269,8 +248,8 @@ arc4_seed_proc_sys_kernel_random_uuid(void)
 			return -1;
 		memset(entropy, 0, sizeof(entropy));
 		for (i=nybbles=0; i<n; ++i) {
-			if (EVUTIL_ISXDIGIT(buf[i])) {
-				int nyb = evutil_hex_char_to_int(buf[i]);
+			if (EVUTIL_ISXDIGIT_(buf[i])) {
+				int nyb = evutil_hex_char_to_int_(buf[i]);
 				if (nybbles & 1) {
 					entropy[nybbles/2] |= nyb;
 				} else {
@@ -284,14 +263,34 @@ arc4_seed_proc_sys_kernel_random_uuid(void)
 		arc4_addrandom(entropy, nybbles/2);
 		bytes += nybbles/2;
 	}
-	memset(entropy, 0, sizeof(entropy));
-	memset(buf, 0, sizeof(buf));
+	evutil_memclear_(entropy, sizeof(entropy));
+	evutil_memclear_(buf, sizeof(buf));
 	return 0;
 }
 #endif
 
-#ifndef WIN32
+#ifndef _WIN32
 #define TRY_SEED_URANDOM
+static char *arc4random_urandom_filename = NULL;
+
+static int arc4_seed_urandom_helper_(const char *fname)
+{
+	unsigned char buf[ADD_ENTROPY];
+	int fd;
+	size_t n;
+
+	fd = evutil_open_closeonexec_(fname, O_RDONLY, 0);
+	if (fd<0)
+		return -1;
+	n = read_all(fd, buf, sizeof(buf));
+	close(fd);
+	if (n != sizeof(buf))
+		return -1;
+	arc4_addrandom(buf, sizeof(buf));
+	evutil_memclear_(buf, sizeof(buf));
+	return 0;
+}
+
 static int
 arc4_seed_urandom(void)
 {
@@ -299,22 +298,14 @@ arc4_seed_urandom(void)
 	static const char *filenames[] = {
 		"/dev/srandom", "/dev/urandom", "/dev/random", NULL
 	};
-	unsigned char buf[ADD_ENTROPY];
-	int fd, i;
-	size_t n;
+	int i;
+	if (arc4random_urandom_filename)
+		return arc4_seed_urandom_helper_(arc4random_urandom_filename);
 
 	for (i = 0; filenames[i]; ++i) {
-		fd = open(filenames[i], O_RDONLY, 0);
-		if (fd<0)
-			continue;
-		n = read_all(fd, buf, sizeof(buf));
-		close(fd);
-		if (n != sizeof(buf))
-			return -1;
-		arc4_addrandom(buf, sizeof(buf));
-		memset(buf, 0, sizeof(buf));
-		arc4_seeded_ok = 1;
-		return 0;
+		if (arc4_seed_urandom_helper_(filenames[i]) == 0) {
+			return 0;
+		}
 	}
 
 	return -1;
@@ -332,18 +323,17 @@ arc4_seed(void)
 	if (0 == arc4_seed_win32())
 		ok = 1;
 #endif
+#ifdef TRY_SEED_GETRANDOM
+	if (0 == arc4_seed_getrandom())
+		ok = 1;
+#endif
 #ifdef TRY_SEED_URANDOM
 	if (0 == arc4_seed_urandom())
 		ok = 1;
 #endif
 #ifdef TRY_SEED_PROC_SYS_KERNEL_RANDOM_UUID
-	if (0 == arc4_seed_proc_sys_kernel_random_uuid())
-		ok = 1;
-#endif
-#ifdef TRY_SEED_SYSCTL_LINUX
-	/* Apparently Linux is deprecating sysctl, and spewing warning
-	 * messages when you try to use it. */
-	if (!ok && 0 == arc4_seed_sysctl_linux())
+	if (arc4random_urandom_filename == NULL &&
+	    0 == arc4_seed_proc_sys_kernel_random_uuid())
 		ok = 1;
 #endif
 #ifdef TRY_SEED_SYSCTL_BSD
@@ -353,7 +343,7 @@ arc4_seed(void)
 	return ok ? 0 : -1;
 }
 
-static void
+static int
 arc4_stir(void)
 {
 	int     i;
@@ -363,7 +353,8 @@ arc4_stir(void)
 		rs_initialized = 1;
 	}
 
-	arc4_seed();
+	if (0 != arc4_seed())
+		return -1;
 
 	/*
 	 * Discard early keystream, as per recommendations in
@@ -385,7 +376,10 @@ arc4_stir(void)
 	 */
 	for (i = 0; i < 12*256; i++)
 		(void)arc4_getbyte();
+
 	arc4_count = BYTES_BEFORE_RESEED;
+
+	return 0;
 }
 
 
@@ -433,9 +427,9 @@ ARC4RANDOM_EXPORT int
 arc4random_stir(void)
 {
 	int val;
-	_ARC4_LOCK();
+	ARC4_LOCK_();
 	val = arc4_stir();
-	_ARC4_UNLOCK();
+	ARC4_UNLOCK_();
 	return val;
 }
 #endif
@@ -445,7 +439,7 @@ ARC4RANDOM_EXPORT void
 arc4random_addrandom(const unsigned char *dat, int datlen)
 {
 	int j;
-	_ARC4_LOCK();
+	ARC4_LOCK_();
 	if (!rs_initialized)
 		arc4_stir();
 	for (j = 0; j < datlen; j += 256) {
@@ -455,7 +449,7 @@ arc4random_addrandom(const unsigned char *dat, int datlen)
 		 * crazy like passing us all the files in /var/log. */
 		arc4_addrandom(dat + j, datlen - j);
 	}
-	_ARC4_UNLOCK();
+	ARC4_UNLOCK_();
 }
 #endif
 
@@ -464,27 +458,27 @@ ARC4RANDOM_EXPORT ARC4RANDOM_UINT32
 arc4random(void)
 {
 	ARC4RANDOM_UINT32 val;
-	_ARC4_LOCK();
+	ARC4_LOCK_();
 	arc4_count -= 4;
 	arc4_stir_if_needed();
 	val = arc4_getword();
-	_ARC4_UNLOCK();
+	ARC4_UNLOCK_();
 	return val;
 }
 #endif
 
 ARC4RANDOM_EXPORT void
-arc4random_buf(void *_buf, size_t n)
+arc4random_buf(void *buf_, size_t n)
 {
-	unsigned char *buf = _buf;
-	_ARC4_LOCK();
+	unsigned char *buf = buf_;
+	ARC4_LOCK_();
 	arc4_stir_if_needed();
 	while (n--) {
 		if (--arc4_count <= 0)
 			arc4_stir();
 		buf[n] = arc4_getbyte();
 	}
-	_ARC4_UNLOCK();
+	ARC4_UNLOCK_();
 }
 
 #ifndef ARC4RANDOM_NOUNIFORM

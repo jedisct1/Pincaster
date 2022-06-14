@@ -1,4 +1,4 @@
-/* tinytest_demo.c -- Copyright 2009-2010 Nick Mathewson
+/* tinytest_demo.c -- Copyright 2009-2012 Nick Mathewson
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,11 +35,17 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <time.h>
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <unistd.h>
+#endif
 
 /* ============================================================ */
 
 /* First, let's see if strcmp is working.  (All your test cases should be
- * functions declared to take a single void * as) an argument. */
+ * functions declared to take a single void * as an argument.) */
 void
 test_strcmp(void *data)
 {
@@ -148,6 +154,9 @@ test_memcpy(void *ptr)
 	memcpy(db->buffer2, db->buffer1, sizeof(db->buffer1));
 	tt_str_op(db->buffer1, ==, db->buffer2);
 
+        /* This one works if there's an internal NUL. */
+        tt_mem_op(db->buffer1, <, db->buffer2, sizeof(db->buffer1));
+
 	/* Now we've allocated memory that's referenced by a local variable.
 	   The end block of the function will clean it up. */
 	mem = strdup("Hello world.");
@@ -160,6 +169,53 @@ test_memcpy(void *ptr)
 	/* This time our end block has something to do. */
 	if (mem)
 		free(mem);
+}
+
+void
+test_timeout(void *ptr)
+{
+	time_t t1, t2;
+	(void)ptr;
+	t1 = time(NULL);
+#ifdef _WIN32
+	Sleep(5000);
+#else
+	sleep(5);
+#endif
+	t2 = time(NULL);
+
+	tt_int_op(t2-t1, >=, 4);
+
+	tt_int_op(t2-t1, <=, 6);
+
+ end:
+	;
+}
+
+void
+test_timeout_retry(void *ptr)
+{
+	static int i = 0;
+
+	++i;
+	tt_int_op(i, !=, 1);
+
+	time_t t1, t2;
+	(void)ptr;
+	t1 = time(NULL);
+#ifdef _WIN32
+	Sleep(5000);
+#else
+	sleep(5);
+#endif
+	t2 = time(NULL);
+
+	tt_int_op(t2-t1, >=, 4);
+
+	tt_int_op(t2-t1, <=, 6);
+
+ end:
+	;
 }
 
 /* ============================================================ */
@@ -178,6 +234,14 @@ struct testcase_t demo_tests[] = {
 	   its environment. */
 	{ "memcpy", test_memcpy, TT_FORK, &data_buffer_setup },
 
+	/* This flag is off-by-default, since it takes a while to run.	You
+	 * can enable it manually by passing +demo/timeout at the command line.*/
+	{ "timeout", test_timeout, TT_OFF_BY_DEFAULT },
+
+	/* This test will be retried. (and it will not pass from the first
+	 * time) */
+	{ "timeout_retry", test_timeout_retry, TT_RETRIABLE },
+
 	/* The array has to end with END_OF_TESTCASES. */
 	END_OF_TESTCASES
 };
@@ -190,6 +254,18 @@ struct testgroup_t groups[] = {
 	{ "demo/", demo_tests },
 
 	END_OF_GROUPS
+};
+
+/* We can also define test aliases. These can be used for types of tests that
+ * cut across groups. */
+const char *alltests[] = { "+..", NULL };
+const char *slowtests[] = { "+demo/timeout", NULL };
+struct testlist_alias_t aliases[] = {
+
+	{ "ALL", alltests },
+	{ "SLOW", slowtests },
+
+	END_OF_ALIASES
 };
 
 
@@ -211,5 +287,6 @@ main(int c, const char **v)
 	   "tinytest-demo" and "tinytest-demo .." mean the same thing.
 
 	*/
+	tinytest_set_aliases(aliases);
 	return tinytest_main(c, v, groups);
 }

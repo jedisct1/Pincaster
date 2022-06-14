@@ -1,5 +1,5 @@
 /*
- * Copyright 2007-2010 Niels Provos and Nick Mathewson
+ * Copyright 2007-2012 Niels Provos and Nick Mathewson
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,10 +29,14 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
+#ifdef EVENT__HAVE_SYS_TIME_H
 #include <sys/time.h>
-#ifdef WIN32
+#endif
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
-#else
+#include <getopt.h>
+#else /* _WIN32 */
 #include <sys/socket.h>
 #include <sys/resource.h>
 #endif
@@ -41,9 +45,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#ifdef EVENT__HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 #include <errno.h>
-
 #include <event.h>
 #include <evutil.h>
 
@@ -55,29 +60,32 @@
  */
 
 static int fired;
-static int *pipes;
+static evutil_socket_t *pipes;
 static struct event *events;
 
 static void
 read_cb(evutil_socket_t fd, short which, void *arg)
 {
 	char ch;
-	long idx = (long) arg;
+	evutil_socket_t sock = (evutil_socket_t)(ev_intptr_t)arg;
 
-	recv(fd, &ch, sizeof(ch), 0);
-	if (idx >= 0)
-		send(idx, "e", 1, 0);
+	(void) recv(fd, &ch, sizeof(ch), 0);
+	if (sock >= 0) {
+		if (send(sock, "e", 1, 0) < 0)
+			perror("send");
+	}
 	fired++;
 }
 
 static struct timeval *
 run_once(int num_pipes)
 {
-	int *cp, i;
+	int i;
+	evutil_socket_t *cp;
 	static struct timeval ts, te, tv_timeout;
 
-	events = calloc(num_pipes, sizeof(struct event));
-	pipes = calloc(num_pipes * 2, sizeof(int));
+	events = (struct event *)calloc(num_pipes, sizeof(struct event));
+	pipes = (evutil_socket_t *)calloc(num_pipes * 2, sizeof(evutil_socket_t));
 
 	if (events == NULL || pipes == NULL) {
 		perror("malloc");
@@ -92,32 +100,34 @@ run_once(int num_pipes)
 	}
 
 	/* measurements includes event setup */
-	gettimeofday(&ts, NULL);
+	evutil_gettimeofday(&ts, NULL);
 
 	/* provide a default timeout for events */
 	evutil_timerclear(&tv_timeout);
 	tv_timeout.tv_sec = 60;
 
 	for (cp = pipes, i = 0; i < num_pipes; i++, cp += 2) {
-		long fd = i < num_pipes - 1 ? cp[3] : -1;
-		event_set(&events[i], cp[0], EV_READ, read_cb, (void *) fd);
+		evutil_socket_t fd = i < num_pipes - 1 ? cp[3] : -1;
+		event_set(&events[i], cp[0], EV_READ, read_cb,
+		    (void *)(ev_intptr_t)fd);
 		event_add(&events[i], &tv_timeout);
 	}
 
 	fired = 0;
 
 	/* kick everything off with a single write */
-	send(pipes[1], "e", 1, 0);
+	if (send(pipes[1], "e", 1, 0) < 0)
+		perror("send");
 
 	event_dispatch();
 
-	gettimeofday(&te, NULL);
+	evutil_gettimeofday(&te, NULL);
 	evutil_timersub(&te, &ts, &te);
 
 	for (cp = pipes, i = 0; i < num_pipes; i++, cp += 2) {
 		event_del(&events[i]);
-		close(cp[0]);
-		close(cp[1]);
+		evutil_closesocket(cp[0]);
+		evutil_closesocket(cp[1]);
 	}
 
 	free(pipes);
@@ -129,13 +139,18 @@ run_once(int num_pipes)
 int
 main(int argc, char **argv)
 {
-#ifndef WIN32
+#ifdef EVENT__HAVE_SETRLIMIT
 	struct rlimit rl;
 #endif
 	int i, c;
 	struct timeval *tv;
 
 	int num_pipes = 100;
+#ifdef _WIN32
+	WSADATA WSAData;
+	WSAStartup(0x101, &WSAData);
+#endif
+
 	while ((c = getopt(argc, argv, "n:")) != -1) {
 		switch (c) {
 		case 'n':
@@ -147,7 +162,7 @@ main(int argc, char **argv)
 		}
 	}
 
-#ifndef WIN32
+#ifdef EVENT__HAVE_SETRLIMIT
 	rl.rlim_cur = rl.rlim_max = num_pipes * 2 + 50;
 	if (setrlimit(RLIMIT_NOFILE, &rl) == -1) {
 		perror("setrlimit");
@@ -164,6 +179,10 @@ main(int argc, char **argv)
 		fprintf(stdout, "%ld\n",
 			tv->tv_sec * 1000000L + tv->tv_usec);
 	}
+
+#ifdef _WIN32
+	WSACleanup();
+#endif
 
 	exit(0);
 }

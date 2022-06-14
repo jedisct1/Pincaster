@@ -7,11 +7,19 @@
 
 #include <event2/event-config.h>
 
+/* Compatibility for possible missing IPv6 declarations */
+#include "../ipv6-internal.h"
+
 #include <sys/types.h>
 
-#ifdef WIN32
+#ifdef EVENT__HAVE_UNISTD_H
+#include <unistd.h>
+#endif
+
+#ifdef _WIN32
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#include <getopt.h>
 #else
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -23,7 +31,7 @@
 #include <event2/dns_struct.h>
 #include <event2/util.h>
 
-#ifdef _EVENT_HAVE_NETINET_IN6_H
+#ifdef EVENT__HAVE_NETINET_IN6_H
 #include <netinet/in6.h>
 #endif
 
@@ -52,6 +60,11 @@ main_callback(int result, char type, int count, int ttl,
 			  void *addrs, void *orig) {
 	char *n = (char*)orig;
 	int i;
+
+	if (type == DNS_CNAME) {
+		printf("%s: %s (CNAME)\n", n, (char*)addrs);
+	}
+
 	for (i = 0; i < count; ++i) {
 		if (type == DNS_IPv4_A) {
 			printf("%s: %s\n", n, debug_ntoa(((u32*)addrs)[i]));
@@ -69,8 +82,9 @@ static void
 gai_callback(int err, struct evutil_addrinfo *ai, void *arg)
 {
 	const char *name = arg;
-	struct evutil_addrinfo *ai_first = NULL;
 	int i;
+	struct evutil_addrinfo *first_ai = ai;
+
 	if (err) {
 		printf("%s: %s\n", name, evutil_gai_strerror(err));
 	}
@@ -92,8 +106,9 @@ gai_callback(int err, struct evutil_addrinfo *ai, void *arg)
 			printf("[%d] %s: %s\n",i,name,buf);
 		}
 	}
-	if (ai_first)
-		evutil_freeaddrinfo(ai_first);
+
+	if (first_ai)
+		evutil_freeaddrinfo(first_ai);
 }
 
 static void
@@ -117,6 +132,8 @@ evdns_server_callback(struct evdns_server_request *req, void *data)
 			printf(" -- replying for %s (PTR)\n", req->questions[i]->name);
 			r = evdns_server_request_add_ptr_reply(req, NULL, req->questions[i]->name,
 											"foo.bar.example.com", 10);
+			if (r<0)
+				printf("ugh, no luck");
 		} else {
 			printf(" -- skipping %s [%d %d]\n", req->questions[i]->name,
 				   req->questions[i]->type, req->questions[i]->dns_question_class);
@@ -139,38 +156,57 @@ logfn(int is_warn, const char *msg) {
 
 int
 main(int c, char **v) {
-	int idx;
-	int reverse = 0, servertest = 0, use_getaddrinfo = 0;
+	struct options {
+		int reverse;
+		int use_getaddrinfo;
+		int servertest;
+		const char *resolv_conf;
+		const char *ns;
+	};
+	struct options o;
+	int opt;
 	struct event_base *event_base = NULL;
 	struct evdns_base *evdns_base = NULL;
-	if (c<2) {
-		fprintf(stderr, "syntax: %s [-x] [-v] hostname\n", v[0]);
-		fprintf(stderr, "syntax: %s [-servertest]\n", v[0]);
+
+	memset(&o, 0, sizeof(o));
+
+	if (c < 2) {
+		fprintf(stderr, "syntax: %s [-x] [-v] [-c resolv.conf] [-s ns] hostname\n", v[0]);
+		fprintf(stderr, "syntax: %s [-T]\n", v[0]);
 		return 1;
 	}
-	idx = 1;
-	while (idx < c && v[idx][0] == '-') {
-		if (!strcmp(v[idx], "-x"))
-			reverse = 1;
-		else if (!strcmp(v[idx], "-v"))
-			verbose = 1;
-		else if (!strcmp(v[idx], "-g"))
-			use_getaddrinfo = 1;
-		else if (!strcmp(v[idx], "-servertest"))
-			servertest = 1;
-		else
-			fprintf(stderr, "Unknown option %s\n", v[idx]);
-		++idx;
+
+	while ((opt = getopt(c, v, "xvc:Ts:g")) != -1) {
+		switch (opt) {
+			case 'x': o.reverse = 1; break;
+			case 'v': ++verbose; break;
+			case 'g': o.use_getaddrinfo = 1; break;
+			case 'T': o.servertest = 1; break;
+			case 'c': o.resolv_conf = optarg; break;
+			case 's': o.ns = optarg; break;
+			default : fprintf(stderr, "Unknown option %c\n", opt); break;
+		}
 	}
 
+#ifdef _WIN32
+	{
+		WSADATA WSAData;
+		WSAStartup(0x101, &WSAData);
+	}
+#endif
+
 	event_base = event_base_new();
-	evdns_base = evdns_base_new(event_base, 0);
+	evdns_base = evdns_base_new(event_base, EVDNS_BASE_DISABLE_WHEN_INACTIVE);
 	evdns_set_log_fn(logfn);
 
-	if (servertest) {
+	if (o.servertest) {
 		evutil_socket_t sock;
 		struct sockaddr_in my_addr;
 		sock = socket(PF_INET, SOCK_DGRAM, 0);
+		if (sock == -1) {
+			perror("socket");
+			exit(1);
+		}
 		evutil_make_socket_nonblocking(sock);
 		my_addr.sin_family = AF_INET;
 		my_addr.sin_port = htons(10053);
@@ -181,41 +217,53 @@ main(int c, char **v) {
 		}
 		evdns_add_server_port_with_base(event_base, sock, 0, evdns_server_callback, NULL);
 	}
-	if (idx < c) {
-#ifdef WIN32
-		evdns_base_config_windows_nameservers(evdns_base);
-#else
-		evdns_base_resolv_conf_parse(evdns_base, DNS_OPTION_NAMESERVERS,
-		    "/etc/resolv.conf");
+	if (optind < c) {
+		int res;
+#ifdef _WIN32
+		if (o.resolv_conf == NULL && !o.ns)
+			res = evdns_base_config_windows_nameservers(evdns_base);
+		else
 #endif
+		if (o.ns)
+			res = evdns_base_nameserver_ip_add(evdns_base, o.ns);
+		else
+			res = evdns_base_resolv_conf_parse(evdns_base,
+			    DNS_OPTION_NAMESERVERS, o.resolv_conf);
+
+		if (res) {
+			fprintf(stderr, "Couldn't configure nameservers\n");
+			return 1;
+		}
 	}
 
 	printf("EVUTIL_AI_CANONNAME in example = %d\n", EVUTIL_AI_CANONNAME);
-	for (; idx < c; ++idx) {
-		if (reverse) {
+	for (; optind < c; ++optind) {
+		if (o.reverse) {
 			struct in_addr addr;
-			if (evutil_inet_pton(AF_INET, v[idx], &addr)!=1) {
-				fprintf(stderr, "Skipping non-IP %s\n", v[idx]);
+			if (evutil_inet_pton(AF_INET, v[optind], &addr)!=1) {
+				fprintf(stderr, "Skipping non-IP %s\n", v[optind]);
 				continue;
 			}
-			fprintf(stderr, "resolving %s...\n",v[idx]);
-			evdns_base_resolve_reverse(evdns_base, &addr, 0, main_callback, v[idx]);
-		} else if (use_getaddrinfo) {
+			fprintf(stderr, "resolving %s...\n",v[optind]);
+			evdns_base_resolve_reverse(evdns_base, &addr, 0, main_callback, v[optind]);
+		} else if (o.use_getaddrinfo) {
 			struct evutil_addrinfo hints;
 			memset(&hints, 0, sizeof(hints));
 			hints.ai_family = PF_UNSPEC;
 			hints.ai_protocol = IPPROTO_TCP;
 			hints.ai_flags = EVUTIL_AI_CANONNAME;
-			fprintf(stderr, "resolving (fwd) %s...\n",v[idx]);
-			evdns_getaddrinfo(evdns_base, v[idx], NULL, &hints,
-			    gai_callback, v[idx]);
+			fprintf(stderr, "resolving (fwd) %s...\n",v[optind]);
+			evdns_getaddrinfo(evdns_base, v[optind], NULL, &hints,
+			    gai_callback, v[optind]);
 		} else {
-			fprintf(stderr, "resolving (fwd) %s...\n",v[idx]);
-			evdns_base_resolve_ipv4(evdns_base, v[idx], 0, main_callback, v[idx]);
+			fprintf(stderr, "resolving (fwd) %s...\n",v[optind]);
+			evdns_base_resolve_ipv4(evdns_base, v[optind], DNS_CNAME_CALLBACK, main_callback, v[optind]);
 		}
 	}
 	fflush(stdout);
 	event_base_dispatch(event_base);
+	evdns_base_free(evdns_base, 1);
+	event_base_free(event_base);
 	return 0;
 }
 

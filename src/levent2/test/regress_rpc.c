@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2003-2007 Niels Provos <provos@citi.umich.edu>
- * Copyright (c) 2007-2010 Niels Provos and Nick Mathewson
+ * Copyright (c) 2007-2012 Niels Provos and Nick Mathewson
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,7 +28,7 @@
 /* The old tests here need assertions to work. */
 #undef NDEBUG
 
-#ifdef WIN32
+#ifdef _WIN32
 #include <winsock2.h>
 #include <windows.h>
 #endif
@@ -37,11 +37,11 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
-#ifdef _EVENT_HAVE_SYS_TIME_H
+#ifdef EVENT__HAVE_SYS_TIME_H
 #include <sys/time.h>
 #endif
 #include <sys/queue.h>
-#ifndef WIN32
+#ifndef _WIN32
 #include <sys/socket.h>
 #include <signal.h>
 #include <unistd.h>
@@ -61,7 +61,6 @@
 #include "event2/http_compat.h"
 #include "event2/http_struct.h"
 #include "event2/rpc.h"
-#include "event2/rpc.h"
 #include "event2/rpc_struct.h"
 #include "event2/tag.h"
 #include "log-internal.h"
@@ -70,6 +69,8 @@
 
 #include "regress.h"
 #include "regress_testutils.h"
+
+#ifndef NO_PYTHON_EXISTS
 
 static struct evhttp *
 http_setup(ev_uint16_t *pport)
@@ -111,6 +112,7 @@ MessageCb(EVRPC_STRUCT(Message)* rpc, void *arg)
 		struct evhttp_request* req = EVRPC_REQUEST_HTTP(rpc);
 		const char *header = evhttp_find_header(
 			req->input_headers, "X-Hook");
+		assert(header);
 		assert(strcmp(header, "input") == 0);
 	}
 
@@ -330,6 +332,7 @@ GotKillCb(struct evrpc_status *status,
 		struct evhttp_request *req = status->http_req;
 		const char *header = evhttp_find_header(
 			req->input_headers, "X-Pool-Hook");
+		assert(header);
 		assert(strcmp(header, "ran") == 0);
 	}
 
@@ -459,12 +462,14 @@ rpc_basic_client(void)
 	    != NULL);
 
 	pool = rpc_pool_with_connection(port);
+	tt_assert(pool);
 
 	assert(evrpc_add_hook(pool, EVRPC_OUTPUT, rpc_hook_add_meta, NULL));
 	assert(evrpc_add_hook(pool, EVRPC_INPUT, rpc_hook_remove_header, (void*)"output"));
 
 	/* set up the basic message */
 	msg = msg_new();
+	tt_assert(msg);
 	EVTAG_ASSIGN(msg, from_name, "niels");
 	EVTAG_ASSIGN(msg, to_name, "tester");
 
@@ -535,9 +540,11 @@ rpc_basic_queued_client(void)
 	rpc_setup(&http, &port, &base);
 
 	pool = rpc_pool_with_connection(port);
+	tt_assert(pool);
 
 	/* set up the basic message */
 	msg = msg_new();
+	tt_assert(msg);
 	EVTAG_ASSIGN(msg, from_name, "niels");
 	EVTAG_ASSIGN(msg, to_name, "tester");
 
@@ -588,7 +595,7 @@ done:
 
 /* we just pause the rpc and continue it in the next callback */
 
-struct _rpc_hook_ctx {
+struct rpc_hook_ctx_ {
 	void *vbase;
 	void *ctx;
 };
@@ -598,7 +605,7 @@ static int hook_pause_cb_called=0;
 static void
 rpc_hook_pause_cb(evutil_socket_t fd, short what, void *arg)
 {
-	struct _rpc_hook_ctx *ctx = arg;
+	struct rpc_hook_ctx_ *ctx = arg;
 	++hook_pause_cb_called;
 	evrpc_resume_request(ctx->vbase, ctx->ctx, EVRPC_CONTINUE);
 	free(arg);
@@ -608,7 +615,7 @@ static int
 rpc_hook_pause(void *ctx, struct evhttp_request *req, struct evbuffer *evbuf,
     void *arg)
 {
-	struct _rpc_hook_ctx *tmp = malloc(sizeof(*tmp));
+	struct rpc_hook_ctx_ *tmp = malloc(sizeof(*tmp));
 	struct timeval tv;
 
 	assert(tmp != NULL);
@@ -636,12 +643,13 @@ rpc_basic_client_with_pause(void)
 	assert(evrpc_add_hook(base, EVRPC_OUTPUT, rpc_hook_pause, base));
 
 	pool = rpc_pool_with_connection(port);
-
+	tt_assert(pool);
 	assert(evrpc_add_hook(pool, EVRPC_INPUT, rpc_hook_pause, pool));
 	assert(evrpc_add_hook(pool, EVRPC_OUTPUT, rpc_hook_pause, pool));
 
 	/* set up the basic message */
 	msg = msg_new();
+	tt_assert(msg);
 	EVTAG_ASSIGN(msg, from_name, "niels");
 	EVTAG_ASSIGN(msg, to_name, "tester");
 
@@ -684,12 +692,14 @@ rpc_client_timeout(void)
 	rpc_setup(&http, &port, &base);
 
 	pool = rpc_pool_with_connection(port);
+	tt_assert(pool);
 
-	/* set the timeout to 5 seconds */
-	evrpc_pool_set_timeout(pool, 5);
+	/* set the timeout to 1 second. */
+	evrpc_pool_set_timeout(pool, 1);
 
 	/* set up the basic message */
 	msg = msg_new();
+	tt_assert(msg);
 	EVTAG_ASSIGN(msg, from_name, "niels");
 	EVTAG_ASSIGN(msg, to_name, "tester");
 
@@ -732,6 +742,9 @@ rpc_test(void)
 	int i;
 
 	msg = msg_new();
+
+	tt_assert(msg);
+
 	EVTAG_ASSIGN(msg, from_name, "niels");
 	EVTAG_ASSIGN(msg, to_name, "phoenix");
 
@@ -866,10 +879,64 @@ end:
 		evbuffer_free(tmp);
 }
 
+static void
+rpc_invalid_type(void)
+{
+	ev_uint16_t port;
+	struct evhttp *http = NULL;
+	struct evrpc_base *base = NULL;
+	struct evhttp_connection *evcon = NULL;
+	struct evhttp_request *req = NULL;
+
+	rpc_setup(&http, &port, &base);
+
+	evcon = evhttp_connection_new("127.0.0.1", port);
+	tt_assert(evcon);
+
+	/*
+	 * At this point, we want to schedule an HTTP POST request
+	 * server using our make request method.
+	 */
+
+	req = evhttp_request_new(rpc_postrequest_failure, NULL);
+	tt_assert(req);
+
+	/* Add the information that we care about */
+	evhttp_add_header(req->output_headers, "Host", "somehost");
+	evbuffer_add_printf(req->output_buffer, "Some Nonsense");
+
+	if (evhttp_make_request(evcon, req,
+		EVHTTP_REQ_GET,
+		"/.rpc.Message") == -1) {
+		tt_abort();
+	}
+
+	test_ok = 0;
+
+	event_dispatch();
+
+	evhttp_connection_free(evcon);
+
+	rpc_teardown(base);
+
+	tt_assert(test_ok == 1);
+
+end:
+	evhttp_free(http);
+}
+
+
 #define RPC_LEGACY(name)						\
 	{ #name, run_legacy_test_fn, TT_FORK|TT_NEED_BASE|TT_LEGACY,	\
 		    &legacy_setup,					\
 		    rpc_##name }
+#else
+/* NO_PYTHON_EXISTS */
+
+#define RPC_LEGACY(name) \
+	{ #name, NULL, TT_SKIP, NULL, NULL }
+
+#endif
 
 struct testcase_t rpc_testcases[] = {
 	RPC_LEGACY(basic_test),
@@ -877,6 +944,7 @@ struct testcase_t rpc_testcases[] = {
 	RPC_LEGACY(basic_client),
 	RPC_LEGACY(basic_queued_client),
 	RPC_LEGACY(basic_client_with_pause),
+	RPC_LEGACY(invalid_type),
 	RPC_LEGACY(client_timeout),
 	RPC_LEGACY(test),
 

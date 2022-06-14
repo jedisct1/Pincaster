@@ -5,18 +5,24 @@
   XXX It's a little ugly and should probably be cleaned up.
  */
 
+// Get rid of OSX 10.7 and greater deprecation warnings.
+#if defined(__APPLE__) && defined(__clang__)
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#endif
+
 #include <stdio.h>
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
 
-#ifdef WIN32
+#ifdef _WIN32
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #else
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <signal.h>
 #endif
 
 #include <event2/bufferevent_ssl.h>
@@ -25,9 +31,11 @@
 #include <event2/listener.h>
 #include <event2/util.h>
 
+#include "util-internal.h"
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 #include <openssl/rand.h>
+#include "openssl-compat.h"
 
 static struct event_base *base;
 static struct sockaddr_storage listen_on_addr;
@@ -188,6 +196,7 @@ accept_cb(struct evconnlistener *listener, evutil_socket_t fd,
 			perror("Bufferevent_openssl_new");
 			bufferevent_free(b_out);
 			bufferevent_free(b_in);
+			return;
 		}
 		b_out = b_ssl;
 	}
@@ -207,6 +216,20 @@ main(int argc, char **argv)
 
 	int use_ssl = 0;
 	struct evconnlistener *listener;
+
+#ifdef _WIN32
+	{
+		WORD wVersionRequested;
+		WSADATA wsaData;
+		wVersionRequested = MAKEWORD(2, 2);
+		(void) WSAStartup(wVersionRequested, &wsaData);
+	}
+#else
+	if (signal(SIGPIPE, SIG_IGN) == SIG_ERR) {
+		perror("signal()");
+		return 1;
+	}
+#endif
 
 	if (argc < 3)
 		syntax();
@@ -253,26 +276,38 @@ main(int argc, char **argv)
 
 	if (use_ssl) {
 		int r;
+#if (OPENSSL_VERSION_NUMBER < 0x10100000L) || \
+	(defined(LIBRESSL_VERSION_NUMBER) && LIBRESSL_VERSION_NUMBER < 0x20700000L)
 		SSL_library_init();
 		ERR_load_crypto_strings();
 		SSL_load_error_strings();
 		OpenSSL_add_all_algorithms();
+#endif
 		r = RAND_poll();
 		if (r == 0) {
 			fprintf(stderr, "RAND_poll() failed.\n");
 			return 1;
 		}
-		ssl_ctx = SSL_CTX_new(SSLv23_method());
+		ssl_ctx = SSL_CTX_new(TLS_method());
 	}
 
 	listener = evconnlistener_new_bind(base, accept_cb, NULL,
 	    LEV_OPT_CLOSE_ON_FREE|LEV_OPT_CLOSE_ON_EXEC|LEV_OPT_REUSEABLE,
 	    -1, (struct sockaddr*)&listen_on_addr, socklen);
 
+	if (! listener) {
+		fprintf(stderr, "Couldn't open listener.\n");
+		event_base_free(base);
+		return 1;
+	}
 	event_base_dispatch(base);
 
 	evconnlistener_free(listener);
 	event_base_free(base);
+
+#ifdef _WIN32
+	WSACleanup();
+#endif
 
 	return 0;
 }

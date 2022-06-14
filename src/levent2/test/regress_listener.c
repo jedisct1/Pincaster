@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2010 Niels Provos and Nick Mathewson
+ * Copyright (c) 2009-2012 Niels Provos and Nick Mathewson
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,18 +23,25 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+#include "util-internal.h"
 
-#ifdef WIN32
+#ifdef _WIN32
 #include <winsock2.h>
 #include <windows.h>
 #endif
 
 #include <sys/types.h>
 
-#ifndef WIN32
+#ifndef _WIN32
 #include <sys/socket.h>
 #include <netinet/in.h>
+# ifdef _XOPEN_SOURCE_EXTENDED
+#  include <arpa/inet.h>
+# endif
 #include <unistd.h>
+#endif
+#ifdef EVENT__HAVE_SYS_RESOURCE_H
+#include <sys/resource.h>
 #endif
 
 #include <string.h>
@@ -42,11 +49,15 @@
 #include "event2/listener.h"
 #include "event2/event.h"
 #include "event2/util.h"
+#ifndef EVENT__DISABLE_THREAD_SUPPORT
+#include "event2/thread.h"
+#include "regress_thread.h"
+#endif
+
 
 #include "regress.h"
 #include "tinytest.h"
 #include "tinytest_macros.h"
-#include "util-internal.h"
 
 static void
 acceptcb(struct evconnlistener *listener, evutil_socket_t fd,
@@ -74,8 +85,9 @@ regress_pick_a_port(void *arg)
 	ev_socklen_t slen1 = sizeof(ss1), slen2 = sizeof(ss2);
 	unsigned int flags =
 	    LEV_OPT_CLOSE_ON_FREE|LEV_OPT_REUSEABLE|LEV_OPT_CLOSE_ON_EXEC;
+	evutil_socket_t fd1, fd2, fd3;
 
-	evutil_socket_t fd1 = -1, fd2 = -1, fd3 = -1;
+	fd1 = fd2 = fd3 = EVUTIL_INVALID_SOCKET;
 
 	if (data->setup_data && strstr((char*)data->setup_data, "ts")) {
 		flags |= LEV_OPT_THREADSAFE;
@@ -93,8 +105,8 @@ regress_pick_a_port(void *arg)
 	    flags, -1, (struct sockaddr *)&sin, sizeof(sin));
 	tt_assert(listener2);
 
-	tt_int_op(evconnlistener_get_fd(listener1), >=, 0);
-	tt_int_op(evconnlistener_get_fd(listener2), >=, 0);
+	tt_assert(evconnlistener_get_fd(listener1) != EVUTIL_INVALID_SOCKET);
+	tt_assert(evconnlistener_get_fd(listener2) != EVUTIL_INVALID_SOCKET);
 	tt_assert(getsockname(evconnlistener_get_fd(listener1),
 		(struct sockaddr*)&ss1, &slen1) == 0);
 	tt_assert(getsockname(evconnlistener_get_fd(listener2),
@@ -111,12 +123,12 @@ regress_pick_a_port(void *arg)
 	tt_ptr_op(evconnlistener_get_base(listener1), ==, base);
 	tt_ptr_op(evconnlistener_get_base(listener2), ==, base);
 
-	fd1 = fd2 = fd3 = -1;
-	evutil_socket_connect(&fd1, (struct sockaddr*)&ss1, slen1);
-	evutil_socket_connect(&fd2, (struct sockaddr*)&ss1, slen1);
-	evutil_socket_connect(&fd3, (struct sockaddr*)&ss2, slen2);
+	fd1 = fd2 = fd3 = EVUTIL_INVALID_SOCKET;
+	evutil_socket_connect_(&fd1, (struct sockaddr*)&ss1, slen1);
+	evutil_socket_connect_(&fd2, (struct sockaddr*)&ss1, slen1);
+	evutil_socket_connect_(&fd3, (struct sockaddr*)&ss2, slen2);
 
-#ifdef WIN32
+#ifdef _WIN32
 	Sleep(100); /* XXXX this is a stupid stopgap. */
 #endif
 	event_base_dispatch(base);
@@ -159,7 +171,7 @@ regress_listener_error(void *arg)
 	}
 
 	/* send, so that pair[0] will look 'readable'*/
-	send(data->pair[1], "hello", 5, 0);
+	tt_int_op(send(data->pair[1], "hello", 5, 0), >, 0);
 
 	/* Start a listener with a bogus socket. */
 	listener = evconnlistener_new(base, acceptcb, &count,
@@ -179,6 +191,245 @@ end:
 		evconnlistener_free(listener);
 }
 
+static void
+acceptcb_free(struct evconnlistener *listener, evutil_socket_t fd,
+    struct sockaddr *addr, int socklen, void *arg)
+{
+	int *ptr = arg;
+	--*ptr;
+	TT_BLATHER(("Got one for %p", ptr));
+	evutil_closesocket(fd);
+
+	if (! *ptr)
+		evconnlistener_free(listener);
+}
+static void
+regress_listener_close_accepted_fd(void *arg)
+{
+	struct basic_test_data *data = arg;
+	struct event_base *base = data->base;
+	struct evconnlistener *listener = NULL;
+	struct sockaddr_in sin;
+	struct sockaddr_storage ss;
+	ev_socklen_t slen = sizeof(ss);
+	int count = 1;
+	unsigned int flags = LEV_OPT_CLOSE_ON_FREE|LEV_OPT_REUSEABLE;
+	evutil_socket_t fd = EVUTIL_INVALID_SOCKET;
+
+	memset(&sin, 0, sizeof(sin));
+	sin.sin_family = AF_INET;
+	sin.sin_addr.s_addr = htonl(0x7f000001); /* 127.0.0.1 */
+	sin.sin_port = 0; /* "You pick!" */
+
+	/* Start a listener with a bogus socket. */
+	listener = evconnlistener_new_bind(base, acceptcb_free, &count,
+	    flags, -1, (struct sockaddr *)&sin, sizeof(sin));
+	tt_assert(listener);
+
+	tt_assert(getsockname(evconnlistener_get_fd(listener),
+		(struct sockaddr*)&ss, &slen) == 0);
+	evutil_socket_connect_(&fd, (struct sockaddr*)&ss, slen);
+
+	event_base_dispatch(base);
+
+end:
+	;
+}
+
+static void
+regress_listener_immediate_close(void *arg)
+{
+	struct basic_test_data *data = arg;
+	struct event_base *base = data->base;
+	struct evconnlistener *listener = NULL;
+	struct sockaddr_in sin;
+	struct sockaddr_storage ss;
+	ev_socklen_t slen = sizeof(ss);
+	int count = 1;
+	unsigned int flags = LEV_OPT_CLOSE_ON_FREE|LEV_OPT_REUSEABLE;
+	evutil_socket_t fd1 = EVUTIL_INVALID_SOCKET, fd2 = EVUTIL_INVALID_SOCKET;
+
+	memset(&sin, 0, sizeof(sin));
+	sin.sin_family = AF_INET;
+	sin.sin_addr.s_addr = htonl(0x7f000001); /* 127.0.0.1 */
+	sin.sin_port = 0; /* "You pick!" */
+
+	/* Start a listener with a bogus socket. */
+	listener = evconnlistener_new_bind(base, acceptcb, &count,
+	    flags, -1, (struct sockaddr *)&sin, sizeof(sin));
+	tt_assert(listener);
+
+	tt_assert(getsockname(evconnlistener_get_fd(listener),
+		(struct sockaddr*)&ss, &slen) == 0);
+
+	evutil_socket_connect_(&fd1, (struct sockaddr*)&ss, slen);
+	evutil_socket_connect_(&fd2, (struct sockaddr*)&ss, slen);
+
+	event_base_dispatch(base);
+
+	tt_int_op(count, ==, 0);
+
+end:
+	if (listener)
+		evconnlistener_free(listener);
+}
+
+#ifdef EVENT__HAVE_SETRLIMIT
+static void
+regress_listener_error_unlock(void *arg)
+{
+	struct basic_test_data *data = arg;
+	struct event_base *base = data->base;
+	struct evconnlistener *listener = NULL;
+	unsigned int flags =
+		LEV_OPT_CLOSE_ON_FREE|LEV_OPT_REUSEABLE|LEV_OPT_THREADSAFE;
+
+	tt_int_op(send(data->pair[1], "hello", 5, 0), >, 0);
+
+	/* Start a listener with a bogus socket. */
+	listener = evconnlistener_new(base, acceptcb, NULL, flags, 0, data->pair[0]);
+	tt_assert(listener);
+
+	/** accept() must errored out with EMFILE */
+	{
+		struct rlimit rl;
+		rl.rlim_cur = rl.rlim_max = data->pair[1];
+		if (setrlimit(RLIMIT_NOFILE, &rl) == -1) {
+			TT_DIE(("Can't change RLIMIT_NOFILE"));
+		}
+	}
+
+	event_base_loop(base, EVLOOP_ONCE);
+
+	/** with lock debugging, can fail on lock->count assertion */
+
+end:
+	if (listener)
+		evconnlistener_free(listener);
+}
+#endif
+
+#ifndef EVENT__DISABLE_THREAD_SUPPORT
+
+static THREAD_FN
+disable_thread(void * arg)
+{
+	struct evconnlistener *lev = (struct evconnlistener *)arg;
+	evconnlistener_disable(lev);
+	return NULL;
+}
+
+static void
+acceptcb_for_thread_test(struct evconnlistener *listener, evutil_socket_t fd,
+    struct sockaddr *addr, int socklen, void *arg)
+{
+	THREAD_T *threadid_arg;
+	THREAD_T threadid;
+	struct timeval delay = { .tv_sec = 0, .tv_usec = 5000 };
+
+	threadid_arg = (THREAD_T *)arg;
+
+	evutil_closesocket(fd);
+
+	/* We need to run evconnlistener_disable() from disable_thread
+	 * in parallel with processing this callback to trigger deadlock regression
+	 */
+	THREAD_START(threadid, disable_thread, listener);
+	evutil_usleep_(&delay);
+
+	*threadid_arg = threadid;
+}
+
+static void
+regress_listener_disable_in_thread(void *arg)
+{
+	struct basic_test_data *data = arg;
+	struct event_base *base = data->base;
+	struct evconnlistener *listener = NULL;
+	struct sockaddr_in sin;
+	struct sockaddr_storage ss;
+	ev_socklen_t slen = sizeof(ss);
+	evutil_socket_t fd = EVUTIL_INVALID_SOCKET;
+	unsigned int flags = LEV_OPT_CLOSE_ON_FREE|LEV_OPT_REUSEABLE|LEV_OPT_THREADSAFE;
+	THREAD_T threadid;
+
+	memset(&sin, 0, sizeof(sin));
+	sin.sin_family = AF_INET;
+	sin.sin_addr.s_addr = htonl(0x7f000001); /* 127.0.0.1 */
+	sin.sin_port = 0; /* "You pick!" */
+
+
+	listener = evconnlistener_new_bind(base, acceptcb_for_thread_test, (void*)(&threadid),
+		flags, -1, (struct sockaddr *)&sin, sizeof(sin));
+
+	tt_assert(listener);
+
+	tt_assert(getsockname(evconnlistener_get_fd(listener),
+		(struct sockaddr*)&ss, &slen) == 0);
+
+	tt_assert(evutil_socket_connect_(&fd, (struct sockaddr*)&ss, slen) != -1);
+
+	event_base_loop(base, EVLOOP_ONCE);
+
+	THREAD_JOIN(threadid);
+end:
+	if (listener)
+		evconnlistener_free(listener);
+}
+
+static void
+errorcb_for_thread_test(struct evconnlistener *listener, void *arg)
+{
+	THREAD_T *threadid_arg;
+	THREAD_T threadid;
+	struct timeval delay = { .tv_sec = 0, .tv_usec = 5000 };
+
+	threadid_arg = (THREAD_T *)arg;
+
+	/* We need to run evconnlistener_disable() from disable_thread
+	 * in parallel with processing this callback to trigger deadlock regression
+	 */
+	THREAD_START(threadid, disable_thread, listener);
+	evutil_usleep_(&delay);
+
+	*threadid_arg = threadid;
+}
+
+static void
+acceptcb_for_thread_test_error(struct evconnlistener *listener, evutil_socket_t fd,
+    struct sockaddr *addr, int socklen, void *arg)
+{
+}
+
+static void
+regress_listener_disable_in_thread_error(void *arg)
+{
+	struct basic_test_data *data = arg;
+	struct event_base *base = data->base;
+	struct evconnlistener *listener = NULL;
+	unsigned int flags = LEV_OPT_CLOSE_ON_FREE|LEV_OPT_REUSEABLE|LEV_OPT_THREADSAFE;
+	THREAD_T threadid;
+
+	/* send, so that pair[0] will look 'readable'*/
+	tt_int_op(send(data->pair[1], "hello", 5, 0), >, 0);
+
+	/* Start a listener with a bogus socket. */
+	listener = evconnlistener_new(base, acceptcb_for_thread_test_error, (void*)&threadid,
+	    flags, 0,
+	    data->pair[0]);
+	tt_assert(listener);
+
+	evconnlistener_set_error_cb(listener, errorcb_for_thread_test);
+
+	event_base_loop(base, EVLOOP_ONCE);
+
+	THREAD_JOIN(threadid);
+end:
+	if (listener)
+		evconnlistener_free(listener);
+}
+#endif
+
 struct testcase_t listener_testcases[] = {
 
 	{ "randport", regress_pick_a_port, TT_FORK|TT_NEED_BASE,
@@ -187,6 +438,12 @@ struct testcase_t listener_testcases[] = {
 	{ "randport_ts", regress_pick_a_port, TT_FORK|TT_NEED_BASE,
 	  &basic_setup, (char*)"ts"},
 
+#ifdef EVENT__HAVE_SETRLIMIT
+	{ "error_unlock", regress_listener_error_unlock,
+	  TT_FORK|TT_NEED_BASE|TT_NEED_SOCKETPAIR|TT_NO_LOGS,
+	  &basic_setup, NULL},
+#endif
+
 	{ "error", regress_listener_error,
 	  TT_FORK|TT_NEED_BASE|TT_NEED_SOCKETPAIR,
 	  &basic_setup, NULL},
@@ -194,6 +451,22 @@ struct testcase_t listener_testcases[] = {
 	{ "error_ts", regress_listener_error,
 	  TT_FORK|TT_NEED_BASE|TT_NEED_SOCKETPAIR,
 	  &basic_setup, (char*)"ts"},
+
+	{ "close_accepted_fd", regress_listener_close_accepted_fd,
+	  TT_FORK|TT_NEED_BASE, &basic_setup, NULL, },
+
+	{ "immediate_close", regress_listener_immediate_close,
+	  TT_FORK|TT_NEED_BASE, &basic_setup, NULL, },
+
+#ifndef EVENT__DISABLE_THREAD_SUPPORT
+	{ "disable_in_thread", regress_listener_disable_in_thread,
+		TT_FORK|TT_NEED_BASE|TT_NEED_THREADS,
+		&basic_setup, NULL, },
+
+	{ "disable_in_thread_error", regress_listener_disable_in_thread_error,
+		TT_FORK|TT_NEED_BASE|TT_NEED_THREADS|TT_NEED_SOCKETPAIR,
+		&basic_setup, NULL, },
+#endif
 
 	END_OF_TESTCASES,
 };

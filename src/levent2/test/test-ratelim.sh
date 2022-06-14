@@ -2,7 +2,7 @@
 
 FAILED=no
 
-if test "x$TEST_OUTPUT_FILE" = "x"
+if test "$TEST_OUTPUT_FILE" = ""
 then
 	TEST_OUTPUT_FILE=/dev/null
 fi
@@ -66,6 +66,17 @@ run_tests () {
 		announce FAILED ;
 		FAILED=yes
 	fi
+
+	announce_n "  Connection limit and group limit with independent drain:"
+	if $TEST_DIR/test-ratelim -c 1000 -g 35000 -n 30 -t 100 -G 500 --check-grouplimit 1000 --check-connlimit 50 --check-stddev 50 >>"$TEST_OUTPUT_FILE"
+	then
+		announce OKAY ;
+	else
+		announce FAILED ;
+		FAILED=yes
+	fi
+
+
 }
 
 announce "Running rate-limiting tests:"

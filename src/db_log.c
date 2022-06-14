@@ -84,7 +84,13 @@ int close_db_log(void)
         return 0;
     }
     flush_db_log(1);
+#ifdef F_FULLFSYNC
+    if (ioctl(db_log->db_log_fd, F_FULLFSYNC, 0) != 0) {
+        fsync(db_log->db_log_fd);
+    }
+#else
     fsync(db_log->db_log_fd);
+#endif
     close(db_log->db_log_fd);
     db_log->db_log_fd = -1;
     

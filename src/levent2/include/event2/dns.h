@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2006-2007 Niels Provos <provos@citi.umich.edu>
- * Copyright (c) 2007-2010 Niels Provos and Nick Mathewson
+ * Copyright (c) 2007-2012 Niels Provos and Nick Mathewson
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -47,7 +47,10 @@
  * the source verbatim in their source distributions)
  */
 
-/** @file dns.h
+/** @file event2/dns.h
+ *
+ * @brief Provides a few APIs to use for resolving DNS names, and a facility
+ * for implementing simple DNS servers.
  *
  * Welcome, gentle reader
  *
@@ -62,12 +65,13 @@
  * them when they go down. Otherwise it will round robin between them.
  *
  * Quick start guide:
+ * @code
  *   #include "evdns.h"
  *   void callback(int result, char type, int count, int ttl,
  *		 void *addresses, void *arg);
  *   evdns_resolv_conf_parse(DNS_OPTIONS_ALL, "/etc/resolv.conf");
  *   evdns_resolve("www.hostname.com", 0, callback, NULL);
- *
+ *@endcode
  * When the lookup is complete the callback function is called. The
  * first argument will be one of the DNS_ERR_* defines in evdns.h.
  * Hopefully it will be DNS_ERR_NONE, in which case type will be
@@ -106,12 +110,14 @@
  *
  * For example, with ndots set to 1 (the default) and a search domain list of
  * ["myhome.net"]:
+ *
+ * <pre>
  *  Query: www
  *  Order: www.myhome.net, www.
  *
  *  Query: www.abc
  *  Order: www.abc., www.abc.myhome.net
- *
+ * </pre>
  * Internals:
  *
  * Requests are kept in two queues. The first is the inflight queue. In
@@ -132,8 +138,10 @@
  * with the next probe.
  */
 
-#ifndef _EVENT2_DNS_H_
-#define _EVENT2_DNS_H_
+#ifndef EVENT2_DNS_H_INCLUDED_
+#define EVENT2_DNS_H_INCLUDED_
+
+#include <event2/visibility.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -166,18 +174,64 @@ extern "C" {
 #define DNS_ERR_SHUTDOWN 68
 /** The request was canceled via a call to evdns_cancel_request */
 #define DNS_ERR_CANCEL 69
+/** There were no answers and no error condition in the DNS packet.
+ * This can happen when you ask for an address that exists, but a record
+ * type that doesn't. */
+#define DNS_ERR_NODATA 70
 
 #define DNS_IPv4_A 1
 #define DNS_PTR 2
 #define DNS_IPv6_AAAA 3
+#define DNS_CNAME 4
 
-#define DNS_QUERY_NO_SEARCH 1
+/** Disable searching for the query. */
+#define DNS_QUERY_NO_SEARCH 0x01
+/** Use TCP connections ("virtual circuits") for queries rather than UDP datagrams. */
+#define DNS_QUERY_USEVC 0x02
+/** Ignore trancation flag in responses (don't fallback to TCP connections). */
+#define DNS_QUERY_IGNTC 0x04
+/** Make a separate callback for CNAME in answer */
+#define DNS_CNAME_CALLBACK 0x80
 
+/* Allow searching */
 #define DNS_OPTION_SEARCH 1
+/* Parse "nameserver" and add default if no such section */
 #define DNS_OPTION_NAMESERVERS 2
+/* Parse additional options like:
+ * - timeout:
+ * - getaddrinfo-allow-skew:
+ * - max-timeouts:
+ * - max-inflight:
+ * - attempts:
+ * - randomize-case:
+ * - initial-probe-timeout:
+ * - max-probe-timeout:
+ * - probe-backoff-factor:
+ * - tcp-idle-timeout:
+ * - edns-udp-size:
+ * - use-vc
+ * - ignore-tc
+ */
 #define DNS_OPTION_MISC 4
+/* Load hosts file (i.e. "/etc/hosts") */
 #define DNS_OPTION_HOSTSFILE 8
-#define DNS_OPTIONS_ALL 15
+/**
+ * All above:
+ * - DNS_OPTION_SEARCH
+ * - DNS_OPTION_NAMESERVERS
+ * - DNS_OPTION_MISC
+ * - DNS_OPTION_HOSTSFILE
+ */
+#define DNS_OPTIONS_ALL (    \
+    DNS_OPTION_SEARCH      | \
+    DNS_OPTION_NAMESERVERS | \
+    DNS_OPTION_MISC        | \
+    DNS_OPTION_HOSTSFILE   | \
+    0                        \
+)
+/* Do not "default" nameserver (i.e. "127.0.0.1:53") if there is no nameservers
+ * in resolv.conf, (iff DNS_OPTION_NAMESERVERS is set) */
+#define DNS_OPTION_NAMESERVERS_NO_DEFAULT 16
 
 /* Obsolete name for DNS_QUERY_NO_SEARCH */
 #define DNS_NO_SEARCH DNS_QUERY_NO_SEARCH
@@ -197,6 +251,16 @@ typedef void (*evdns_callback_type) (int result, char type, int count, int ttl, 
 struct evdns_base;
 struct event_base;
 
+/** Flag for evdns_base_new: process resolv.conf.  */
+#define EVDNS_BASE_INITIALIZE_NAMESERVERS 1
+/** Flag for evdns_base_new: Do not prevent the libevent event loop from
+ * exiting when we have no active dns requests. */
+#define EVDNS_BASE_DISABLE_WHEN_INACTIVE 0x8000
+/** Flag for evdns_base_new: If EVDNS_BASE_INITIALIZE_NAMESERVERS isset, do not
+ * add default nameserver if there are no nameservers in resolv.conf
+ * @see DNS_OPTION_NAMESERVERS_NO_DEFAULT */
+#define EVDNS_BASE_NAMESERVERS_NO_DEFAULT 0x10000
+
 /**
   Initialize the asynchronous DNS library.
 
@@ -205,11 +269,13 @@ struct event_base;
   evdns_config_windows_nameservers() on Windows.
 
   @param event_base the event base to associate the dns client with
-  @param initialize_nameservers 1 if resolve.conf processing should occur
-  @return 0 if successful, or -1 if an error occurred
+  @param flags any of EVDNS_BASE_INITIALIZE_NAMESERVERS|
+    EVDNS_BASE_DISABLE_WHEN_INACTIVE|EVDNS_BASE_NAMESERVERS_NO_DEFAULT
+  @return evdns_base object if successful, or NULL if an error occurred.
   @see evdns_base_free()
  */
-struct evdns_base * evdns_base_new(struct event_base *event_base, int initialize_nameservers);
+EVENT2_EXPORT_SYMBOL
+struct evdns_base * evdns_base_new(struct event_base *event_base, int flags);
 
 
 /**
@@ -219,12 +285,22 @@ struct evdns_base * evdns_base_new(struct event_base *event_base, int initialize
   an empty result with the error flag set to DNS_ERR_SHUTDOWN. Otherwise,
   the requests will be silently discarded.
 
-  @param evdns_base the evdns base to free
+  @param base the evdns base to free
   @param fail_requests if zero, active requests will be aborted; if non-zero,
 		active requests will return DNS_ERR_SHUTDOWN.
   @see evdns_base_new()
  */
+EVENT2_EXPORT_SYMBOL
 void evdns_base_free(struct evdns_base *base, int fail_requests);
+
+/**
+   Remove all hosts entries that have been loaded into the event_base via
+   evdns_base_load_hosts or via event_base_resolv_conf_parse.
+
+   @param base the evdns base to remove outdated host addresses from
+ */
+EVENT2_EXPORT_SYMBOL
+void evdns_base_clear_host_addresses(struct evdns_base *base);
 
 /**
   Convert a DNS error code to a string.
@@ -232,6 +308,7 @@ void evdns_base_free(struct evdns_base *base, int fail_requests);
   @param err the DNS error code
   @return a string containing an explanation of the error code
 */
+EVENT2_EXPORT_SYMBOL
 const char *evdns_err_to_string(int err);
 
 
@@ -246,6 +323,7 @@ const char *evdns_err_to_string(int err);
   @return 0 if successful, or -1 if an error occurred
   @see evdns_base_nameserver_ip_add()
  */
+EVENT2_EXPORT_SYMBOL
 int evdns_base_nameserver_add(struct evdns_base *base,
     unsigned long int address);
 
@@ -261,17 +339,19 @@ int evdns_base_nameserver_add(struct evdns_base *base,
   @return the number of configured nameservers
   @see evdns_base_nameserver_add()
  */
+EVENT2_EXPORT_SYMBOL
 int evdns_base_count_nameservers(struct evdns_base *base);
 
 /**
   Remove all configured nameservers, and suspend all pending resolves.
 
-  Resolves will not necessarily be re-attempted until evdns_resume() is called.
+  Resolves will not necessarily be re-attempted until evdns_base_resume() is called.
 
   @param base the evdns_base to which to apply this operation
   @return 0 if successful, or -1 if an error occurred
   @see evdns_base_resume()
  */
+EVENT2_EXPORT_SYMBOL
 int evdns_base_clear_nameservers_and_suspend(struct evdns_base *base);
 
 
@@ -279,12 +359,13 @@ int evdns_base_clear_nameservers_and_suspend(struct evdns_base *base);
   Resume normal operation and continue any suspended resolve requests.
 
   Re-attempt resolves left in limbo after an earlier call to
-  evdns_clear_nameservers_and_suspend().
+  evdns_base_clear_nameservers_and_suspend().
 
   @param base the evdns_base to which to apply this operation
   @return 0 if successful, or -1 if an error occurred
   @see evdns_base_clear_nameservers_and_suspend()
  */
+EVENT2_EXPORT_SYMBOL
 int evdns_base_resume(struct evdns_base *base);
 
 /**
@@ -304,12 +385,14 @@ int evdns_base_resume(struct evdns_base *base);
   @return 0 if successful, or -1 if an error occurred
   @see evdns_base_nameserver_add()
  */
+EVENT2_EXPORT_SYMBOL
 int evdns_base_nameserver_ip_add(struct evdns_base *base,
     const char *ip_as_string);
 
 /**
    Add a nameserver by sockaddr.
  **/
+EVENT2_EXPORT_SYMBOL
 int
 evdns_base_nameserver_sockaddr_add(struct evdns_base *base,
     const struct sockaddr *sa, ev_socklen_t len, unsigned flags);
@@ -321,12 +404,13 @@ struct evdns_request;
 
   @param base the evdns_base to which to apply this operation
   @param name a DNS hostname
-  @param flags either 0, or DNS_QUERY_NO_SEARCH to disable searching for this query.
+  @param flags either 0, or combination of DNS_QUERY_* flags.
   @param callback a callback function to invoke when the request is completed
   @param ptr an argument to pass to the callback function
   @return an evdns_request object if successful, or NULL if an error occurred.
   @see evdns_resolve_ipv6(), evdns_resolve_reverse(), evdns_resolve_reverse_ipv6(), evdns_cancel_request()
  */
+EVENT2_EXPORT_SYMBOL
 struct evdns_request *evdns_base_resolve_ipv4(struct evdns_base *base, const char *name, int flags, evdns_callback_type callback, void *ptr);
 
 /**
@@ -334,12 +418,13 @@ struct evdns_request *evdns_base_resolve_ipv4(struct evdns_base *base, const cha
 
   @param base the evdns_base to which to apply this operation
   @param name a DNS hostname
-  @param flags either 0, or DNS_QUERY_NO_SEARCH to disable searching for this query.
+  @param flags either 0, or combination of DNS_QUERY_* flags.
   @param callback a callback function to invoke when the request is completed
   @param ptr an argument to pass to the callback function
   @return an evdns_request object if successful, or NULL if an error occurred.
   @see evdns_resolve_ipv4(), evdns_resolve_reverse(), evdns_resolve_reverse_ipv6(), evdns_cancel_request()
  */
+EVENT2_EXPORT_SYMBOL
 struct evdns_request *evdns_base_resolve_ipv6(struct evdns_base *base, const char *name, int flags, evdns_callback_type callback, void *ptr);
 
 struct in_addr;
@@ -350,12 +435,13 @@ struct in6_addr;
 
   @param base the evdns_base to which to apply this operation
   @param in an IPv4 address
-  @param flags either 0, or DNS_QUERY_NO_SEARCH to disable searching for this query.
+  @param flags either 0, or combination of DNS_QUERY_* flags.
   @param callback a callback function to invoke when the request is completed
   @param ptr an argument to pass to the callback function
   @return an evdns_request object if successful, or NULL if an error occurred.
   @see evdns_resolve_reverse_ipv6(), evdns_cancel_request()
  */
+EVENT2_EXPORT_SYMBOL
 struct evdns_request *evdns_base_resolve_reverse(struct evdns_base *base, const struct in_addr *in, int flags, evdns_callback_type callback, void *ptr);
 
 
@@ -364,12 +450,13 @@ struct evdns_request *evdns_base_resolve_reverse(struct evdns_base *base, const 
 
   @param base the evdns_base to which to apply this operation
   @param in an IPv6 address
-  @param flags either 0, or DNS_QUERY_NO_SEARCH to disable searching for this query.
+  @param flags either 0, or combination of DNS_QUERY_* flags.
   @param callback a callback function to invoke when the request is completed
   @param ptr an argument to pass to the callback function
   @return an evdns_request object if successful, or NULL if an error occurred.
   @see evdns_resolve_reverse_ipv6(), evdns_cancel_request()
  */
+EVENT2_EXPORT_SYMBOL
 struct evdns_request *evdns_base_resolve_reverse_ipv6(struct evdns_base *base, const struct in6_addr *in, int flags, evdns_callback_type callback, void *ptr);
 
 /**
@@ -377,8 +464,9 @@ struct evdns_request *evdns_base_resolve_reverse_ipv6(struct evdns_base *base, c
 
   @param base the evdns_base that was used to make the request
   @param req the evdns_request that was returned by calling a resolve function
-  @see evdns_base_resolve_ip4(), evdns_base_resolve_ipv6, evdns_base_resolve_reverse
+  @see evdns_base_resolve_ipv4(), evdns_base_resolve_ipv6, evdns_base_resolve_reverse
 */
+EVENT2_EXPORT_SYMBOL
 void evdns_cancel_request(struct evdns_base *base, struct evdns_request *req);
 
 /**
@@ -387,16 +475,29 @@ void evdns_cancel_request(struct evdns_base *base, struct evdns_request *req);
   The currently available configuration options are:
 
     ndots, timeout, max-timeouts, max-inflight, attempts, randomize-case,
-    bind-to, initial-probe-timeout, getaddrinfo-allow-skew.
+    bind-to, initial-probe-timeout, max-probe-timeout, probe-backoff-factor,
+    getaddrinfo-allow-skew, so-rcvbuf, so-sndbuf, tcp-idle-timeout, use-vc,
+    ignore-tc, edns-udp-size.
+
+  - probe-backoff-factor
+    Backoff factor of probe timeout
+
+  - max-probe-timeout
+    Maximum timeout between two probe packets will change initial-probe-timeout
+    when this value is smaller
 
   In versions before Libevent 2.0.3-alpha, the option name needed to end with
   a colon.
+
+  In case of options without values (use-vc, ingore-tc) val should be an empty
+  string or NULL.
 
   @param base the evdns_base to which to apply this operation
   @param option the name of the configuration option to be modified
   @param val the value to be set
   @return 0 if successful, or -1 if an error occurred
  */
+EVENT2_EXPORT_SYMBOL
 int evdns_base_set_option(struct evdns_base *base, const char *option, const char *val);
 
 
@@ -416,12 +517,13 @@ int evdns_base_set_option(struct evdns_base *base, const char *option, const cha
 
   @param base the evdns_base to which to apply this operation
   @param flags any of DNS_OPTION_NAMESERVERS|DNS_OPTION_SEARCH|DNS_OPTION_MISC|
-    DNS_OPTIONS_HOSTSFILE|DNS_OPTIONS_ALL
+    DNS_OPTION_HOSTSFILE|DNS_OPTIONS_ALL|DNS_OPTION_NAMESERVERS_NO_DEFAULT
   @param filename the path to the resolv.conf file
   @return 0 if successful, or various positive error codes if an error
     occurred (see above)
   @see resolv.conf(3), evdns_config_windows_nameservers()
  */
+EVENT2_EXPORT_SYMBOL
 int evdns_base_resolv_conf_parse(struct evdns_base *base, int flags, const char *const filename);
 
 /**
@@ -432,10 +534,15 @@ int evdns_base_resolv_conf_parse(struct evdns_base *base, int flags, const char 
 
    Note that only evdns_getaddrinfo uses the /etc/hosts entries.
 
+   This function does not replace previously loaded hosts entries; to do that,
+   call evdns_base_clear_host_addresses first.
+
    Return 0 on success, negative on failure.
 */
+EVENT2_EXPORT_SYMBOL
 int evdns_base_load_hosts(struct evdns_base *base, const char *hosts_fname);
 
+#if defined(EVENT_IN_DOXYGEN_) || defined(_WIN32)
 /**
   Obtain nameserver information using the Windows API.
 
@@ -446,7 +553,7 @@ int evdns_base_load_hosts(struct evdns_base *base, const char *hosts_fname);
   @return 0 if successful, or -1 if an error occurred
   @see evdns_resolv_conf_parse()
  */
-#ifdef WIN32
+EVENT2_EXPORT_SYMBOL
 int evdns_base_config_windows_nameservers(struct evdns_base *);
 #define EVDNS_BASE_CONFIG_WINDOWS_NAMESERVERS_IMPLEMENTED
 #endif
@@ -455,6 +562,7 @@ int evdns_base_config_windows_nameservers(struct evdns_base *);
 /**
   Clear the list of search domains.
  */
+EVENT2_EXPORT_SYMBOL
 void evdns_base_search_clear(struct evdns_base *base);
 
 
@@ -463,6 +571,7 @@ void evdns_base_search_clear(struct evdns_base *base);
 
   @param domain the domain to be added to the search list
  */
+EVENT2_EXPORT_SYMBOL
 void evdns_base_search_add(struct evdns_base *base, const char *domain);
 
 
@@ -474,6 +583,7 @@ void evdns_base_search_add(struct evdns_base *base, const char *domain);
 
   @param ndots the new ndots parameter
  */
+EVENT2_EXPORT_SYMBOL
 void evdns_base_search_ndots_set(struct evdns_base *base, const int ndots);
 
 /**
@@ -492,30 +602,8 @@ typedef void (*evdns_debug_log_fn_type)(int is_warning, const char *msg);
 
   @param fn the callback to be invoked when a log message is generated
  */
+EVENT2_EXPORT_SYMBOL
 void evdns_set_log_fn(evdns_debug_log_fn_type fn);
-
-/**
-   Set a callback that will be invoked to generate transaction IDs.  By
-   default, we pick transaction IDs based on the current clock time, which
-   is bad for security.
-
-   @param fn the new callback, or NULL to use the default.
-
-   NOTE: This function has no effect in Libevent 2.0.4-alpha and later,
-   since Libevent now provides its own secure RNG.
- */
-void evdns_set_transaction_id_fn(ev_uint16_t (*fn)(void));
-
-/**
-   Set a callback used to generate random bytes.  By default, we use
-   the same function as passed to evdns_set_transaction_id_fn to generate
-   bytes two at a time.  If a function is provided here, it's also used
-   to generate transaction IDs.
-
-   NOTE: This function has no effect in Libevent 2.0.4-alpha and later,
-   since Libevent now provides its own secure RNG.
-*/
-void evdns_set_random_bytes_fn(void (*fn)(char *, size_t));
 
 /*
  * Functions used to implement a DNS server.
@@ -558,7 +646,7 @@ typedef void (*evdns_request_callback_fn_type)(struct evdns_server_request *, vo
 #define EVDNS_FLAGS_AA	0x400
 #define EVDNS_FLAGS_RD	0x080
 
-/** Create a new DNS server port.
+/** Create a new UDP DNS server port.
 
     @param base The event base to handle events for the server port.
     @param socket A UDP socket to accept DNS requests.
@@ -566,38 +654,100 @@ typedef void (*evdns_request_callback_fn_type)(struct evdns_server_request *, vo
     @param callback A function to invoke whenever we get a DNS request
       on the socket.
     @param user_data Data to pass to the callback.
-    @return an evdns_server_port structure for this server port.
+    @return an evdns_server_port structure for this server port or NULL if
+      an error occurred.
  */
+EVENT2_EXPORT_SYMBOL
 struct evdns_server_port *evdns_add_server_port_with_base(struct event_base *base, evutil_socket_t socket, int flags, evdns_request_callback_fn_type callback, void *user_data);
+
+struct evconnlistener;
+
+/** Create a new TCP DNS server port.
+
+    @param base The event base to handle events for the server port.
+    @param listener A TCP listener to accept DNS requests.
+    @param flags Always 0 for now.
+    @param callback A function to invoke whenever we get a DNS request
+      on the socket.
+    @param user_data Data to pass to the callback.
+    @return an evdns_server_port structure for this server port or NULL if
+      an error occurred.
+ */
+EVENT2_EXPORT_SYMBOL
+struct evdns_server_port *evdns_add_server_port_with_listener(
+    struct event_base *base, struct evconnlistener *listener, int flags,
+    evdns_request_callback_fn_type callback, void *user_data);
+
 /** Close down a DNS server port, and free associated structures. */
+EVENT2_EXPORT_SYMBOL
 void evdns_close_server_port(struct evdns_server_port *port);
+
+/**
+ * List of configurable evdns_server_port options.
+ *
+ * @see evdns_server_port_set_option()
+ */
+enum evdns_server_option {
+	/**
+	 * Maximum number of simultaneous tcp connections (clients)
+	 * that server can hold. Can be set only for TCP DNS servers.
+	 */
+	EVDNS_SOPT_TCP_MAX_CLIENTS,
+	/**
+	 * Idle timeout (in seconds) of incoming TCP connections.
+	 * If client doesn't send any requests via the connection
+	 * during this period connection is closed by the server.
+	 * Can be set only for TCP DNS servers.
+	 */
+	EVDNS_SOPT_TCP_IDLE_TIMEOUT,
+};
+
+/**
+   Configure DNS server.
+
+   @param port the evdns_server_port to which to apply this operation
+   @param option @see evdns_server_option for the list of possible options
+   @param val value of the option
+   @return 0 if successful, or -1 if an error occurred
+ */
+EVENT2_EXPORT_SYMBOL
+int evdns_server_port_set_option(struct evdns_server_port *port, enum evdns_server_option option, size_t value);
 
 /** Sets some flags in a reply we're building.
     Allows setting of the AA or RD flags
  */
+EVENT2_EXPORT_SYMBOL
 void evdns_server_request_set_flags(struct evdns_server_request *req, int flags);
 
 /* Functions to add an answer to an in-progress DNS reply.
  */
+EVENT2_EXPORT_SYMBOL
 int evdns_server_request_add_reply(struct evdns_server_request *req, int section, const char *name, int type, int dns_class, int ttl, int datalen, int is_name, const char *data);
+EVENT2_EXPORT_SYMBOL
 int evdns_server_request_add_a_reply(struct evdns_server_request *req, const char *name, int n, const void *addrs, int ttl);
+EVENT2_EXPORT_SYMBOL
 int evdns_server_request_add_aaaa_reply(struct evdns_server_request *req, const char *name, int n, const void *addrs, int ttl);
+EVENT2_EXPORT_SYMBOL
 int evdns_server_request_add_ptr_reply(struct evdns_server_request *req, struct in_addr *in, const char *inaddr_name, const char *hostname, int ttl);
+EVENT2_EXPORT_SYMBOL
 int evdns_server_request_add_cname_reply(struct evdns_server_request *req, const char *name, const char *cname, int ttl);
 
 /**
    Send back a response to a DNS request, and free the request structure.
 */
+EVENT2_EXPORT_SYMBOL
 int evdns_server_request_respond(struct evdns_server_request *req, int err);
 /**
    Free a DNS request without sending back a reply.
 */
+EVENT2_EXPORT_SYMBOL
 int evdns_server_request_drop(struct evdns_server_request *req);
 struct sockaddr;
 /**
     Get the address that made a DNS request.
  */
-int evdns_server_request_get_requesting_addr(struct evdns_server_request *_req, struct sockaddr *sa, int addr_len);
+EVENT2_EXPORT_SYMBOL
+int evdns_server_request_get_requesting_addr(struct evdns_server_request *req, struct sockaddr *sa, int addr_len);
 
 /** Callback for evdns_getaddrinfo. */
 typedef void (*evdns_getaddrinfo_cb)(int result, struct evutil_addrinfo *res, void *arg);
@@ -621,6 +771,7 @@ struct evdns_getaddrinfo_request;
  * - For ai_socktype, we only handle SOCKTYPE_STREAM, SOCKTYPE_UDP, and 0.
  * - For ai_protocol, we only handle IPPROTO_TCP, IPPROTO_UDP, and 0.
  */
+EVENT2_EXPORT_SYMBOL
 struct evdns_getaddrinfo_request *evdns_getaddrinfo(
     struct evdns_base *dns_base,
     const char *nodename, const char *servname,
@@ -630,10 +781,39 @@ struct evdns_getaddrinfo_request *evdns_getaddrinfo(
 /* Cancel an in-progress evdns_getaddrinfo.  This MUST NOT be called after the
  * getaddrinfo's callback has been invoked.  The resolves will be canceled,
  * and the callback will be invoked with the error EVUTIL_EAI_CANCEL. */
+EVENT2_EXPORT_SYMBOL
 void evdns_getaddrinfo_cancel(struct evdns_getaddrinfo_request *req);
+
+/**
+   Retrieve the address of the 'idx'th configured nameserver.
+
+   @param base The evdns_base to examine.
+   @param idx The index of the nameserver to get the address of.
+   @param sa A location to receive the server's address.
+   @param len The number of bytes available at sa.
+
+   @return the number of bytes written into sa on success.  On failure, returns
+     -1 if idx is greater than the number of configured nameservers, or a
+     value greater than 'len' if len was not high enough.
+ */
+EVENT2_EXPORT_SYMBOL
+int evdns_base_get_nameserver_addr(struct evdns_base *base, int idx,
+    struct sockaddr *sa, ev_socklen_t len);
+
+/**
+   Retrieve the fd of the 'idx'th configured nameserver.
+
+   @param base The evdns_base to examine.
+   @param idx The index of the nameserver to get the address of.
+
+   @return the fd value.  On failure, returns
+     -1 if idx is greater than the number of configured nameservers
+ */
+EVENT2_EXPORT_SYMBOL
+int evdns_base_get_nameserver_fd(struct evdns_base *base, int idx);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif  /* !_EVENT2_DNS_H_ */
+#endif  /* !EVENT2_DNS_H_INCLUDED_ */

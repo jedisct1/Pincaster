@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2000-2007 Niels Provos <provos@citi.umich.edu>
- * Copyright (c) 2007-2010 Niels Provos and Nick Mathewson
+ * Copyright (c) 2007-2012 Niels Provos and Nick Mathewson
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -24,12 +24,12 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef _EVENT2_HTTP_COMPAT_H_
-#define _EVENT2_HTTP_COMPAT_H_
+#ifndef EVENT2_HTTP_COMPAT_H_INCLUDED_
+#define EVENT2_HTTP_COMPAT_H_INCLUDED_
 
-/** @file http_compat.h
+/** @file event2/http_compat.h
 
-  Potentially non-threadsafe versions of the functions in http.h: provided
+  @brief Potentially non-threadsafe versions of the functions in http.h: provided
   only for backwards compatibility.
 
  */
@@ -39,10 +39,10 @@ extern "C" {
 #endif
 
 #include <event2/event-config.h>
-#ifdef _EVENT_HAVE_SYS_TYPES_H
+#ifdef EVENT__HAVE_SYS_TYPES_H
 #include <sys/types.h>
 #endif
-#ifdef _EVENT_HAVE_SYS_TIME_H
+#ifdef EVENT__HAVE_SYS_TIME_H
 #include <sys/time.h>
 #endif
 
@@ -56,9 +56,11 @@ extern "C" {
  *
  * @param address the address to which the HTTP server should be bound
  * @param port the port number on which the HTTP server should listen
- * @return an struct evhttp object
+ * @return a pointer to a newly initialized evhttp server structure
+ *   or NULL on error
  */
-struct evhttp *evhttp_start(const char *address, unsigned short port);
+EVENT2_EXPORT_SYMBOL
+struct evhttp *evhttp_start(const char *address, ev_uint16_t port);
 
 /**
  * A connection object that can be used to for making HTTP requests.  The
@@ -67,8 +69,9 @@ struct evhttp *evhttp_start(const char *address, unsigned short port);
  *
  * @deprecated It does not allow an event base to be specified
  */
+EVENT2_EXPORT_SYMBOL
 struct evhttp_connection *evhttp_connection_new(
-	const char *address, unsigned short port);
+	const char *address, ev_uint16_t port);
 
 /**
  * Associates an event base with the connection - can only be called
@@ -76,6 +79,7 @@ struct evhttp_connection *evhttp_connection_new(
  *
  * @deprecated XXXX Why?
  */
+EVENT2_EXPORT_SYMBOL
 void evhttp_connection_set_base(struct evhttp_connection *evcon,
     struct event_base *base);
 
@@ -87,4 +91,4 @@ void evhttp_connection_set_base(struct evhttp_connection *evcon,
 }
 #endif
 
-#endif /* _EVENT2_EVENT_COMPAT_H_ */
+#endif /* EVENT2_EVENT_COMPAT_H_INCLUDED_ */

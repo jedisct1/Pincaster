@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2010 Niels Provos and Nick Mathewson
+ * Copyright 2008-2012 Niels Provos and Nick Mathewson
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,7 +27,7 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
-#ifdef WIN32
+#ifdef _WIN32
 #include <winsock2.h>
 #else
 #include <sys/socket.h>
@@ -90,15 +90,19 @@ main(int argc, char **argv)
 	int i;
 	int c;
 	int use_iocp = 0;
-	unsigned short port = 8080;
+	ev_uint16_t port = 8080;
+	char *endptr = NULL;
 
-#ifdef WIN32
+#ifdef _WIN32
 	WSADATA WSAData;
 	WSAStartup(0x101, &WSAData);
 #else
 	if (signal(SIGPIPE, SIG_IGN) == SIG_ERR)
 		return (1);
 #endif
+
+	setbuf(stdout, NULL);
+	setbuf(stderr, NULL);
 
 	for (i = 1; i < argc; ++i) {
 		if (*argv[i] != '-')
@@ -113,19 +117,33 @@ main(int argc, char **argv)
 
 		switch (c) {
 		case 'p':
-			port = atoi(argv[i+1]);
+			if (i+1 >= argc || !argv[i+1]) {
+				fprintf(stderr, "Missing port\n");
+				exit(1);
+			}
+			port = (int)strtol(argv[i+1], &endptr, 10);
+			if (*endptr != '\0') {
+				fprintf(stderr, "Bad port\n");
+				exit(1);
+			}
 			break;
 		case 'l':
-			content_len = atol(argv[i+1]);
-			if (content_len == 0) {
+			if (i+1 >= argc || !argv[i+1]) {
+				fprintf(stderr, "Missing content length\n");
+				exit(1);
+			}
+			content_len = (size_t)strtol(argv[i+1], &endptr, 10);
+			if (*endptr != '\0' || content_len == 0) {
 				fprintf(stderr, "Bad content length\n");
 				exit(1);
 			}
 			break;
-#ifdef WIN32
+#ifdef _WIN32
 		case 'i':
 			use_iocp = 1;
+#ifdef EVTHREAD_USE_WINDOWS_THREADS_IMPLEMENTED
 			evthread_use_windows_threads();
+#endif
 			event_config_set_flag(cfg,EVENT_BASE_FLAG_STARTUP_IOCP);
 			break;
 #endif
@@ -156,10 +174,8 @@ main(int argc, char **argv)
 	evhttp_set_cb(http, "/ind", http_basic_cb, NULL);
 	fprintf(stderr, "/ind - basic content (memory copy)\n");
 
-#ifdef _EVENT2_EVENT_H_
 	evhttp_set_cb(http, "/ref", http_ref_cb, NULL);
 	fprintf(stderr, "/ref - basic content (reference)\n");
-#endif
 
 	fprintf(stderr, "Serving %d bytes on port %d using %s\n",
 	    (int)content_len, port,
@@ -167,11 +183,17 @@ main(int argc, char **argv)
 
 	evhttp_bind_socket(http, "0.0.0.0", port);
 
+#ifdef _WIN32
 	if (use_iocp) {
 		struct timeval tv={99999999,0};
 		event_base_loopexit(base, &tv);
 	}
+#endif
 	event_base_dispatch(base);
+
+#ifdef _WIN32
+	WSACleanup();
+#endif
 
 	/* NOTREACHED */
 	return (0);

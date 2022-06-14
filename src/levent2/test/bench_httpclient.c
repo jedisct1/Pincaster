@@ -1,5 +1,5 @@
 /*
- * Copyright 2009-2010 Niels Provos and Nick Mathewson
+ * Copyright 2009-2012 Niels Provos and Nick Mathewson
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,23 +25,27 @@
  *
  */
 
+/* for EVUTIL_ERR_CONNECT_RETRIABLE macro */
+#include "util-internal.h"
+
 #include <sys/types.h>
-#ifdef WIN32
+#ifdef _WIN32
 #include <winsock2.h>
 #else
 #include <sys/socket.h>
 #include <netinet/in.h>
+# ifdef _XOPEN_SOURCE_EXTENDED
+#  include <arpa/inet.h>
+# endif
 #endif
 #include <stdlib.h>
+#include <string.h>
 #include <errno.h>
 
 #include "event2/event.h"
 #include "event2/bufferevent.h"
 #include "event2/buffer.h"
 #include "event2/util.h"
-
-/* for EVUTIL_ERR_CONNECT_RETRIABLE macro */
-#include "util-internal.h"
 
 const char *resource = NULL;
 struct event_base *base = NULL;
@@ -84,7 +88,7 @@ errorcb(struct bufferevent *b, short what, void *arg)
 	if (what & BEV_EVENT_EOF) {
 		++total_n_handled;
 		total_n_bytes += ri->n_read;
-		gettimeofday(&now, NULL);
+		evutil_gettimeofday(&now, NULL);
 		evutil_timersub(&now, &ri->started, &diff);
 		evutil_timeradd(&diff, &total_time, &total_time);
 
@@ -109,13 +113,18 @@ errorcb(struct bufferevent *b, short what, void *arg)
 static void
 frob_socket(evutil_socket_t sock)
 {
+#ifdef EVENT__HAVE_STRUCT_LINGER
 	struct linger l;
+#endif
 	int one = 1;
-	setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (void*)&one, sizeof(one));
+	if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (void*)&one, sizeof(one))<0)
+		perror("setsockopt(SO_REUSEADDR)");
+#ifdef EVENT__HAVE_STRUCT_LINGER
 	l.l_onoff = 1;
 	l.l_linger = 0;
 	if (setsockopt(sock, SOL_SOCKET, SO_LINGER, (void*)&l, sizeof(l))<0)
-		perror("setsockopt");
+		perror("setsockopt(SO_LINGER)");
+#endif
 }
 
 static int
@@ -127,6 +136,8 @@ launch_request(void)
 
 	struct request_info *ri;
 
+	memset(&sin, 0, sizeof(sin));
+
 	++total_n_launched;
 
 	sin.sin_family = AF_INET;
@@ -134,19 +145,22 @@ launch_request(void)
 	sin.sin_port = htons(8080);
 	if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
 		return -1;
-	if (evutil_make_socket_nonblocking(sock) < 0)
+	if (evutil_make_socket_nonblocking(sock) < 0) {
+		evutil_closesocket(sock);
 		return -1;
+	}
 	frob_socket(sock);
 	if (connect(sock, (struct sockaddr*)&sin, sizeof(sin)) < 0) {
-		int e = errno;
+		int e = evutil_socket_geterror(sock);
 		if (! EVUTIL_ERR_CONNECT_RETRIABLE(e)) {
+			evutil_closesocket(sock);
 			return -1;
 		}
 	}
 
 	ri = malloc(sizeof(*ri));
 	ri->n_read = 0;
-	gettimeofday(&ri->started, NULL);
+	evutil_gettimeofday(&ri->started, NULL);
 
 	b = bufferevent_socket_new(base, sock, BEV_OPT_CLOSE_ON_FREE);
 
@@ -167,6 +181,12 @@ main(int argc, char **argv)
 	struct timeval start, end, total;
 	long long usec;
 	double throughput;
+
+#ifdef _WIN32
+	WSADATA WSAData;
+	WSAStartup(0x101, &WSAData);
+#endif
+
 	resource = "/ref";
 
 	setvbuf(stdout, NULL, _IONBF, 0);
@@ -178,13 +198,13 @@ main(int argc, char **argv)
 			perror("launch");
 	}
 
-	gettimeofday(&start, NULL);
+	evutil_gettimeofday(&start, NULL);
 
 	event_base_dispatch(base);
 
-	gettimeofday(&end, NULL);
+	evutil_gettimeofday(&end, NULL);
 	evutil_timersub(&end, &start, &total);
-	usec = total_time.tv_sec * 1000000 + total_time.tv_usec;
+	usec = total_time.tv_sec * (long long)1000000 + total_time.tv_usec;
 
 	if (!total_n_handled) {
 		puts("Nothing worked.  You probably did something dumb.");
@@ -195,7 +215,7 @@ main(int argc, char **argv)
 	throughput = total_n_handled /
 	    (total.tv_sec+ ((double)total.tv_usec)/1000000.0);
 
-#ifdef WIN32
+#ifdef _WIN32
 #define I64_FMT "%I64d"
 #define I64_TYP __int64
 #else
@@ -211,6 +231,10 @@ main(int argc, char **argv)
 	    throughput,
 	    (double)(usec/1000) / total_n_handled,
 	    (I64_TYP)total_n_bytes, n_errors);
+
+#ifdef _WIN32
+	WSACleanup();
+#endif
 
 	return 0;
 }

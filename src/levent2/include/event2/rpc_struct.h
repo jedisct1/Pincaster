@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2006-2007 Niels Provos <provos@citi.umich.edu>
- * Copyright (c) 2007-2010 Niels Provos and Nick Mathewson
+ * Copyright (c) 2007-2012 Niels Provos and Nick Mathewson
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -24,19 +24,29 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef _EVENT2_RPC_STRUCT_H_
-#define _EVENT2_RPC_STRUCT_H_
+#ifndef EVENT2_RPC_STRUCT_H_INCLUDED_
+#define EVENT2_RPC_STRUCT_H_INCLUDED_
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/** @file rpc_struct.h
+/** @file event2/rpc_struct.h
 
   Structures used by rpc.h.  Using these structures directly may harm
   forward compatibility: be careful!
 
  */
+
+/* Fix so that people don't have to run with <sys/queue.h> */
+#ifndef TAILQ_ENTRY
+#define EVENT_DEFINED_TQENTRY_
+#define TAILQ_ENTRY(type)						\
+struct {								\
+	struct type *tqe_next;	/* next element */			\
+	struct type **tqe_prev;	/* address of previous next element */	\
+}
+#endif /* !TAILQ_ENTRY */
 
 /**
  * provides information about the completed RPC request.
@@ -93,8 +103,12 @@ struct evrpc {
 	struct evrpc_base *base;
 };
 
+#ifdef EVENT_DEFINED_TQENTRY_
+#undef TAILQ_ENTRY
+#endif
+
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* _EVENT2_RPC_STRUCT_H_ */
+#endif /* EVENT2_RPC_STRUCT_H_INCLUDED_ */

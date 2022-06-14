@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2010 Niels Provos, Nick Mathewson
+ * Copyright (c) 2007-2012 Niels Provos, Nick Mathewson
  * Copyright (c) 2000-2007 Niels Provos <provos@citi.umich.edu>
  * All rights reserved.
  *
@@ -25,8 +25,16 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef _EVENT2_BUFFEREVENT_COMPAT_H_
-#define _EVENT2_BUFFEREVENT_COMPAT_H_
+#ifndef EVENT2_BUFFEREVENT_COMPAT_H_INCLUDED_
+#define EVENT2_BUFFEREVENT_COMPAT_H_INCLUDED_
+
+/** @file event2/bufferevent_compat.h
+ *
+ * @brief Deprecated versions of the functions in bufferevent.h: provided
+ * only for backwards compatibility.
+ */
+
+#include <event2/visibility.h>
 
 #define evbuffercb bufferevent_data_cb
 #define everrorcb bufferevent_event_cb
@@ -54,6 +62,10 @@
   If multiple bases are in use, bufferevent_base_set() must be called before
   enabling the bufferevent for the first time.
 
+  @deprecated This function is deprecated because it uses the current
+    event base, and as such can be error prone for multithreaded programs.
+    Use bufferevent_socket_new() instead.
+
   @param fd the file descriptor from which data is read and written to.
 	 This file descriptor is not allowed to be a pipe(2).
   @param readcb callback to invoke when there is data to be read, or NULL if
@@ -68,6 +80,7 @@
 	  error occurred
   @see bufferevent_base_set(), bufferevent_free()
   */
+EVENT2_EXPORT_SYMBOL
 struct bufferevent *bufferevent_new(evutil_socket_t fd,
     evbuffercb readcb, evbuffercb writecb, everrorcb errorcb, void *cbarg);
 
@@ -75,10 +88,13 @@ struct bufferevent *bufferevent_new(evutil_socket_t fd,
 /**
   Set the read and write timeout for a buffered event.
 
+  @deprecated Use bufferevent_set_timeouts instead.
+
   @param bufev the bufferevent to be modified
   @param timeout_read the read timeout
   @param timeout_write the write timeout
  */
+EVENT2_EXPORT_SYMBOL
 void bufferevent_settimeout(struct bufferevent *bufev,
     int timeout_read, int timeout_write);
 

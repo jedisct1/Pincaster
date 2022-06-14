@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2010 Niels Provos, Nick Mathewson
+ * Copyright (c) 2009-2012 Niels Provos, Nick Mathewson
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,6 +25,10 @@
  */
 #include "evconfig-private.h"
 
+#ifndef _WIN32_WINNT
+/* Minimum required for InitializeCriticalSectionAndSpinCount */
+#define _WIN32_WINNT 0x0403
+#endif
 #include <winsock2.h>
 #include <windows.h>
 #include <process.h>
@@ -42,7 +46,7 @@
 #define NOTIFICATION_KEY ((ULONG_PTR)-1)
 
 void
-event_overlapped_init(struct event_overlapped *o, iocp_callback cb)
+event_overlapped_init_(struct event_overlapped *o, iocp_callback cb)
 {
 	memset(o, 0, sizeof(struct event_overlapped));
 	o->cb = cb;
@@ -57,9 +61,9 @@ handle_entry(OVERLAPPED *o, ULONG_PTR completion_key, DWORD nBytes, int ok)
 }
 
 static void
-loop(void *_port)
+loop(void *port_)
 {
-	struct event_iocp_port *port = _port;
+	struct event_iocp_port *port = port_;
 	long ms = port->ms;
 	HANDLE p = port->port;
 
@@ -95,7 +99,7 @@ loop(void *_port)
 }
 
 int
-event_iocp_port_associate(struct event_iocp_port *port, evutil_socket_t fd,
+event_iocp_port_associate_(struct event_iocp_port *port, evutil_socket_t fd,
     ev_uintptr_t key)
 {
 	HANDLE h;
@@ -138,6 +142,8 @@ get_extension_function(SOCKET s, const GUID *which_fn)
 	{0xb5367df2,0xcbac,0x11cf,{0x95,0xca,0x00,0x80,0x5f,0x48,0xa1,0x92}}
 #endif
 
+static int extension_fns_initialized = 0;
+
 static void
 init_extension_functions(struct win32_extension_fns *ext)
 {
@@ -145,20 +151,21 @@ init_extension_functions(struct win32_extension_fns *ext)
 	const GUID connectex = WSAID_CONNECTEX;
 	const GUID getacceptexsockaddrs = WSAID_GETACCEPTEXSOCKADDRS;
 	SOCKET s = socket(AF_INET, SOCK_STREAM, 0);
-	if (s == INVALID_SOCKET)
+	if (s == EVUTIL_INVALID_SOCKET)
 		return;
 	ext->AcceptEx = get_extension_function(s, &acceptex);
 	ext->ConnectEx = get_extension_function(s, &connectex);
 	ext->GetAcceptExSockaddrs = get_extension_function(s,
 	    &getacceptexsockaddrs);
 	closesocket(s);
+
+	extension_fns_initialized = 1;
 }
 
 static struct win32_extension_fns the_extension_fns;
-static int extension_fns_initialized = 0;
 
 const struct win32_extension_fns *
-event_get_win32_extension_fns(void)
+event_get_win32_extension_fns_(void)
 {
 	return &the_extension_fns;
 }
@@ -166,7 +173,7 @@ event_get_win32_extension_fns(void)
 #define N_CPUS_DEFAULT 2
 
 struct event_iocp_port *
-event_iocp_port_launch(int n_cpus)
+event_iocp_port_launch_(int n_cpus)
 {
 	struct event_iocp_port *port;
 	int i;
@@ -180,7 +187,7 @@ event_iocp_port_launch(int n_cpus)
 	if (n_cpus <= 0)
 		n_cpus = N_CPUS_DEFAULT;
 	port->n_threads = n_cpus * 2;
-	port->threads = calloc(port->n_threads, sizeof(HANDLE));
+	port->threads = mm_calloc(port->n_threads, sizeof(HANDLE));
 	if (!port->threads)
 		goto err;
 
@@ -217,7 +224,7 @@ err:
 }
 
 static void
-_event_iocp_port_unlock_and_free(struct event_iocp_port *port)
+event_iocp_port_unlock_and_free_(struct event_iocp_port *port)
 {
 	DeleteCriticalSection(&port->lock);
 	CloseHandle(port->port);
@@ -240,7 +247,7 @@ event_iocp_notify_all(struct event_iocp_port *port)
 }
 
 int
-event_iocp_shutdown(struct event_iocp_port *port, long waitMsec)
+event_iocp_shutdown_(struct event_iocp_port *port, long waitMsec)
 {
 	DWORD ms = INFINITE;
 	int n;
@@ -258,7 +265,7 @@ event_iocp_shutdown(struct event_iocp_port *port, long waitMsec)
 	n = port->n_live_threads;
 	LeaveCriticalSection(&port->lock);
 	if (n == 0) {
-		_event_iocp_port_unlock_and_free(port);
+		event_iocp_port_unlock_and_free_(port);
 		return 0;
 	} else {
 		return -1;
@@ -266,7 +273,7 @@ event_iocp_shutdown(struct event_iocp_port *port, long waitMsec)
 }
 
 int
-event_iocp_activate_overlapped(
+event_iocp_activate_overlapped_(
     struct event_iocp_port *port, struct event_overlapped *o,
     ev_uintptr_t key, ev_uint32_t n)
 {
@@ -277,9 +284,9 @@ event_iocp_activate_overlapped(
 }
 
 struct event_iocp_port *
-event_base_get_iocp(struct event_base *base)
+event_base_get_iocp_(struct event_base *base)
 {
-#ifdef WIN32
+#ifdef _WIN32
 	return base->iocp;
 #else
 	return NULL;

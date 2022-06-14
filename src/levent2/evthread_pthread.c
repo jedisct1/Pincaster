@@ -1,5 +1,5 @@
 /*
- * Copyright 2009-2010 Niels Provos and Nick Mathewson
+ * Copyright 2009-2012 Niels Provos and Nick Mathewson
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -39,12 +39,16 @@ struct event_base;
 #include "mm-internal.h"
 #include "evthread-internal.h"
 
+static pthread_mutexattr_t attr_default;
 static pthread_mutexattr_t attr_recursive;
+
+static pthread_mutex_t once_init_lock = PTHREAD_MUTEX_INITIALIZER;
+static int once_init = 0;
 
 static void *
 evthread_posix_lock_alloc(unsigned locktype)
 {
-	pthread_mutexattr_t *attr = NULL;
+	pthread_mutexattr_t *attr = &attr_default;
 	pthread_mutex_t *lock = mm_malloc(sizeof(pthread_mutex_t));
 	if (!lock)
 		return NULL;
@@ -58,17 +62,17 @@ evthread_posix_lock_alloc(unsigned locktype)
 }
 
 static void
-evthread_posix_lock_free(void *_lock, unsigned locktype)
+evthread_posix_lock_free(void *lock_, unsigned locktype)
 {
-	pthread_mutex_t *lock = _lock;
+	pthread_mutex_t *lock = lock_;
 	pthread_mutex_destroy(lock);
 	mm_free(lock);
 }
 
 static int
-evthread_posix_lock(unsigned mode, void *_lock)
+evthread_posix_lock(unsigned mode, void *lock_)
 {
-	pthread_mutex_t *lock = _lock;
+	pthread_mutex_t *lock = lock_;
 	if (mode & EVTHREAD_TRY)
 		return pthread_mutex_trylock(lock);
 	else
@@ -76,9 +80,9 @@ evthread_posix_lock(unsigned mode, void *_lock)
 }
 
 static int
-evthread_posix_unlock(unsigned mode, void *_lock)
+evthread_posix_unlock(unsigned mode, void *lock_)
 {
-	pthread_mutex_t *lock = _lock;
+	pthread_mutex_t *lock = lock_;
 	return pthread_mutex_unlock(lock);
 }
 
@@ -87,13 +91,13 @@ evthread_posix_get_id(void)
 {
 	union {
 		pthread_t thr;
-#if _EVENT_SIZEOF_PTHREAD_T > _EVENT_SIZEOF_LONG
+#if EVENT__SIZEOF_PTHREAD_T > EVENT__SIZEOF_LONG
 		ev_uint64_t id;
 #else
 		unsigned long id;
 #endif
 	} r;
-#if _EVENT_SIZEOF_PTHREAD_T < _EVENT_SIZEOF_LONG
+#if EVENT__SIZEOF_PTHREAD_T < EVENT__SIZEOF_LONG
 	memset(&r, 0, sizeof(r));
 #endif
 	r.thr = pthread_self();
@@ -114,17 +118,17 @@ evthread_posix_cond_alloc(unsigned condflags)
 }
 
 static void
-evthread_posix_cond_free(void *_cond)
+evthread_posix_cond_free(void *cond_)
 {
-	pthread_cond_t *cond = _cond;
+	pthread_cond_t *cond = cond_;
 	pthread_cond_destroy(cond);
 	mm_free(cond);
 }
 
 static int
-evthread_posix_cond_signal(void *_cond, int broadcast)
+evthread_posix_cond_signal(void *cond_, int broadcast)
 {
-	pthread_cond_t *cond = _cond;
+	pthread_cond_t *cond = cond_;
 	int r;
 	if (broadcast)
 		r = pthread_cond_broadcast(cond);
@@ -134,11 +138,11 @@ evthread_posix_cond_signal(void *_cond, int broadcast)
 }
 
 static int
-evthread_posix_cond_wait(void *_cond, void *_lock, const struct timeval *tv)
+evthread_posix_cond_wait(void *cond_, void *lock_, const struct timeval *tv)
 {
 	int r;
-	pthread_cond_t *cond = _cond;
-	pthread_mutex_t *lock = _lock;
+	pthread_cond_t *cond = cond_;
+	pthread_mutex_t *lock = lock_;
 
 	if (tv) {
 		struct timeval now, abstime;
@@ -161,7 +165,7 @@ evthread_posix_cond_wait(void *_cond, void *_lock, const struct timeval *tv)
 }
 
 int
-evthread_use_pthreads(void)
+evthread_use_pthreads_with_flags(int flags)
 {
 	struct evthread_lock_callbacks cbs = {
 		EVTHREAD_LOCK_API_VERSION,
@@ -178,14 +182,48 @@ evthread_use_pthreads(void)
 		evthread_posix_cond_signal,
 		evthread_posix_cond_wait
 	};
+
+	pthread_mutex_lock(&once_init_lock);
+	if (once_init == 1) {
+		pthread_mutex_unlock(&once_init_lock);
+		return 0;
+	}
+
+	if (pthread_mutexattr_init(&attr_default)) 
+		goto error;
+
 	/* Set ourselves up to get recursive locks. */
 	if (pthread_mutexattr_init(&attr_recursive))
-		return -1;
+		goto error;
 	if (pthread_mutexattr_settype(&attr_recursive, PTHREAD_MUTEX_RECURSIVE))
-		return -1;
+		goto error;
+
+	if (flags & EVTHREAD_PTHREAD_PRIO_INHERIT) {
+#ifdef EVENT__HAVE_PTHREAD_MUTEXATTR_SETPROTOCOL
+		/* Set up priority inheritance */
+		if (pthread_mutexattr_setprotocol(&attr_default, PTHREAD_PRIO_INHERIT))
+			goto error;
+		if (pthread_mutexattr_setprotocol(&attr_recursive, PTHREAD_PRIO_INHERIT))
+			goto error;
+#else
+		goto error;
+#endif
+	}
 
 	evthread_set_lock_callbacks(&cbs);
 	evthread_set_condition_callbacks(&cond_cbs);
 	evthread_set_id_callback(evthread_posix_get_id);
+	once_init = 1;
+
+	pthread_mutex_unlock(&once_init_lock);
 	return 0;
+error:
+	pthread_mutex_unlock(&once_init_lock);
+	return -1;
+}
+
+int
+evthread_use_pthreads(void)
+{
+	return evthread_use_pthreads_with_flags(0);
 }

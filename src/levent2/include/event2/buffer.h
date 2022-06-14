@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2010 Niels Provos and Nick Mathewson
+ * Copyright (c) 2007-2012 Niels Provos and Nick Mathewson
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,23 +23,25 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef _EVENT2_BUFFER_H_
-#define _EVENT2_BUFFER_H_
+#ifndef EVENT2_BUFFER_H_INCLUDED_
+#define EVENT2_BUFFER_H_INCLUDED_
 
-/** @file buffer.h
+/** @file event2/buffer.h
 
-  Functions for buffering data for network sending or receiving.
+  @brief Functions for buffering data for network sending or receiving.
 
   An evbuffer can be used for preparing data before sending it to
   the network or conversely for reading data from the network.
   Evbuffers try to avoid memory copies as much as possible.  As a
-  result evbuffers can be used to pass data around without actually
+  result, evbuffers can be used to pass data around without actually
   incurring the overhead of copying the data.
 
   A new evbuffer can be allocated with evbuffer_new(), and can be
-  freed with evbuffer_free().
+  freed with evbuffer_free().  Most users will be using evbuffers via
+  the bufferevent interface.  To access a bufferevent's evbuffers, use
+  bufferevent_get_input() and bufferevent_get_output().
 
-  There are several guide lines for using evbuffers.
+  There are several guidelines for using evbuffers.
 
   - if you already know how much data you are going to add as a result
     of calling evbuffer_add() multiple times, it makes sense to use
@@ -53,13 +55,24 @@
     if you use them, you will wind up with fragmented memory in your
 	buffer.
 
-  As the contents of an evbuffer can be stored into multiple different
-  memory blocks, it cannot be accessed directly.  Instead, evbuffer_pullup()
-  can be used to force a specified number of bytes to be continuous. This
-  will cause memory reallocation and memory copies if the data is split
-  across multiple blocks.
+  - For high-performance code, you may want to avoid copying data into and out
+    of buffers.  You can skip the copy step by using
+    evbuffer_reserve_space()/evbuffer_commit_space() when writing into a
+    buffer, and evbuffer_peek() when reading.
 
+  In Libevent 2.0 and later, evbuffers are represented using a linked
+  list of memory chunks, with pointers to the first and last chunk in
+  the chain.
+
+  As the contents of an evbuffer can be stored in multiple different
+  memory blocks, it cannot be accessed directly.  Instead, evbuffer_pullup()
+  can be used to force a specified number of bytes to be contiguous. This
+  will cause memory reallocation and memory copies if the data is split
+  across multiple blocks.  It is more efficient, however, to use
+  evbuffer_peek() if you don't require that the memory to be contiguous.
  */
+
+#include <event2/visibility.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -67,29 +80,48 @@ extern "C" {
 
 #include <event2/event-config.h>
 #include <stdarg.h>
-#ifdef _EVENT_HAVE_SYS_TYPES_H
+#ifdef EVENT__HAVE_SYS_TYPES_H
 #include <sys/types.h>
 #endif
-#ifdef _EVENT_HAVE_SYS_UIO_H
+#ifdef EVENT__HAVE_SYS_UIO_H
 #include <sys/uio.h>
 #endif
 #include <event2/util.h>
 
-struct evbuffer;
+/**
+   An evbuffer is an opaque data type for efficiently buffering data to be
+   sent or received on the network.
 
-/** Points to a position within an evbuffer. Used when repeatedly searching
-    through a buffer.  Calls to any function that modifies or re-packs the
-    buffer contents may invalidate all evbuffer_ptrs for that buffer.  Do not
-    modify these values except with evbuffer_ptr_set.
+   @see event2/event.h for more information
+*/
+struct evbuffer
+#ifdef EVENT_IN_DOXYGEN_
+{}
+#endif
+;
+
+/**
+    Pointer to a position within an evbuffer.
+
+    Used when repeatedly searching through a buffer.  Calling any function
+    that modifies or re-packs the buffer contents may invalidate all
+    evbuffer_ptrs for that buffer.  Do not modify or contruct these values
+    except with evbuffer_ptr_set.
+
+    An evbuffer_ptr can represent any position from the start of a buffer up
+    to a position immediately after the end of a buffer.
+
+    @see evbuffer_ptr_set()
  */
 struct evbuffer_ptr {
 	ev_ssize_t pos;
 
-	/* Do not alter the values of fields. */
+	/* Do not alter or rely on the values of fields: they are for internal
+	 * use */
 	struct {
 		void *chain;
 		size_t pos_in_chain;
-	} _internal;
+	} internal_;
 };
 
 /** Describes a single extent of memory inside an evbuffer.  Used for
@@ -97,10 +129,10 @@ struct evbuffer_ptr {
 
     @see evbuffer_reserve_space, evbuffer_commit_space, evbuffer_peek
  */
-#ifdef _EVENT_HAVE_SYS_UIO_H
+#ifdef EVENT__HAVE_SYS_UIO_H
 #define evbuffer_iovec iovec
 /* Internal use -- defined only if we are using the native struct iovec */
-#define _EVBUFFER_IOVEC_IS_NATIVE
+#define EVBUFFER_IOVEC_IS_NATIVE_
 #else
 struct evbuffer_iovec {
 	/** The start of the extent of memory. */
@@ -116,15 +148,39 @@ struct evbuffer_iovec {
   @return a pointer to a newly allocated evbuffer struct, or NULL if an error
 	occurred
  */
+EVENT2_EXPORT_SYMBOL
 struct evbuffer *evbuffer_new(void);
-
-
 /**
   Deallocate storage for an evbuffer.
 
   @param buf pointer to the evbuffer to be freed
  */
+EVENT2_EXPORT_SYMBOL
 void evbuffer_free(struct evbuffer *buf);
+
+
+/**
+  Set maximum read buffer size
+
+  Default is 4096 and it works fine most of time, so before increasing the
+  default check carefully, since this has some negative effects (like memory
+  fragmentation and unfair resource distribution, i.e. some events will make
+  less progress than others).
+
+  @param buf pointer to the evbuffer
+  @param max buffer size
+  @return 0 on success, -1 on failure (if max > INT_MAX).
+ */
+EVENT2_EXPORT_SYMBOL
+int evbuffer_set_max_read(struct evbuffer *buf, size_t max);
+/**
+  Get maximum read buffer size
+
+  @param buf pointer to the evbuffer
+  @return current maximum buffer read
+ */
+EVENT2_EXPORT_SYMBOL
+size_t evbuffer_get_max_read(struct evbuffer *buf);
 
 /**
    Enable locking on an evbuffer so that it can safely be used by multiple
@@ -138,26 +194,65 @@ void evbuffer_free(struct evbuffer *buf);
    @param lock A lock object, or NULL if we should allocate our own.
    @return 0 on success, -1 on failure.
  */
+EVENT2_EXPORT_SYMBOL
 int evbuffer_enable_locking(struct evbuffer *buf, void *lock);
 
 /**
    Acquire the lock on an evbuffer.  Has no effect if locking was not enabled
    with evbuffer_enable_locking.
 */
+EVENT2_EXPORT_SYMBOL
 void evbuffer_lock(struct evbuffer *buf);
 
 /**
    Release the lock on an evbuffer.  Has no effect if locking was not enabled
    with evbuffer_enable_locking.
 */
+EVENT2_EXPORT_SYMBOL
 void evbuffer_unlock(struct evbuffer *buf);
 
+
+/** If this flag is set, then we will not use evbuffer_peek(),
+ * evbuffer_remove(), evbuffer_remove_buffer(), and so on to read bytes
+ * from this buffer: we'll only take bytes out of this buffer by
+ * writing them to the network (as with evbuffer_write_atmost), by
+ * removing them without observing them (as with evbuffer_drain),
+ * or by copying them all out at once (as with evbuffer_add_buffer).
+ *
+ * Using this option allows the implementation to use sendfile-based
+ * operations for evbuffer_add_file(); see that function for more
+ * information.
+ *
+ * This flag is on by default for bufferevents that can take advantage
+ * of it; you should never actually need to set it on a bufferevent's
+ * output buffer.
+ */
+#define EVBUFFER_FLAG_DRAINS_TO_FD 1
+
+/** Change the flags that are set for an evbuffer by adding more.
+ *
+ * @param buf the evbuffer that the callback is watching.
+ * @param flags One or more EVBUFFER_FLAG_* options
+ * @return 0 on success, -1 on failure.
+ */
+EVENT2_EXPORT_SYMBOL
+int evbuffer_set_flags(struct evbuffer *buf, ev_uint64_t flags);
+/** Change the flags that are set for an evbuffer by removing some.
+ *
+ * @param buf the evbuffer that the callback is watching.
+ * @param flags One or more EVBUFFER_FLAG_* options
+ * @return 0 on success, -1 on failure.
+ */
+EVENT2_EXPORT_SYMBOL
+int evbuffer_clear_flags(struct evbuffer *buf, ev_uint64_t flags);
+
 /**
-  Returns the total number of bytes stored in the event buffer
+  Returns the total number of bytes stored in the evbuffer
 
   @param buf pointer to the evbuffer
-  @return the number of bytes stored in the event buffer
+  @return the number of bytes stored in the evbuffer
 */
+EVENT2_EXPORT_SYMBOL
 size_t evbuffer_get_length(const struct evbuffer *buf);
 
 /**
@@ -172,31 +267,33 @@ size_t evbuffer_get_length(const struct evbuffer *buf);
    @return 0 if no data is available, otherwise the number of available bytes
      in the first buffer chain.
 */
+EVENT2_EXPORT_SYMBOL
 size_t evbuffer_get_contiguous_space(const struct evbuffer *buf);
 
 /**
-  Expands the available space in an event buffer.
+  Expands the available space in an evbuffer.
 
-  Expands the available space in the event buffer to at least datlen, so that
+  Expands the available space in the evbuffer to at least datlen, so that
   appending datlen additional bytes will not require any new allocations.
 
-  @param buf the event buffer to be expanded
+  @param buf the evbuffer to be expanded
   @param datlen the new minimum length requirement
   @return 0 if successful, or -1 if an error occurred
 */
+EVENT2_EXPORT_SYMBOL
 int evbuffer_expand(struct evbuffer *buf, size_t datlen);
 
 /**
-   Reserves space in the last chain of an event buffer.
+   Reserves space in the last chain or chains of an evbuffer.
 
-   Makes space available in the last chain of an event buffer that can
+   Makes space available in the last chain or chains of an evbuffer that can
    be arbitrarily written to by a user.  The space does not become
    available for reading until it has been committed with
    evbuffer_commit_space().
 
    The space is made available as one or more extents, represented by
    an initial pointer and a length.  You can force the memory to be
-   available as only one extent.  Allowing more, however, makes the
+   available as only one extent.  Allowing more extents, however, makes the
    function more efficient.
 
    Multiple subsequent calls to this function will make the same space
@@ -208,19 +305,21 @@ int evbuffer_expand(struct evbuffer *buf, size_t datlen);
    NOTE: The code currently does not ever use more than two extents.
    This may change in future versions.
 
-   @param buf the event buffer in which to reserve space.
+   @param buf the evbuffer in which to reserve space.
    @param size how much space to make available, at minimum.  The
       total length of the extents may be greater than the requested
       length.
    @param vec an array of one or more evbuffer_iovec structures to
       hold pointers to the reserved extents of memory.
-   @param n_vec The length of the vec array.  Must be at least 1.
+   @param n_vec The length of the vec array.  Must be at least 1;
+       2 is more efficient.
    @return the number of provided extents, or -1 on error.
-   @see evbuffer_commit_space
+   @see evbuffer_commit_space()
 */
+EVENT2_EXPORT_SYMBOL
 int
 evbuffer_reserve_space(struct evbuffer *buf, ev_ssize_t size,
-    struct evbuffer_iovec *vec, int n_vecs);
+    struct evbuffer_iovec *vec, int n_vec);
 
 /**
    Commits previously reserved space.
@@ -233,67 +332,104 @@ evbuffer_reserve_space(struct evbuffer *buf, ev_ssize_t size,
    has been added to the buffer since the space was reserved.
 
    If you want to commit less data than you got reserved space for,
-   modify the iov_len pointer of the buffer to a smaller value.  Note
-   that you may have received more space than you requested if it was
-   available!
+   modify the iov_len pointer of the appropriate extent to a smaller
+   value.  Note that you may have received more space than you
+   requested if it was available!
 
-   @param buf the event buffer in which to reserve space.
+   @param buf the evbuffer in which to reserve space.
    @param vec one or two extents returned by evbuffer_reserve_space.
    @param n_vecs the number of extents.
    @return 0 on success, -1 on error
-   @see evbuffer_reserve_space
+   @see evbuffer_reserve_space()
 */
+EVENT2_EXPORT_SYMBOL
 int evbuffer_commit_space(struct evbuffer *buf,
     struct evbuffer_iovec *vec, int n_vecs);
 
 /**
   Append data to the end of an evbuffer.
 
-  @param buf the event buffer to be appended to
+  @param buf the evbuffer to be appended to
   @param data pointer to the beginning of the data buffer
   @param datlen the number of bytes to be copied from the data buffer
   @return 0 on success, -1 on failure.
  */
+EVENT2_EXPORT_SYMBOL
 int evbuffer_add(struct evbuffer *buf, const void *data, size_t datlen);
 
 
 /**
-  Read data from an event buffer and drain the bytes read.
+  Read data from an evbuffer and drain the bytes read.
 
-  @param buf the event buffer to be read from
+  If more bytes are requested than are available in the evbuffer, we
+  only extract as many bytes as were available.
+
+  @param buf the evbuffer to be read from
   @param data the destination buffer to store the result
   @param datlen the maximum size of the destination buffer
   @return the number of bytes read, or -1 if we can't drain the buffer.
  */
+EVENT2_EXPORT_SYMBOL
 int evbuffer_remove(struct evbuffer *buf, void *data, size_t datlen);
 
 /**
-  Read data from an event buffer, and leave the buffer unchanged.
+  Read data from an evbuffer, and leave the buffer unchanged.
 
-  @param buf the event buffer to be read from
-  @param data the destination buffer to store the result
+  If more bytes are requested than are available in the evbuffer, we
+  only extract as many bytes as were available.
+
+  @param buf the evbuffer to be read from
+  @param data_out the destination buffer to store the result
   @param datlen the maximum size of the destination buffer
   @return the number of bytes read, or -1 if we can't drain the buffer.
  */
+EVENT2_EXPORT_SYMBOL
 ev_ssize_t evbuffer_copyout(struct evbuffer *buf, void *data_out, size_t datlen);
 
 /**
-  Read data from an event buffer into another event buffer draining
-  the bytes from the src buffer read.  This function avoids memcpy
-  as possible.
+  Read data from the middle of an evbuffer, and leave the buffer unchanged.
 
-  @param src the event buffer to be read from
-  @param dst the destination event buffer to store the result into
+  If more bytes are requested than are available in the evbuffer, we
+  only extract as many bytes as were available.
+
+  @param buf the evbuffer to be read from
+  @param pos the position to start reading from
+  @param data_out the destination buffer to store the result
+  @param datlen the maximum size of the destination buffer
+  @return the number of bytes read, or -1 if we can't drain the buffer.
+ */
+EVENT2_EXPORT_SYMBOL
+ev_ssize_t evbuffer_copyout_from(struct evbuffer *buf, const struct evbuffer_ptr *pos, void *data_out, size_t datlen);
+
+/**
+  Read data from an evbuffer into another evbuffer, draining
+  the bytes from the source buffer.  This function avoids copy
+  operations to the extent possible.
+
+  If more bytes are requested than are available in src, the src
+  buffer is drained completely.
+
+  @param src the evbuffer to be read from
+  @param dst the destination evbuffer to store the result into
   @param datlen the maximum numbers of bytes to transfer
   @return the number of bytes read
  */
+EVENT2_EXPORT_SYMBOL
 int evbuffer_remove_buffer(struct evbuffer *src, struct evbuffer *dst,
     size_t datlen);
 
 /** Used to tell evbuffer_readln what kind of line-ending to look for.
  */
 enum evbuffer_eol_style {
-	/** Any sequence of CR and LF characters is acceptable as an EOL. */
+	/** Any sequence of CR and LF characters is acceptable as an
+	 * EOL.
+	 *
+	 * Note that this style can produce ambiguous results: the
+	 * sequence "CRLF" will be treated as a single EOL if it is
+	 * all in the buffer at once, but if you first read a CR from
+	 * the network and later read an LF from the network, it will
+	 * be treated as two EOLs.
+	 */
 	EVBUFFER_EOL_ANY,
 	/** An EOL is an LF, optionally preceded by a CR.  This style is
 	 * most useful for implementing text-based internet protocols. */
@@ -301,11 +437,13 @@ enum evbuffer_eol_style {
 	/** An EOL is a CR followed by an LF. */
 	EVBUFFER_EOL_CRLF_STRICT,
 	/** An EOL is a LF. */
-	EVBUFFER_EOL_LF
+	EVBUFFER_EOL_LF,
+	/** An EOL is a NUL character (that is, a single byte with value 0) */
+	EVBUFFER_EOL_NUL
 };
 
 /**
- * Read a single line from an event buffer.
+ * Read a single line from an evbuffer.
  *
  * Reads a line terminated by an EOL as determined by the evbuffer_eol_style
  * argument.  Returns a newly allocated nul-terminated string; the caller must
@@ -318,11 +456,12 @@ enum evbuffer_eol_style {
  * @param eol_style the style of line-ending to use.
  * @return pointer to a single line, or NULL if an error occurred
  */
+EVENT2_EXPORT_SYMBOL
 char *evbuffer_readln(struct evbuffer *buffer, size_t *n_read_out,
     enum evbuffer_eol_style eol_style);
 
 /**
-  Move data from one evbuffer into another evbuffer.
+  Move all data from one evbuffer into another evbuffer.
 
   This is a destructive add.  The data from one buffer moves into
   the other buffer.  However, no unnecessary memory copies occur.
@@ -330,10 +469,35 @@ char *evbuffer_readln(struct evbuffer *buffer, size_t *n_read_out,
   @param outbuf the output buffer
   @param inbuf the input buffer
   @return 0 if successful, or -1 if an error occurred
+
+  @see evbuffer_remove_buffer()
  */
+EVENT2_EXPORT_SYMBOL
 int evbuffer_add_buffer(struct evbuffer *outbuf, struct evbuffer *inbuf);
 
+/**
+  Copy data from one evbuffer into another evbuffer.
 
+  This is a non-destructive add.  The data from one buffer is copied
+  into the other buffer.  However, no unnecessary memory copies occur.
+
+  Note that buffers already containing buffer references can't be added
+  to other buffers.
+
+  @param outbuf the output buffer
+  @param inbuf the input buffer
+  @return 0 if successful, or -1 if an error occurred
+ */
+EVENT2_EXPORT_SYMBOL
+int evbuffer_add_buffer_reference(struct evbuffer *outbuf,
+    struct evbuffer *inbuf);
+
+/**
+   A cleanup function for a piece of memory added to an evbuffer by
+   reference.
+
+   @see evbuffer_add_reference()
+ */
 typedef void (*evbuffer_ref_cleanup_cb)(const void *data,
     size_t datalen, void *extra);
 
@@ -348,46 +512,49 @@ typedef void (*evbuffer_ref_cleanup_cb)(const void *data,
   @param data the memory to reference
   @param datlen how memory to reference
   @param cleanupfn callback to be invoked when the memory is no longer
-	referenced
-  @param extra optional argument to the cleanup callback
+	referenced by this evbuffer.
+  @param cleanupfn_arg optional argument to the cleanup callback
   @return 0 if successful, or -1 if an error occurred
  */
+EVENT2_EXPORT_SYMBOL
 int evbuffer_add_reference(struct evbuffer *outbuf,
     const void *data, size_t datlen,
-    evbuffer_ref_cleanup_cb cleanupfn, void *extra);
+    evbuffer_ref_cleanup_cb cleanupfn, void *cleanupfn_arg);
 
 /**
-  Move data from a file into the evbuffer for writing to a socket.
+  Copy data from a file into the evbuffer for writing to a socket.
 
   This function avoids unnecessary data copies between userland and
-  kernel.  Where available, it uses sendfile or splice.
+  kernel.  If sendfile is available and the EVBUFFER_FLAG_DRAINS_TO_FD
+  flag is set, it uses those functions.  Otherwise, it tries to use
+  mmap (or CreateFileMapping on Windows).
 
   The function owns the resulting file descriptor and will close it
   when finished transferring data.
 
-  The results of using evbuffer_remove() or evbuffer_pullup() are
-  undefined.
+  The results of using evbuffer_remove() or evbuffer_pullup() on
+  evbuffers whose data was added using this function are undefined.
 
   For more fine-grained control, use evbuffer_add_file_segment.
 
   @param outbuf the output buffer
   @param fd the file descriptor
-  @param off the offset from which to read data
+  @param offset the offset from which to read data
   @param length how much data to read, or -1 to read as much as possible.
     (-1 requires that 'fd' support fstat.)
   @return 0 if successful, or -1 if an error occurred
 */
 
-int evbuffer_add_file(struct evbuffer *output, int fd, ev_off_t offset,
+EVENT2_EXPORT_SYMBOL
+int evbuffer_add_file(struct evbuffer *outbuf, int fd, ev_off_t offset,
     ev_off_t length);
 
 /**
   An evbuffer_file_segment holds a reference to a range of a file --
   possibly the whole file! -- for use in writing from an evbuffer to a
-  socket.  It could be implemented with mmap, sendfile, splice, or (if all
-  else fails) by just pulling all the data into RAM.  A single
-  evbuffer_file_segment can be added more than once, and to more than one
-  evbuffer.
+  socket.  It could be implemented with mmap or sendfile, or (if all else
+  fails) by just pulling all the data into RAM. A single evbuffer_file_segment
+  can be added more than once, and to more than one evbuffer.
  */
 struct evbuffer_file_segment;
 
@@ -404,7 +571,7 @@ struct evbuffer_file_segment;
 #define EVBUF_FS_DISABLE_MMAP     0x02
 /**
    Flag for creating evbuffer_file_segment: Disable direct fd-to-fd
-   implementations (including sendfile and splice).
+   implementations (sendfile).
 
    You might want to use this option if data needs to be taken from the
    evbuffer by any means other than writing it to the network: the sendfile
@@ -421,11 +588,18 @@ struct evbuffer_file_segment;
 #define EVBUF_FS_DISABLE_LOCKING  0x08
 
 /**
+   A cleanup function for a evbuffer_file_segment added to an evbuffer
+   for reference.
+ */
+typedef void (*evbuffer_file_segment_cleanup_cb)(
+    struct evbuffer_file_segment const* seg, int flags, void* arg);
+
+/**
    Create and return a new evbuffer_file_segment for reading data from a
    file and sending it out via an evbuffer.
 
    This function avoids unnecessary data copies between userland and
-   kernel.  Where available, it uses sendfile or splice.
+   kernel.  Where available, it uses sendfile.
 
    The file descriptor must not be closed so long as any evbuffer is using
    this segment.
@@ -442,6 +616,7 @@ struct evbuffer_file_segment;
    @param flags any number of the EVBUF_FS_* flags
    @return a new evbuffer_file_segment, or NULL on failure.
  **/
+EVENT2_EXPORT_SYMBOL
 struct evbuffer_file_segment *evbuffer_file_segment_new(
 	int fd, ev_off_t offset, ev_off_t length, unsigned flags);
 
@@ -452,7 +627,19 @@ struct evbuffer_file_segment *evbuffer_file_segment_new(
    one or more evbuffers.  The evbuffer_file_segment will not be freed
    until no more references to it exist.
  */
+EVENT2_EXPORT_SYMBOL
 void evbuffer_file_segment_free(struct evbuffer_file_segment *seg);
+
+/**
+   Add cleanup callback and argument for the callback to an
+   evbuffer_file_segment.
+
+   The cleanup callback will be invoked when no more references to the
+   evbuffer_file_segment exist.
+ **/
+EVENT2_EXPORT_SYMBOL
+void evbuffer_file_segment_add_cleanup_cb(struct evbuffer_file_segment *seg,
+	evbuffer_file_segment_cleanup_cb cb, void* arg);
 
 /**
    Insert some or all of an evbuffer_file_segment at the end of an evbuffer
@@ -476,24 +663,28 @@ void evbuffer_file_segment_free(struct evbuffer_file_segment *seg);
    @param length the amount of data to add, or -1 to add it all.
    @return 0 on success, -1 on failure.
  */
+EVENT2_EXPORT_SYMBOL
 int evbuffer_add_file_segment(struct evbuffer *buf,
     struct evbuffer_file_segment *seg, ev_off_t offset, ev_off_t length);
 
 /**
   Append a formatted string to the end of an evbuffer.
 
+  The string is formated as printf.
+
   @param buf the evbuffer that will be appended to
   @param fmt a format string
   @param ... arguments that will be passed to printf(3)
   @return The number of bytes added if successful, or -1 if an error occurred.
 
+  @see evutil_printf(), evbuffer_add_vprintf()
  */
+EVENT2_EXPORT_SYMBOL
 int evbuffer_add_printf(struct evbuffer *buf, const char *fmt, ...)
 #ifdef __GNUC__
   __attribute__((format(printf, 2, 3)))
 #endif
 ;
-
 
 /**
   Append a va_list formatted string to the end of an evbuffer.
@@ -503,7 +694,12 @@ int evbuffer_add_printf(struct evbuffer *buf, const char *fmt, ...)
   @param ap a varargs va_list argument array that will be passed to vprintf(3)
   @return The number of bytes added if successful, or -1 if an error occurred.
  */
-int evbuffer_add_vprintf(struct evbuffer *buf, const char *fmt, va_list ap);
+EVENT2_EXPORT_SYMBOL
+int evbuffer_add_vprintf(struct evbuffer *buf, const char *fmt, va_list ap)
+#ifdef __GNUC__
+	__attribute__((format(printf, 2, 0)))
+#endif
+;
 
 
 /**
@@ -513,6 +709,7 @@ int evbuffer_add_vprintf(struct evbuffer *buf, const char *fmt, va_list ap);
   @param len the number of bytes to drain from the beginning of the buffer
   @return 0 on success, -1 on failure.
  */
+EVENT2_EXPORT_SYMBOL
 int evbuffer_drain(struct evbuffer *buf, size_t len);
 
 
@@ -526,6 +723,7 @@ int evbuffer_drain(struct evbuffer *buf, size_t len);
   @return the number of bytes written, or -1 if an error occurred
   @see evbuffer_read()
  */
+EVENT2_EXPORT_SYMBOL
 int evbuffer_write(struct evbuffer *buffer, evutil_socket_t fd);
 
 /**
@@ -540,18 +738,21 @@ int evbuffer_write(struct evbuffer *buffer, evutil_socket_t fd);
   @return the number of bytes written, or -1 if an error occurred
   @see evbuffer_read()
  */
+EVENT2_EXPORT_SYMBOL
 int evbuffer_write_atmost(struct evbuffer *buffer, evutil_socket_t fd,
 						  ev_ssize_t howmuch);
 
 /**
   Read from a file descriptor and store the result in an evbuffer.
 
-  @param buf the evbuffer to store the result
+  @param buffer the evbuffer to store the result
   @param fd the file descriptor to read from
-  @param howmuch the number of bytes to be read
+  @param howmuch the number of bytes to be read. If the given number is negative
+  or out of maximum bytes per one read, as many bytes as we can will be read.
   @return the number of bytes read, or -1 if an error occurred
   @see evbuffer_write()
  */
+EVENT2_EXPORT_SYMBOL
 int evbuffer_read(struct evbuffer *buffer, evutil_socket_t fd, int howmuch);
 
 /**
@@ -565,6 +766,7 @@ int evbuffer_read(struct evbuffer *buffer, evutil_socket_t fd, int howmuch);
      first occurrence of the string in the buffer after 'start'.  The 'pos'
      field of the result is -1 if the string was not found.
  */
+EVENT2_EXPORT_SYMBOL
 struct evbuffer_ptr evbuffer_search(struct evbuffer *buffer, const char *what, size_t len, const struct evbuffer_ptr *start);
 
 /**
@@ -581,8 +783,13 @@ struct evbuffer_ptr evbuffer_search(struct evbuffer *buffer, const char *what, s
      first occurrence of the string in the buffer after 'start'.  The 'pos'
      field of the result is -1 if the string was not found.
  */
+EVENT2_EXPORT_SYMBOL
 struct evbuffer_ptr evbuffer_search_range(struct evbuffer *buffer, const char *what, size_t len, const struct evbuffer_ptr *start, const struct evbuffer_ptr *end);
 
+/**
+   Defines how to adjust an evbuffer_ptr by evbuffer_ptr_set()
+
+   @see evbuffer_ptr_set() */
 enum evbuffer_ptr_how {
 	/** Sets the pointer to the position; can be called on with an
 	    uninitialized evbuffer_ptr. */
@@ -594,8 +801,17 @@ enum evbuffer_ptr_how {
 /**
    Sets the search pointer in the buffer to position.
 
-   If evbuffer_ptr is not initialized.  This function can only be called
+   There are two ways to use this function: you can call
+      evbuffer_ptr_set(buf, &pos, N, EVBUFFER_PTR_SET)
+   to move 'pos' to a position 'N' bytes after the start of the buffer, or
+      evbuffer_ptr_set(buf, &pos, N, EVBUFFER_PTR_ADD)
+   to move 'pos' forward by 'N' bytes.
+
+   If evbuffer_ptr is not initialized, this function can only be called
    with EVBUFFER_PTR_SET.
+
+   An evbuffer_ptr can represent any position from the start of the buffer to
+   a position immediately after the end of the buffer.
 
    @param buffer the evbuffer to be search
    @param ptr a pointer to a struct evbuffer_ptr
@@ -603,8 +819,9 @@ enum evbuffer_ptr_how {
    @param how determines how the pointer should be manipulated.
    @returns 0 on success or -1 otherwise
 */
+EVENT2_EXPORT_SYMBOL
 int
-evbuffer_ptr_set(struct evbuffer *buffer, struct evbuffer_ptr *pos,
+evbuffer_ptr_set(struct evbuffer *buffer, struct evbuffer_ptr *ptr,
     size_t position, enum evbuffer_ptr_how how);
 
 /**
@@ -621,17 +838,10 @@ evbuffer_ptr_set(struct evbuffer *buffer, struct evbuffer_ptr *pos,
      first occurrence EOL in the buffer after 'start'.  The 'pos'
      field of the result is -1 if the string was not found.
  */
+EVENT2_EXPORT_SYMBOL
 struct evbuffer_ptr evbuffer_search_eol(struct evbuffer *buffer,
     struct evbuffer_ptr *start, size_t *eol_len_out,
     enum evbuffer_eol_style eol_style);
-
-/** Structure passed to an evbuffer callback */
-struct evbuffer_cb_info {
-	/** The size of */
-	size_t orig_size;
-	size_t n_added;
-	size_t n_deleted;
-};
 
 /** Function to peek at data inside an evbuffer without removing it or
     copying it out.
@@ -645,8 +855,10 @@ struct evbuffer_cb_info {
     the buffer does not have as much data as you asked to see).
 
     @param buffer the evbuffer to peek into,
-    @param len the number of bytes to try to peek.  If negative, we
-       will try to fill as much of vec_out as we can.
+    @param len the number of bytes to try to peek.  If len is negative, we
+       will try to fill as much of vec_out as we can.  If len is negative
+       and vec_out is not provided, we return the number of evbuffer_iovecs
+       that would be needed to get all the data in the buffer.
     @param start_at an evbuffer_ptr indicating the point at which we
        should start looking for data.  NULL means, "At the start of the
        buffer."
@@ -659,9 +871,25 @@ struct evbuffer_cb_info {
        than n_vec if we would need more to return all the data that was
        requested.
  */
+EVENT2_EXPORT_SYMBOL
 int evbuffer_peek(struct evbuffer *buffer, ev_ssize_t len,
     struct evbuffer_ptr *start_at,
     struct evbuffer_iovec *vec_out, int n_vec);
+
+
+/** Structure passed to an evbuffer_cb_func evbuffer callback
+
+    @see evbuffer_cb_func, evbuffer_add_cb()
+ */
+struct evbuffer_cb_info {
+	/** The number of bytes in this evbuffer when callbacks were last
+	 * invoked. */
+	size_t orig_size;
+	/** The number of bytes added since callbacks were last invoked. */
+	size_t n_added;
+	/** The number of bytes removed since callbacks were last invoked. */
+	size_t n_deleted;
+};
 
 /** Type definition for a callback that is invoked whenever data is added or
     removed from an evbuffer.
@@ -696,6 +924,7 @@ struct evbuffer_cb_entry;
   @param cbarg an argument to be provided to the callback function
   @return a handle to the callback on success, or NULL on failure.
  */
+EVENT2_EXPORT_SYMBOL
 struct evbuffer_cb_entry *evbuffer_add_cb(struct evbuffer *buffer, evbuffer_cb_func cb, void *cbarg);
 
 /** Remove a callback from an evbuffer, given a handle returned from
@@ -706,6 +935,7 @@ struct evbuffer_cb_entry *evbuffer_add_cb(struct evbuffer *buffer, evbuffer_cb_f
     @return 0 if a callback was removed, or -1 if no matching callback was
     found.
  */
+EVENT2_EXPORT_SYMBOL
 int evbuffer_remove_cb_entry(struct evbuffer *buffer,
 			     struct evbuffer_cb_entry *ent);
 
@@ -715,10 +945,14 @@ int evbuffer_remove_cb_entry(struct evbuffer *buffer,
     @return 0 if a callback was removed, or -1 if no matching callback was
     found.
  */
+EVENT2_EXPORT_SYMBOL
 int evbuffer_remove_cb(struct evbuffer *buffer, evbuffer_cb_func cb, void *cbarg);
 
 /** If this flag is not set, then a callback is temporarily disabled, and
- * should not be invoked. */
+ * should not be invoked.
+ *
+ * @see evbuffer_cb_set_flags(), evbuffer_cb_clear_flags()
+ */
 #define EVBUFFER_CB_ENABLED 1
 
 /** Change the flags that are set for a callback on a buffer by adding more.
@@ -728,6 +962,7 @@ int evbuffer_remove_cb(struct evbuffer *buffer, evbuffer_cb_func cb, void *cbarg
     @param flags EVBUFFER_CB_ENABLED to re-enable the callback.
     @return 0 on success, -1 on failure.
  */
+EVENT2_EXPORT_SYMBOL
 int evbuffer_cb_set_flags(struct evbuffer *buffer,
 			  struct evbuffer_cb_entry *cb, ev_uint32_t flags);
 
@@ -738,6 +973,7 @@ int evbuffer_cb_set_flags(struct evbuffer *buffer,
     @param flags EVBUFFER_CB_ENABLED to disable the callback.
     @return 0 on success, -1 on failure.
  */
+EVENT2_EXPORT_SYMBOL
 int evbuffer_cb_clear_flags(struct evbuffer *buffer,
 			  struct evbuffer_cb_entry *cb, ev_uint32_t flags);
 
@@ -751,6 +987,7 @@ int evbuffer_cb_clear_flags(struct evbuffer *buffer,
 	@param the buffer that the callback is watching.
 	@param cb the callback we want to suspend.
  */
+EVENT2_EXPORT_SYMBOL
 void evbuffer_cb_suspend(struct evbuffer *buffer, struct evbuffer_cb_entry *cb);
 /** Stop postponing a callback that we postponed with evbuffer_cb_suspend.
 
@@ -760,18 +997,21 @@ void evbuffer_cb_suspend(struct evbuffer *buffer, struct evbuffer_cb_entry *cb);
 	@param the buffer that the callback is watching.
 	@param cb the callback we want to stop suspending.
  */
+EVENT2_EXPORT_SYMBOL
 void evbuffer_cb_unsuspend(struct evbuffer *buffer, struct evbuffer_cb_entry *cb);
 #endif
 
 /**
-  Makes the data at the begging of an evbuffer contiguous.
+  Makes the data at the beginning of an evbuffer contiguous.
 
   @param buf the evbuffer to make contiguous
   @param size the number of bytes to make contiguous, or -1 to make the
 	entire buffer contiguous.
-  @return a pointer to the contiguous memory array
+  @return a pointer to the contiguous memory array, or NULL if param size
+	requested more data than is present in the buffer.
 */
 
+EVENT2_EXPORT_SYMBOL
 unsigned char *evbuffer_pullup(struct evbuffer *buf, ev_ssize_t size);
 
 /**
@@ -783,6 +1023,7 @@ unsigned char *evbuffer_pullup(struct evbuffer *buf, ev_ssize_t size);
   @return 0 if successful, or -1 otherwise
 */
 
+EVENT2_EXPORT_SYMBOL
 int evbuffer_prepend(struct evbuffer *buf, const void *data, size_t size);
 
 /**
@@ -793,6 +1034,7 @@ int evbuffer_prepend(struct evbuffer *buf, const void *data, size_t size);
   @param src the evbuffer to prepend; it will be emptied as a result
   @return 0 if successful, or -1 otherwise
 */
+EVENT2_EXPORT_SYMBOL
 int evbuffer_prepend_buffer(struct evbuffer *dst, struct evbuffer* src);
 
 /**
@@ -809,6 +1051,7 @@ int evbuffer_prepend_buffer(struct evbuffer *dst, struct evbuffer* src);
       we freeze the back.
    @return 0 on success, -1 on failure.
 */
+EVENT2_EXPORT_SYMBOL
 int evbuffer_freeze(struct evbuffer *buf, int at_front);
 /**
    Re-enable calls that modify an evbuffer.
@@ -818,6 +1061,7 @@ int evbuffer_freeze(struct evbuffer *buf, int at_front);
       we unfreeze the back.
    @return 0 on success, -1 on failure.
  */
+EVENT2_EXPORT_SYMBOL
 int evbuffer_unfreeze(struct evbuffer *buf, int at_front);
 
 struct event_base;
@@ -828,10 +1072,27 @@ struct event_base;
    This can be used to serialize all the callbacks to a single thread
    of execution.
  */
+EVENT2_EXPORT_SYMBOL
 int evbuffer_defer_callbacks(struct evbuffer *buffer, struct event_base *base);
+
+/**
+  Append data from 1 or more iovec's to an evbuffer
+
+  Calculates the number of bytes needed for an iovec structure and guarantees
+  all data will fit into a single chain. Can be used in lieu of functionality
+  which calls evbuffer_add() constantly before being used to increase
+  performance.
+
+  @param buffer the destination buffer
+  @param vec the source iovec
+  @param n_vec the number of iovec structures.
+  @return the number of bytes successfully written to the output buffer.
+*/
+EVENT2_EXPORT_SYMBOL
+size_t evbuffer_add_iovec(struct evbuffer * buffer, struct evbuffer_iovec * vec, int n_vec);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* _EVENT2_BUFFER_H_ */
+#endif /* EVENT2_BUFFER_H_INCLUDED_ */

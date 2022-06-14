@@ -25,6 +25,7 @@
 #include <errno.h>
 #include <signal.h>
 #include <fcntl.h>
+#include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <poll.h>

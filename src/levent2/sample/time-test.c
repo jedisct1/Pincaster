@@ -13,12 +13,12 @@
 #include <event2/event-config.h>
 
 #include <sys/stat.h>
-#ifndef WIN32
+#ifndef _WIN32
 #include <sys/queue.h>
 #include <unistd.h>
 #endif
 #include <time.h>
-#ifdef _EVENT_HAVE_SYS_TIME_H
+#ifdef EVENT__HAVE_SYS_TIME_H
 #include <sys/time.h>
 #endif
 #include <fcntl.h>
@@ -31,7 +31,7 @@
 #include <event2/event_struct.h>
 #include <event2/util.h>
 
-#ifdef WIN32
+#ifdef _WIN32
 #include <winsock2.h>
 #endif
 
@@ -71,14 +71,13 @@ main(int argc, char **argv)
 	struct event_base *base;
 	int flags;
 
-#ifdef WIN32
+#ifdef _WIN32
 	WORD wVersionRequested;
 	WSADATA wsaData;
-	int	err;
 
 	wVersionRequested = MAKEWORD(2, 2);
 
-	err = WSAStartup(wVersionRequested, &wsaData);
+	(void)WSAStartup(wVersionRequested, &wsaData);
 #endif
 
 	if (argc == 2 && !strcmp(argv[1], "-p")) {
@@ -89,10 +88,10 @@ main(int argc, char **argv)
 		flags = 0;
 	}
 
-	/* Initalize the event library */
+	/* Initialize the event library */
 	base = event_base_new();
 
-	/* Initalize one event */
+	/* Initialize one event */
 	event_assign(&timeout, base, -1, flags, timeout_cb, (void*) &timeout);
 
 	evutil_timerclear(&tv);
@@ -100,6 +99,9 @@ main(int argc, char **argv)
 	event_add(&timeout, &tv);
 
 	evutil_gettimeofday(&lasttime, NULL);
+
+	setbuf(stdout, NULL);
+	setbuf(stderr, NULL);
 
 	event_base_dispatch(base);
 
