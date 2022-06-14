@@ -1,20 +1,20 @@
-AC_PREREQ([2.61])
-AC_INIT([pincaster], [0.7], [bugs at pureftpd dot org])
+AC_PREREQ([2.71])
+AC_INIT([pincaster],[0.7],[bugs at pureftpd dot org])
 AC_CONFIG_SRCDIR([src/app.c])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_MACRO_DIR([m4])
 AM_INIT_AUTOMAKE([1.9 dist-bzip2])
 AM_MAINTAINER_MODE
+AC_SUBST(LIBTOOL_DEPS)
+AC_SUBST(LIBTOOL_EXTRA_FLAGS)
 
 AC_SUBST(VERSION)
 ISODATE=`date +%Y-%m-%d`
 AC_SUBST(ISODATE)
 
 # Checks for programs.
-AC_PROG_CC_C99
 AC_USE_SYSTEM_EXTENSIONS
 CPPFLAGS="$CPPFLAGS -D_XPG4_2=1"
-AC_PROG_RANLIB
 
 if test -d /usr/local/include; then
   CPPFLAGS="$CPPFLAGS -I/usr/local/include"
@@ -24,11 +24,16 @@ if test -d /usr/local/lib; then
   LDFLAGS="$LDFLAGS -L/usr/local/lib"
 fi
 
-CFLAGS="$CFLAGS -pthread"
-LDFLAGS="$LDFLAGS -pthread"
+AC_PROG_CC
+LT_INIT
+
+AX_PTHREAD
+LIBS="$PTHREAD_LIBS $LIBS"
+CFLAGS="$CFLAGS $PTHREAD_CFLAGS"
+CC="$PTHREAD_CC"
 
 # Checks for libraries.
-AC_CHECK_LIB([m], [cosf],, AC_ERROR([libm not found]))
+AC_CHECK_LIB([m], [cosf],, AC_MSG_ERROR(libm not found))
 AC_CHECK_LIB([rt], [clock_gettime])
 
 # Checks for YAJL library
@@ -88,7 +93,6 @@ AC_C_VARARRAYS
 
 AC_CHECK_ALIGNOF(void *)
 
-AC_TYPE_SIGNAL
 AC_TYPE_SIZE_T
 AC_TYPE_SSIZE_T
 AC_TYPE_OFF_T
