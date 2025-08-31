@@ -20,11 +20,10 @@ static int expirable_cmp(const Expirable * const exp1,
     }
     if (exp1->key_node < exp2->key_node) {
         return -1;
-    } else {
+    }
+    if (exp1->key_node > exp2->key_node) {
         return 1;
     }
-    assert(0);
-    
     return 0;
 }
 

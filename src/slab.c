@@ -82,6 +82,9 @@ void *add_entry_to_slab(Slab * const slab, const void * const entry)
     chunk = slab->first_partial_chunk;
     if (chunk == NULL) {
         chunk = new_slab_chunk(slab);
+        if (chunk == NULL) {
+            return NULL;
+        }
         chunk->next = slab->first_partial_chunk;
         if (slab->first_partial_chunk != NULL) {
             slab->first_partial_chunk->previous = chunk;

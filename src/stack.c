@@ -37,6 +37,9 @@ PntStack *new_pnt_stack(size_t initial_nb_elements,
 {
     PntStack *pnt_stack;
     
+    if (element_size == 0U) {
+        return NULL;
+    }
     if (initial_nb_elements <= (size_t) 0U) {
         initial_nb_elements = STACK_CHUNK_SIZE / element_size;
         if (initial_nb_elements <= 0U) {
@@ -44,7 +47,13 @@ PntStack *new_pnt_stack(size_t initial_nb_elements,
         }
     }
     pnt_stack = malloc(sizeof *pnt_stack);
-    init_pnt_stack(pnt_stack, initial_nb_elements, element_size);
+    if (pnt_stack == NULL) {
+        return NULL;
+    }
+    if (init_pnt_stack(pnt_stack, initial_nb_elements, element_size) != 0) {
+        free(pnt_stack);
+        return NULL;
+    }
     
     return pnt_stack;
 }
@@ -79,6 +88,9 @@ int push_pnt_stack(PntStack * const pnt_stack, const void * const pnt)
             pnt_stack->stack = new_stack;
         }        
         return 0;
+    }
+    if (pnt_stack->stack_size > SIZE_MAX / 2U) {
+        return -1;
     }
     new_stack_size = pnt_stack->stack_size * (size_t) 2U;
     if (new_stack_size <= pnt_stack->stack_size) {

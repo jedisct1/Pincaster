@@ -12,6 +12,9 @@ static size_t query_decode(const char *encoded, size_t encoded_size,
     assert(max_decoded_size >= encoded_size);
 
     while (encoded_size-- > (size_t) 0U) {
+        if ((size_t)(pnt_decoded - decoded) >= max_decoded_size) {
+            break;
+        }
         c = *encoded++;
         if (c == '+') {
             c = ' ';

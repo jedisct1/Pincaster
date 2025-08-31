@@ -8,8 +8,8 @@
 int init_db_log(void)
 {
     DBLog * const db_log = &app_context.db_log;
-    
-    *db_log = (DBLog) {        
+
+    *db_log = (DBLog) {
         .db_log_file_name = NULL,
         .db_log_fd = -1,
         .log_buffer = NULL,
@@ -79,7 +79,7 @@ void free_db_log(void)
 int close_db_log(void)
 {
     DBLog * const db_log = &app_context.db_log;
-    
+
     if (db_log->db_log_fd == -1) {
         return 0;
     }
@@ -93,7 +93,7 @@ int close_db_log(void)
 #endif
     close(db_log->db_log_fd);
     db_log->db_log_fd = -1;
-    
+
     return 0;
 }
 
@@ -109,7 +109,7 @@ int add_ts_to_ev_log_buffer(struct evbuffer * const log_buffer,
                  DB_LOG_RECORD_COOKIE_TAIL,
                  sizeof " " DB_LOG_RECORD_COOKIE_TIMESTAMP_CHAR
                  DB_LOG_RECORD_COOKIE_TAIL - (size_t) 1U);
-    return 0;    
+    return 0;
 }
 
 int add_to_db_log(HttpHandlerContext * const context, const int verb,
@@ -133,9 +133,9 @@ int add_to_db_log(HttpHandlerContext * const context, const int verb,
         db_log->last_ts = ts;
         add_ts_to_ev_log_buffer(log_buffer, ts);
     }
-    const char *body = NULL;    
+    const char *body = NULL;
     if (body_len > (size_t) 0U) {
-        body = (const char *) evbuffer_pullup(input_buffer, -1);        
+        body = (const char *) evbuffer_pullup(input_buffer, body_len);
         if (body != NULL && *(body + body_len - (size_t) 1U) == 0) {
             body_len--;
         }
@@ -179,7 +179,7 @@ int flush_db_log(const _Bool sync)
     if (db_log->db_log_fd == -1) {
         return 0;
     }
-    struct evbuffer * const log_buffer = db_log->log_buffer;    
+    struct evbuffer * const log_buffer = db_log->log_buffer;
     size_t to_write;
     to_write = evbuffer_get_length(log_buffer);
     if (to_write <= (size_t) 0U) {
@@ -188,9 +188,10 @@ int flush_db_log(const _Bool sync)
     if (sync == 0) {
         to_write = (size_t) 0U;
     }
-    do {
+    ssize_t total_written = 0;
+    while (total_written < (ssize_t) to_write) {
         ssize_t written = evbuffer_write(log_buffer, db_log->db_log_fd);
-        if (written < (ssize_t) to_write) {
+        if (written < 0) {
             if (errno == EINTR) {
                 continue;
             }
@@ -200,8 +201,12 @@ int flush_db_log(const _Bool sync)
             }
             return -1;
         }
-    } while(0);
-    if (sync != 0) {        
+        total_written += written;
+        if (written == 0 && evbuffer_get_length(log_buffer) == 0) {
+            break;
+        }
+    }
+    if (sync != 0) {
 #ifdef HAVE_FDATASYNC
         fdatasync(db_log->db_log_fd);
 #else
@@ -215,7 +220,7 @@ int replay_log_record(HttpHandlerContext * const context,
                       BufferedReadContext * const brc)
 {
     DBLog * const db_log = &app_context.db_log;
-    
+
     if (db_log->db_log_fd == -1) {
         return 1;
     }
@@ -225,7 +230,7 @@ int replay_log_record(HttpHandlerContext * const context,
     char *pnt;
     char *endptr;
     const off_t current_offset = lseek(db_log->db_log_fd, (off_t) 0, SEEK_CUR);
-    
+
     ssize_t readnb = buffered_read(brc, buf_cookie_head,
                                    sizeof buf_cookie_head);
     if (readnb == (ssize_t) 0) {
@@ -271,7 +276,7 @@ int replay_log_record(HttpHandlerContext * const context,
     if (endptr == NULL || endptr == buf_number) {
         return -1;
     }
-    
+
     pnt = buf_number;
     for (;;) {
         if (buffered_read(brc, pnt, (size_t) 1U) != (ssize_t) 1U) {
@@ -291,18 +296,18 @@ int replay_log_record(HttpHandlerContext * const context,
     char *uri;
     if ((uri = malloc(uri_len + (size_t) 1U)) == NULL) {
         _exit(1);
-    }    
+    }
     if (buffered_read(brc, uri, uri_len) != (ssize_t) uri_len) {
         return -1;
     }
     *(uri + uri_len) = 0;
-    
+
     pnt = buf_number;
     if (buffered_read(brc, pnt, (size_t) 1U) != (ssize_t) 1U ||
         *pnt != ' ') {
         free(uri);
         return -1;
-    }    
+    }
     for (;;) {
         if (buffered_read(brc, pnt, (size_t) 1U) != (ssize_t) 1U) {
             free(uri);
@@ -321,7 +326,7 @@ int replay_log_record(HttpHandlerContext * const context,
         free(uri);
         return -1;
     }
-    
+
     char *body = NULL;
     if (body_len > (size_t) 0U) {
         body = malloc(body_len + (size_t) 1U);
@@ -349,7 +354,7 @@ int replay_log_record(HttpHandlerContext * const context,
     fake_request(context, verb, uri, body, body_len, 1, 0);
     free(body);
     free(uri);
-    
+
     return 0;
 }
 
@@ -362,7 +367,7 @@ int replay_log(HttpHandlerContext * const context)
 
     if (db_log->db_log_fd == -1 || db_log->db_log_file_name == NULL) {
         logfile_noformat(context, LOG_INFO, "No journal");
-        
+
         return 0;
     }
     init_buffered_read(&brc, db_log->db_log_fd);
@@ -375,7 +380,7 @@ int replay_log(HttpHandlerContext * const context)
             counter);
     if (res < 0) {
         logfile_noformat(context, LOG_ERR, "Possibly corrupted journal.");
-        
+
         return -1;
     }
     return 0;
@@ -391,11 +396,11 @@ int reset_log(HttpHandlerContext * const context)
     const off_t current_offset = lseek(db_log->db_log_fd, (off_t) 0, SEEK_CUR);
     if (lseek(db_log->db_log_fd, (off_t) 0, SEEK_SET) != (off_t) 0) {
         return -1;
-    } 
+    }
     if (ftruncate(db_log->db_log_fd, (off_t) 0) != 0) {
         if (lseek(db_log->db_log_fd, current_offset, SEEK_SET) != 0) {
             _exit(1);
-        }        
+        }
     }
     if (db_log->log_buffer != NULL) {
         evbuffer_drain(db_log->log_buffer,

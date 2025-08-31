@@ -164,10 +164,28 @@ static int init_quad_node(QuadNode * const quad_node)
     quad_node->type = NODE_TYPE_QUAD_NODE;
     quad_node->parent = NULL;
     quad_node->sub_slots = (SubSlots) 0U;
-    quad_node->nodes[0] = (Node *) new_bucket_node(quad_node);    
+    quad_node->nodes[0] = (Node *) new_bucket_node(quad_node);
+    if (quad_node->nodes[0] == NULL) {
+        return -1;
+    }
     quad_node->nodes[1] = (Node *) new_bucket_node(quad_node);
+    if (quad_node->nodes[1] == NULL) {
+        free_bucket_node((BucketNode *) quad_node->nodes[0]);
+        return -1;
+    }
     quad_node->nodes[2] = (Node *) new_bucket_node(quad_node);
+    if (quad_node->nodes[2] == NULL) {
+        free_bucket_node((BucketNode *) quad_node->nodes[0]);
+        free_bucket_node((BucketNode *) quad_node->nodes[1]);
+        return -1;
+    }
     quad_node->nodes[3] = (Node *) new_bucket_node(quad_node);
+    if (quad_node->nodes[3] == NULL) {
+        free_bucket_node((BucketNode *) quad_node->nodes[0]);
+        free_bucket_node((BucketNode *) quad_node->nodes[1]);
+        free_bucket_node((BucketNode *) quad_node->nodes[2]);
+        return -1;
+    }
     
     return 0;
 }
@@ -195,7 +213,10 @@ static QuadNode *new_quad_node(void)
     if (quad_node == NULL) {
         return NULL;
     }
-    init_quad_node(quad_node);
+    if (init_quad_node(quad_node) != 0) {
+        free(quad_node);
+        return NULL;
+    }
 
     return quad_node;
 }
