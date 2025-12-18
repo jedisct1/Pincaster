@@ -41,7 +41,29 @@ int handle_domain_system(struct evhttp_request * const req,
             kill(app_context.db_log.journal_rewrite_process, SIGKILL);
             app_context.db_log.journal_rewrite_process = (pid_t) -1;
         }
-        event_base_loopbreak(context->event_base);
+        yajl_gen json_gen = yajl_gen_alloc(NULL);
+        if (json_gen != NULL) {
+            yajl_gen_config(json_gen, yajl_gen_beautify, BEAUTIFY_JSON);
+            yajl_gen_config(json_gen, yajl_gen_indent_string, "\t");
+            yajl_gen_map_open(json_gen);
+            yajl_gen_string(json_gen, (const unsigned char *) "status",
+                            (unsigned int) sizeof "status" - (size_t) 1U);
+            yajl_gen_string(json_gen, (const unsigned char *) "ok",
+                            (unsigned int) sizeof "ok" - (size_t) 1U);
+            yajl_gen_map_close(json_gen);
+            const unsigned char *json_out_buf;
+            size_t json_out_len;
+            yajl_gen_get_buf(json_gen, &json_out_buf, &json_out_len);
+            struct evbuffer *evb = evbuffer_new();
+            if (evb != NULL) {
+                evbuffer_add(evb, json_out_buf, json_out_len);
+                evhttp_send_reply(req, HTTP_OK, "OK", evb);
+                evbuffer_free(evb);
+            }
+            yajl_gen_free(json_gen);
+        }
+        struct timeval delay = { .tv_sec = 0, .tv_usec = 100000 };
+        event_base_loopexit(context->event_base, &delay);
         return 0;
     }
     if (req->type == EVHTTP_REQ_POST && strcasecmp(uri, "rewrite") == 0) {
