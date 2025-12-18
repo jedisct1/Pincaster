@@ -33,22 +33,37 @@ static
 void yajl_buf_ensure_available(yajl_buf buf, size_t want)
 {
     size_t need;
-    
+
     assert(buf != NULL);
 
     /* first call */
     if (buf->data == NULL) {
         buf->len = YAJL_BUF_INIT_SIZE;
         buf->data = (unsigned char *) YA_MALLOC(buf->alloc, buf->len);
+        if (buf->data == NULL) {
+            abort();
+        }
         buf->data[0] = 0;
     }
 
     need = buf->len;
 
-    while (want >= (need - buf->used)) need <<= 1;
+    while (need > 0 && want >= (need - buf->used)) {
+        need <<= 1;
+    }
+
+    /* CVE-2022-24795: detect integer overflow.
+     * If need wrapped to 0 or is less than buf->len after shifting,
+     * we've overflowed - abort to prevent heap corruption. */
+    if (need == 0 || need < buf->len) {
+        abort();
+    }
 
     if (need != buf->len) {
         buf->data = (unsigned char *) YA_REALLOC(buf->alloc, buf->data, need);
+        if (buf->data == NULL) {
+            abort();
+        }
         buf->len = need;
     }
 }
@@ -56,6 +71,9 @@ void yajl_buf_ensure_available(yajl_buf buf, size_t want)
 yajl_buf yajl_buf_alloc(yajl_alloc_funcs * alloc)
 {
     yajl_buf b = YA_MALLOC(alloc, sizeof(struct yajl_buf_t));
+    if (b == NULL) {
+        return NULL;
+    }
     memset((void *) b, 0, sizeof(struct yajl_buf_t));
     b->alloc = alloc;
     return b;

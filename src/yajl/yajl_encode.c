@@ -139,13 +139,16 @@ void yajl_string_decode(yajl_buf buf, const unsigned char * str,
                     end+=3;
                     /* check if this is a surrogate */
                     if ((codepoint & 0xFC00) == 0xD800) {
-                        end++;
-                        if (str[end] == '\\' && str[end + 1] == 'u') {
+                        /* CVE-2017-16516: check bounds before accessing
+                         * potential surrogate trailer bytes */
+                        if (end + 6 < len &&
+                            str[end + 1] == '\\' && str[end + 2] == 'u') {
                             unsigned int surrogate = 0;
+                            end++;
                             hexToDigit(&surrogate, str + end + 2);
                             codepoint =
-                                (((codepoint & 0x3F) << 10) | 
-                                 ((((codepoint >> 6) & 0xF) + 1) << 16) | 
+                                (((codepoint & 0x3F) << 10) |
+                                 ((((codepoint >> 6) & 0xF) + 1) << 16) |
                                  (surrogate & 0x3FF));
                             end += 5;
                         } else {
@@ -153,7 +156,7 @@ void yajl_string_decode(yajl_buf buf, const unsigned char * str,
                             break;
                         }
                     }
-                    
+
                     Utf32toUtf8(codepoint, utf8Buf);
                     unescaped = utf8Buf;
 

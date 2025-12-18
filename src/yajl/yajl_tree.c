@@ -149,6 +149,27 @@ static yajl_val context_pop(context_t *ctx)
     return (v);
 }
 
+static void context_free_all(context_t *ctx)
+{
+    while (ctx->stack != NULL)
+    {
+        stack_elem_t *stack = ctx->stack;
+        ctx->stack = stack->next;
+
+        if (stack->key)
+        {
+            free(stack->key);
+            stack->key = NULL;
+        }
+        if (stack->value)
+        {
+            yajl_tree_free(stack->value);
+            stack->value = NULL;
+        }
+        free(stack);
+    }
+}
+
 static int object_add_keyval(context_t *ctx,
                              yajl_val obj, char *key, yajl_val value)
 {
@@ -444,6 +465,8 @@ yajl_val yajl_tree_parse (const char *input,
              snprintf(error_buffer, error_buffer_size, "%s", internal_err_str);
              YA_FREE(&(handle->alloc), internal_err_str);
         }
+        context_free_all(&ctx);
+        yajl_tree_free(ctx.root);
         yajl_free (handle);
         return NULL;
     }
