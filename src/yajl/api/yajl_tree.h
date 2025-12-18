@@ -37,6 +37,9 @@
 extern "C" {
 #endif
 
+/*+ an optional hook to allow use of custom yajl_alloc_funcs with yajl_tree_parse() +*/
+extern yajl_alloc_funcs *yajl_tree_parse_afs;
+
 /** possible data types that a yajl_val_s can hold */
 typedef enum {
     yajl_t_string = 1,

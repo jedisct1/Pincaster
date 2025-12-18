@@ -159,27 +159,34 @@ yajl_status
 yajl_do_finish(yajl_handle hand)
 {
     yajl_status stat;
-    stat = yajl_do_parse(hand,(const unsigned char *) " ",1);
+    size_t offset = hand->bytesConsumed;
 
-    if (stat != yajl_status_ok) return stat;
+    stat = yajl_do_parse(hand, (const unsigned char *) " ", (size_t) 1);
+    hand->bytesConsumed = offset;
 
-    switch(yajl_bs_current(hand->stateStack))
-    {
-        case yajl_state_parse_error:
-        case yajl_state_lexical_error:
-            return yajl_status_error;
-        case yajl_state_got_value:
-        case yajl_state_parse_complete:
-            return yajl_status_ok;
-        default:
-            if (!(hand->flags & yajl_allow_partial_values))
-            {
-                yajl_bs_set(hand->stateStack, yajl_state_parse_error);
-                hand->parseError = "premature EOF";
-                return yajl_status_error;
-            }
-            return yajl_status_ok;
+    if (stat != yajl_status_ok) {
+        return stat;
     }
+
+    switch (yajl_bs_current(hand->stateStack)) {
+    case yajl_state_parse_error:
+    case yajl_state_lexical_error:
+        return yajl_status_error;
+
+    case yajl_state_got_value:
+    case yajl_state_parse_complete:
+        return yajl_status_ok;
+
+    default:
+        break;
+    }
+    if (!(hand->flags & yajl_allow_partial_values)) {
+        yajl_bs_set(hand->stateStack, yajl_state_parse_error);
+        hand->parseError = "premature EOF";
+
+        return yajl_status_error;
+    }
+    return yajl_status_ok;
 }
 
 yajl_status
