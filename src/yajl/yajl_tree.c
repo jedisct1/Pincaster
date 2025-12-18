@@ -503,24 +503,24 @@ void yajl_tree_free (yajl_val v)
 
     if (YAJL_IS_STRING(v))
     {
-        free(v->u.string);
-        free(v);
+        YA_FREE(yajl_tree_parse_afs, v->u.string);
+        YA_FREE(yajl_tree_parse_afs, v);
     }
     else if (YAJL_IS_NUMBER(v))
     {
-        free(v->u.number.r);
-        free(v);
+        YA_FREE(yajl_tree_parse_afs, v->u.number.r);
+        YA_FREE(yajl_tree_parse_afs, v);
     }
-    else if (YAJL_GET_OBJECT(v))
+    else if (YAJL_IS_OBJECT(v))
     {
         yajl_object_free(v);
     }
-    else if (YAJL_GET_ARRAY(v))
+    else if (YAJL_IS_ARRAY(v))
     {
         yajl_array_free(v);
     }
     else /* if (yajl_t_true or yajl_t_false or yajl_t_null) */
     {
-        free(v);
+        YA_FREE(yajl_tree_parse_afs, v);
     }
 }
