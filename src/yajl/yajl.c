@@ -62,16 +62,22 @@ yajl_alloc(const yajl_callbacks * callbacks,
     }
 
     hand = (yajl_handle) YA_MALLOC(afs, sizeof(struct yajl_handle_t));
+    if (hand == NULL)
+        return NULL;
 
     /* copy in pointers to allocation routines */
     memcpy((void *) &(hand->alloc), (void *) afs, sizeof(yajl_alloc_funcs));
 
     hand->callbacks = callbacks;
     hand->ctx = ctx;
-    hand->lexer = NULL; 
+    hand->lexer = NULL;
     hand->bytesConsumed = 0;
     hand->decodeBuf = yajl_buf_alloc(&(hand->alloc));
-    hand->flags	    = 0;
+    if (hand->decodeBuf == NULL) {
+        YA_FREE(&(hand->alloc), hand);
+        return NULL;
+    }
+    hand->flags = 0;
     yajl_bs_init(hand->stateStack, &(hand->alloc));
     yajl_bs_push(hand->stateStack, yajl_state_start);
 

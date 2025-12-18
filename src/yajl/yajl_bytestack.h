@@ -23,6 +23,7 @@
 #define __YAJL_BYTESTACK_H__
 
 #include "api/yajl_common.h"
+#include <stdlib.h>
 
 #define YAJL_BS_INC 128
 
@@ -52,9 +53,12 @@ typedef struct yajl_bytestack_t
 
 #define yajl_bs_push(obs, byte) {                       \
     if (((obs).size - (obs).used) == 0) {               \
+        unsigned char * _yajl_new_stack;                \
         (obs).size += YAJL_BS_INC;                      \
-        (obs).stack = (obs).yaf->realloc((obs).yaf->ctx,\
+        _yajl_new_stack = (obs).yaf->realloc((obs).yaf->ctx,\
                                          (void *) (obs).stack, (obs).size);\
+        if (_yajl_new_stack == NULL) abort();           \
+        (obs).stack = _yajl_new_stack;                  \
     }                                                   \
     (obs).stack[((obs).used)++] = (byte);               \
 }
